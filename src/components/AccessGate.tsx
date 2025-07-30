@@ -167,17 +167,17 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="text-center p-4 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors">
                 <div className="font-semibold text-sm text-primary mb-2">Lead</div>
-                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">LEAD001</code>
+                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">lead2024</code>
                 <div className="text-xs text-muted-foreground mt-2">Full Admin Access</div>
               </div>
               <div className="text-center p-4 rounded-lg bg-green-500/5 border border-green-500/20 hover:bg-green-500/10 transition-colors">
                 <div className="font-semibold text-sm text-green-600 mb-2">Mentor</div>
-                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">MENTOR001</code>
+                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">guide2024</code>
                 <div className="text-xs text-muted-foreground mt-2">Team Guidance</div>
               </div>
               <div className="text-center p-4 rounded-lg bg-blue-500/5 border border-blue-500/20 hover:bg-blue-500/10 transition-colors">
                 <div className="font-semibold text-sm text-blue-600 mb-2">Builder</div>
-                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">BUILD001</code>
+                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">build2024</code>
                 <div className="text-xs text-muted-foreground mt-2">Team Member</div>
               </div>
             </div>
