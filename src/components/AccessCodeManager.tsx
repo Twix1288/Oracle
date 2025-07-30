@@ -1,0 +1,331 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { KeyRound, Plus, Trash2, Eye, EyeOff, Copy, Check } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import type { UserRole } from "@/types/oracle";
+
+interface AccessCode {
+  id: string;
+  role: UserRole;
+  code: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const AccessCodeManager = () => {
+  const [newCode, setNewCode] = useState({
+    role: 'builder' as UserRole,
+    code: '',
+    description: ''
+  });
+  const [showCodes, setShowCodes] = useState<Record<string, boolean>>({});
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch access codes
+  const { data: accessCodes = [], isLoading } = useQuery({
+    queryKey: ['access_codes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('access_codes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as AccessCode[];
+    },
+  });
+
+  // Create access code mutation
+  const createCodeMutation = useMutation({
+    mutationFn: async (codeData: any) => {
+      const { data, error } = await supabase
+        .from('access_codes')
+        .insert([codeData]);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['access_codes'] });
+      setNewCode({ role: 'builder', code: '', description: '' });
+      toast({
+        title: "Access code created",
+        description: "New access code has been generated successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create access code. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle code status mutation
+  const toggleCodeMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { data, error } = await supabase
+        .from('access_codes')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['access_codes'] });
+      toast({
+        title: "Code updated",
+        description: "Access code status has been updated.",
+      });
+    },
+  });
+
+  // Delete code mutation
+  const deleteCodeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('access_codes')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['access_codes'] });
+      toast({
+        title: "Code deleted",
+        description: "Access code has been permanently deleted.",
+      });
+    },
+  });
+
+  const generateRandomCode = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewCode(prev => ({ ...prev, code: result }));
+  };
+
+  const handleCreateCode = () => {
+    if (newCode.code && newCode.role) {
+      createCodeMutation.mutate(newCode);
+    }
+  };
+
+  const toggleCodeVisibility = (id: string) => {
+    setShowCodes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const copyToClipboard = (code: string, id: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(id);
+    setTimeout(() => setCopiedCode(null), 2000);
+    toast({
+      title: "Copied to clipboard",
+      description: "Access code has been copied to your clipboard.",
+    });
+  };
+
+  const getRoleColor = (role: UserRole) => {
+    switch (role) {
+      case 'lead': return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+      case 'mentor': return 'bg-green-500/20 text-green-300 border-green-500/30';
+      case 'builder': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      default: return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <div className="p-3 rounded-full bg-primary/20">
+          <KeyRound className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold">Access Code Management</h2>
+          <p className="text-muted-foreground">Create and manage role-based access codes</p>
+        </div>
+      </div>
+
+      {/* Create New Code */}
+      <Card className="glow-border bg-card/50 backdrop-blur">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5 text-primary" />
+            Create New Access Code
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Role</label>
+              <Select 
+                value={newCode.role} 
+                onValueChange={(value: UserRole) => setNewCode(prev => ({ ...prev, role: value }))}
+              >
+                <SelectTrigger className="bg-background/50 border-primary/20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="builder">Builder</SelectItem>
+                  <SelectItem value="mentor">Mentor</SelectItem>
+                  <SelectItem value="lead">Lead</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Access Code</label>
+              <div className="flex gap-2">
+                <Input
+                  value={newCode.code}
+                  onChange={(e) => setNewCode(prev => ({ ...prev, code: e.target.value }))}
+                  placeholder="Enter custom code"
+                  className="bg-background/50 border-primary/20"
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={generateRandomCode}
+                  className="border-primary/30 hover:border-primary/50"
+                >
+                  Generate
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description (Optional)</label>
+              <Input
+                value={newCode.description}
+                onChange={(e) => setNewCode(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="e.g., Team Alpha access"
+                className="bg-background/50 border-primary/20"
+              />
+            </div>
+          </div>
+
+          <Button 
+            onClick={handleCreateCode}
+            disabled={!newCode.code || !newCode.role || createCodeMutation.isPending}
+            className="ufo-gradient"
+          >
+            {createCodeMutation.isPending ? "Creating..." : "Create Access Code"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Existing Codes */}
+      <Card className="glow-border bg-card/50 backdrop-blur">
+        <CardHeader>
+          <CardTitle>Existing Access Codes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="text-muted-foreground">Loading access codes...</p>
+          ) : accessCodes.length === 0 ? (
+            <p className="text-muted-foreground">No access codes created yet</p>
+          ) : (
+            <div className="space-y-4">
+              {accessCodes.map((code) => (
+                <div 
+                  key={code.id} 
+                  className="p-4 rounded-lg bg-background/30 border border-primary/10 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Badge className={getRoleColor(code.role)} variant="outline">
+                        {code.role}
+                      </Badge>
+                      <Badge 
+                        variant="outline" 
+                        className={code.is_active 
+                          ? "bg-green-500/20 text-green-300 border-green-500/30" 
+                          : "bg-red-500/20 text-red-300 border-red-500/30"
+                        }
+                      >
+                        {code.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Created {new Date(code.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Code:</span>
+                        <code className="text-primary font-mono bg-primary/10 px-2 py-1 rounded">
+                          {showCodes[code.id] ? code.code : '••••••••'}
+                        </code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleCodeVisibility(code.id)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {showCodes[code.id] ? 
+                            <EyeOff className="h-3 w-3" /> : 
+                            <Eye className="h-3 w-3" />
+                          }
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(code.code, code.id)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {copiedCode === code.id ? 
+                            <Check className="h-3 w-3 text-green-400" /> : 
+                            <Copy className="h-3 w-3" />
+                          }
+                        </Button>
+                      </div>
+                      {code.description && (
+                        <p className="text-sm text-muted-foreground">{code.description}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleCodeMutation.mutate({ 
+                          id: code.id, 
+                          is_active: !code.is_active 
+                        })}
+                        className="border-primary/30"
+                      >
+                        {code.is_active ? "Deactivate" : "Activate"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => deleteCodeMutation.mutate(code.id)}
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

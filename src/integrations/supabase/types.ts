@@ -112,24 +112,30 @@ export type Database = {
       }
       members: {
         Row: {
+          assigned_by: string | null
           created_at: string
           id: string
+          is_active: boolean | null
           name: string
           role: Database["public"]["Enums"]["user_role"]
           team_id: string | null
           updated_at: string
         }
         Insert: {
+          assigned_by?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean | null
           name: string
           role: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           updated_at?: string
         }
         Update: {
+          assigned_by?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean | null
           name?: string
           role?: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
@@ -138,6 +144,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read_at: string | null
+          receiver_id: string | null
+          receiver_role: Database["public"]["Enums"]["user_role"]
+          sender_id: string | null
+          sender_role: Database["public"]["Enums"]["user_role"]
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          receiver_id?: string | null
+          receiver_role: Database["public"]["Enums"]["user_role"]
+          sender_id?: string | null
+          sender_role: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          receiver_id?: string | null
+          receiver_role?: Database["public"]["Enums"]["user_role"]
+          sender_id?: string | null
+          sender_role?: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oracle_logs: {
+        Row: {
+          created_at: string
+          id: string
+          processing_time_ms: number | null
+          query: string
+          response: string
+          sources_count: number | null
+          team_id: string | null
+          user_id: string | null
+          user_role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          processing_time_ms?: number | null
+          query: string
+          response: string
+          sources_count?: number | null
+          team_id?: string | null
+          user_id?: string | null
+          user_role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          processing_time_ms?: number | null
+          query?: string
+          response?: string
+          sources_count?: number | null
+          team_id?: string | null
+          user_id?: string | null
+          user_role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oracle_logs_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
