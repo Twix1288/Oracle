@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, Users, MessageSquare, Activity, Settings, Plus, Eye } from "lucide-react";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { OracleAnalytics } from "../OracleAnalytics";
@@ -17,9 +18,10 @@ interface LeadDashboardProps {
   updates: Update[];
   teamStatuses: any[];
   selectedRole: UserRole;
+  onExit: () => void;
 }
 
-export const LeadDashboard = ({ teams, members, updates, teamStatuses }: LeadDashboardProps) => {
+export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }: LeadDashboardProps) => {
   const [activeTab, setActiveTab] = useState("overview");
 
   const getEngagementMetrics = () => {
@@ -37,7 +39,12 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses }: LeadDas
   const metrics = getEngagementMetrics();
 
   return (
-    <div className="space-y-6">
+    <>
+      <DashboardHeader 
+        role="lead" 
+        onExit={onExit}
+      />
+      <div className="container mx-auto px-6 pb-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
@@ -152,6 +159,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses }: LeadDas
           <AccessCodeManager />
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 };

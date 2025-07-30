@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rocket, MessageSquare, Target, Calendar, Plus, TrendingUp } from "lucide-react";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
@@ -22,6 +23,7 @@ interface BuilderDashboardProps {
   onQueryRAG?: (query: string, role: UserRole) => void;
   ragResponse?: any;
   ragLoading?: boolean;
+  onExit: () => void;
 }
 
 export const BuilderDashboard = ({ 
@@ -34,7 +36,8 @@ export const BuilderDashboard = ({
   onSubmitUpdate,
   onQueryRAG,
   ragResponse,
-  ragLoading
+  ragLoading,
+  onExit
 }: BuilderDashboardProps) => {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -71,7 +74,12 @@ export const BuilderDashboard = ({
   ];
 
   return (
-    <div className="space-y-6">
+    <>
+      <DashboardHeader 
+        role="builder" 
+        onExit={onExit}
+      />
+      <div className="container mx-auto px-6 pb-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-full bg-blue-500/20 ufo-pulse">
@@ -355,6 +363,7 @@ export const BuilderDashboard = ({
           )}
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 };

@@ -123,6 +123,7 @@ function Index() {
             onQueryRAG={handleQueryRAG}
             ragResponse={ragResponse}
             ragLoading={ragLoading}
+            onExit={() => setSelectedRole(null)}
           />
         );
       case 'mentor':
@@ -134,6 +135,7 @@ function Index() {
             teamStatuses={teamStatuses}
             selectedRole={selectedRole}
             mentorId="current-mentor"
+            onExit={() => setSelectedRole(null)}
           />
         );
       case 'lead':
@@ -144,6 +146,7 @@ function Index() {
             updates={updates || []}
             teamStatuses={teamStatuses}
             selectedRole={selectedRole}
+            onExit={() => setSelectedRole(null)}
           />
         );
       default:

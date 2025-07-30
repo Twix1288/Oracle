@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, MessageSquare, TrendingUp, AlertTriangle, Clock } from "lucide-react";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { OracleAnalytics } from "../OracleAnalytics";
@@ -15,9 +16,10 @@ interface MentorDashboardProps {
   teamStatuses: any[];
   selectedRole: UserRole;
   mentorId?: string;
+  onExit: () => void;
 }
 
-export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorId }: MentorDashboardProps) => {
+export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorId, onExit }: MentorDashboardProps) => {
   const [activeTab, setActiveTab] = useState("teams");
 
   // Filter teams assigned to this mentor
@@ -60,7 +62,12 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <DashboardHeader 
+        role="mentor" 
+        onExit={onExit}
+      />
+      <div className="container mx-auto px-6 pb-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-full bg-green-500/20 ufo-pulse">
@@ -242,6 +249,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 };
