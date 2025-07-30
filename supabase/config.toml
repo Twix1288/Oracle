@@ -1,1 +1,39 @@
 project_id = "dijskfbokusyxkcfwkrc"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[ingest]
+enabled = false
+port = 54324
+
+[storage]
+enabled = true
+port = 54325
+image_transformation = true
+
+[auth]
+enabled = true
+port = 54326
+
+[edge_functions]
+enabled = true
+port = 54327
+
+[functions.rag-query]
+verify_jwt = false
+
+[analytics]
+enabled = false
+port = 54328
