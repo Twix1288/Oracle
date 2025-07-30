@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Rocket, User, Shield, Eye } from "lucide-react";
+import { Rocket, User, Shield, Eye, Lock, Sparkles } from "lucide-react";
 import type { UserRole } from "@/types/oracle";
 
 interface AccessGateProps {
@@ -88,138 +90,137 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden cosmic-sparkle">
-      {/* UFO floating animation */}
-      <div className="absolute top-20 right-20 text-primary opacity-30 ufo-float">
-        <svg width="80" height="80" viewBox="0 0 100 100" fill="currentColor">
-          <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
-          <ellipse cx="50" cy="45" rx="25" ry="20"/>
-          <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
-          <circle cx="50" cy="38" r="4" fill="white"/>
-          <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
-        </svg>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background relative overflow-hidden">
+      {/* Cosmic background effects */}
+      <div className="absolute inset-0 cosmic-sparkle opacity-20" />
+      <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-xl ufo-pulse" />
+      <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl ufo-float" />
 
-      <div className="container mx-auto px-4 py-16 relative z-10">
-        <div className="max-w-4xl mx-auto text-center space-y-12">
-          {/* Header */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-center gap-4">
-              <div className="ufo-pulse">
-                <svg width="60" height="60" viewBox="0 0 100 100" fill="currentColor" className="text-primary">
-                  <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
-                  <ellipse cx="50" cy="45" rx="25" ry="20"/>
-                  <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
-                  <circle cx="50" cy="38" r="4" fill="white"/>
-                  <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
-                </svg>
-              </div>
-              <h1 className="text-6xl font-bold text-glow">
-                PieFi Oracle
-              </h1>
+      <div className="relative z-10 container mx-auto px-4 py-8 lg:py-12">
+        {/* Header */}
+        <div className="text-center mb-12 lg:mb-16">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="p-3 rounded-full bg-primary/10 ufo-glow">
+              <Sparkles className="w-8 h-8 text-primary" />
             </div>
-            
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              The intelligent mission control for incubator teams. 
-              Select your role to access your personalized UFO dashboard.
-            </p>
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-glow">
+              PieFi Oracle
+            </h1>
           </div>
+          <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
+            Your AI-powered incubator assistant. Select your role to access personalized insights and tools.
+          </p>
+        </div>
 
-          {/* Role Selection Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Object.entries(roleInfo).map(([role, info]) => {
-              const IconComponent = info.icon;
-              return (
-                <button
-                  key={role}
-                  onClick={() => handleRoleClick(role as UserRole)}
-                  className="group relative p-6 rounded-xl border-2 border-transparent bg-card/50 backdrop-blur hover:bg-card/80 transition-all duration-300 glow-border"
-                >
-                  <div className="space-y-4">
-                    <div className="flex justify-center">
-                      <div className="p-4 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                        <IconComponent className="h-8 w-8 text-primary" />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-semibold">{info.label}</h3>
-                      <p className="text-sm text-muted-foreground">{info.description}</p>
-                    </div>
+        {/* Role Selection Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-12 lg:mb-16">
+          {Object.entries(roleInfo).map(([role, info]) => (
+            <Card 
+              key={role}
+              className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] lg:hover:scale-105 glow-border group ${
+                selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
+              }`}
+              onClick={() => handleRoleClick(role as UserRole)}
+            >
+              <CardHeader className="text-center pb-3">
+                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
+                  <info.icon className="w-6 h-6" />
+                </div>
+                <CardTitle className="text-lg font-semibold">{info.label}</CardTitle>
+                <CardDescription className="text-sm leading-relaxed">{info.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex flex-col gap-2">
+                  <Badge 
+                    variant={info.needsCode ? "destructive" : "secondary"} 
+                    className="self-center text-xs font-medium"
+                  >
+                    {info.needsCode ? (
+                      <>
+                        <Lock className="w-3 h-3 mr-1" />
+                        Access Code Required
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3 h-3 mr-1" />
+                        Open Access
+                      </>
+                    )}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
 
-                    <Badge className={info.color} variant="outline">
-                      {info.needsCode ? "Code Required" : "Open Access"}
-                    </Badge>
-                  </div>
-
-                  <div className="absolute inset-0 rounded-xl bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sample Codes Display */}
-          <div className="max-w-md mx-auto p-6 rounded-xl bg-card/30 backdrop-blur border glow-border">
-            <h3 className="text-lg font-semibold mb-4 text-center">🛸 Demo Access Codes</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Builder:</span>
-                <code className="text-primary font-mono">build2024</code>
+        {/* Demo Access Codes */}
+        <Card className="max-w-3xl mx-auto glow-border bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-center flex items-center justify-center gap-2 text-lg">
+              <Lock className="w-5 h-5 text-primary" />
+              Demo Access Codes
+            </CardTitle>
+            <CardDescription className="text-center">
+              Use these codes to test different roles and explore the platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="text-center p-4 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors">
+                <div className="font-semibold text-sm text-primary mb-2">Lead</div>
+                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">LEAD001</code>
+                <div className="text-xs text-muted-foreground mt-2">Full Admin Access</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Mentor:</span>
-                <code className="text-primary font-mono">guide2024</code>
+              <div className="text-center p-4 rounded-lg bg-green-500/5 border border-green-500/20 hover:bg-green-500/10 transition-colors">
+                <div className="font-semibold text-sm text-green-600 mb-2">Mentor</div>
+                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">MENTOR001</code>
+                <div className="text-xs text-muted-foreground mt-2">Team Guidance</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Lead:</span>
-                <code className="text-primary font-mono">lead2024</code>
+              <div className="text-center p-4 rounded-lg bg-blue-500/5 border border-blue-500/20 hover:bg-blue-500/10 transition-colors">
+                <div className="font-semibold text-sm text-blue-600 mb-2">Builder</div>
+                <code className="text-xs bg-background px-3 py-1.5 rounded-md border font-mono">BUILD001</code>
+                <div className="text-xs text-muted-foreground mt-2">Team Member</div>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
         </div>
       </div>
 
-      {/* Code Entry Dialog */}
+      {/* Access Code Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur border-primary/20">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {selectedRole && React.createElement(roleInfo[selectedRole].icon, { className: "h-5 w-5 text-primary" })}
-              Enter {selectedRole && roleInfo[selectedRole].label} Access Code
+              <Lock className="w-5 h-5 text-primary" />
+              Enter Access Code
             </DialogTitle>
+            <DialogDescription>
+              Please enter your access code to continue as <strong>{selectedRole && roleInfo[selectedRole]?.label}</strong>
+            </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <Input
-              type="password"
-              placeholder="Enter access code..."
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value);
-                setError("");
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && handleCodeSubmit()}
-              className="text-center font-mono tracking-wider"
-            />
-            
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="access-code" className="text-sm font-medium">Access Code</Label>
+              <Input
+                id="access-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="Enter your access code"
+                className="mt-2 font-mono"
+                autoFocus
+              />
+            </div>
             {error && (
-              <p className="text-sm text-red-400 text-center">{error}</p>
+              <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive font-medium">{error}</p>
+              </div>
             )}
-            
-            <div className="flex gap-2">
-              <Button 
-                onClick={handleCodeSubmit} 
-                disabled={!code}
-                className="flex-1 ufo-gradient hover:opacity-90"
-              >
-                Launch Mission 🚀
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCodeDialog(false)}
-                className="border-primary/30 hover:border-primary/50"
-              >
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowCodeDialog(false)} className="px-6">
                 Cancel
+              </Button>
+              <Button onClick={handleCodeSubmit} disabled={!code.trim()} className="px-6">
+                Continue
               </Button>
             </div>
           </div>
