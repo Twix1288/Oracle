@@ -87,39 +87,42 @@ export const EnhancedBuilderDashboard = ({
   const teamAccent = generateTeamAccent(team.name);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-card">
-      <div className="container mx-auto px-4 py-6 space-y-6">
-        <DashboardHeader 
-          role="builder"
-          userName={builderName}
-          teamName={team.name}
-          onExit={onLeaveTeam || (() => {})}
-        />
-        
-        {/* Main Content */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-4 mb-4">
-              <div className={`p-3 rounded-full bg-primary/10`}>
-                <Rocket className={`h-6 w-6 ${teamAccent}`} />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-professional">Builder Dashboard</h1>
-                <p className="readable-text">
-                  Welcome back, <span className="font-medium text-foreground">{builderName}</span>
-                </p>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader 
+        role="builder"
+        userName={builderName}
+        teamName={team.name}
+        onExit={onLeaveTeam || (() => {})}
+      />
+      
+      <div className="container mx-auto px-4 py-6 space-y-8">
+        {/* Team Info and Metrics */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex-1 space-y-6">
+            {/* Welcome Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-primary/10">
+                  <Rocket className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold text-foreground">Welcome back, {builderName}</h2>
+                  <p className="text-base text-muted-foreground mt-1">
+                    Ready to make progress on <span className="font-medium text-foreground">{team.name}</span>?
+                  </p>
+                </div>
               </div>
             </div>
             
             {/* Quick Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="professional-border card-professional">
-                <CardContent className="p-4">
+              <Card className="border border-border bg-card">
+                <CardContent className="p-6">
                   <div className="flex items-center gap-3">
-                    <TrendingUp className={`h-5 w-5 ${teamAccent}`} />
+                    <TrendingUp className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="readable-text text-sm">My Updates</p>
-                      <p className="text-2xl font-bold">{metrics.totalUpdates}</p>
+                      <p className="text-sm font-medium text-muted-foreground">My Updates</p>
+                      <p className="text-2xl font-bold text-foreground">{metrics.totalUpdates}</p>
                     </div>
                   </div>
                 </CardContent>

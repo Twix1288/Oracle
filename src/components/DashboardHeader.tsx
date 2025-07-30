@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, Home, ArrowLeft } from "lucide-react";
+import { LogOut, Home, ArrowLeft, X } from "lucide-react";
 import type { UserRole } from "@/types/oracle";
 
 interface DashboardHeaderProps {
@@ -24,25 +24,25 @@ export const DashboardHeader = ({ role, userName, teamName, onExit, onHome }: Da
   };
 
   return (
-    <Card className="professional-border card-professional mb-6">
-      <CardHeader className="pb-3">
+    <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border mb-6">
+      <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-primary/10">
+          <div className="flex items-center gap-4">
+            <div className="p-2 rounded-lg bg-primary/10">
               <Home className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-xl text-professional">
+              <h1 className="text-xl font-semibold text-foreground">
                 PieFi Oracle - {getRoleLabel(role)} Dashboard
-              </CardTitle>
-              <div className="flex items-center gap-4 mt-1">
+              </h1>
+              <div className="flex items-center gap-6 mt-1">
                 {userName && (
-                  <span className="readable-text text-sm">
+                  <span className="text-sm text-muted-foreground">
                     Welcome, <span className="font-medium text-foreground">{userName}</span>
                   </span>
                 )}
                 {teamName && (
-                  <span className="readable-text text-sm">
+                  <span className="text-sm text-muted-foreground">
                     Team: <span className="font-medium text-foreground">{teamName}</span>
                   </span>
                 )}
@@ -50,30 +50,30 @@ export const DashboardHeader = ({ role, userName, teamName, onExit, onHome }: Da
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {onHome && (
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={onHome}
-                className="professional-border hover:bg-muted/50"
+                className="bg-background hover:bg-muted/50 border-border"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
+                Back to Menu
               </Button>
             )}
             <Button 
-              variant="outline" 
-              size="sm"
               onClick={onExit}
-              className="professional-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+              variant="destructive"
+              size="sm"
+              className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/20"
             >
-              <LogOut className="w-4 h-4 mr-2" />
+              <X className="w-4 h-4 mr-2" />
               Exit Dashboard
             </Button>
           </div>
         </div>
-      </CardHeader>
-    </Card>
+      </div>
+    </div>
   );
 };
