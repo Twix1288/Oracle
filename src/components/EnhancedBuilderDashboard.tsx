@@ -10,6 +10,7 @@ import { MessagingCenter } from "./MessagingCenter";
 import { ProgressTracker } from "./ProgressTracker";
 import { OracleQuery } from "./OracleQuery";
 import { TeamProfileCard } from "./TeamProfileCard";
+import { DashboardHeader } from "./DashboardHeader";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface EnhancedBuilderDashboardProps {
@@ -86,42 +87,45 @@ export const EnhancedBuilderDashboard = ({
   const teamAccent = generateTeamAccent(team.name);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background">
-      {/* Cosmic background effects */}
-      <div className="absolute inset-0 cosmic-sparkle opacity-10" />
-      <div className="absolute top-10 right-10 w-20 h-20 bg-primary/5 rounded-full blur-xl ufo-pulse" />
-      
-      <div className="relative z-10 container mx-auto px-4 py-6 space-y-6">
-        {/* Header with Team Branding */}
+    <div className="min-h-screen bg-gradient-to-br from-background to-card">
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <DashboardHeader 
+          role="builder"
+          userName={builderName}
+          teamName={team.name}
+          onExit={onLeaveTeam || (() => {})}
+        />
+        
+        {/* Main Content */}
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1">
             <div className="flex items-center gap-4 mb-4">
-              <div className={`p-3 rounded-full bg-primary/20 ufo-pulse`}>
+              <div className={`p-3 rounded-full bg-primary/10`}>
                 <Rocket className={`h-6 w-6 ${teamAccent}`} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-glow">Builder Dashboard</h1>
-                <p className="text-muted-foreground">
-                  Welcome back, <span className="font-medium text-primary">{builderName}</span>
+                <h1 className="text-3xl font-bold text-professional">Builder Dashboard</h1>
+                <p className="readable-text">
+                  Welcome back, <span className="font-medium text-foreground">{builderName}</span>
                 </p>
               </div>
             </div>
             
             {/* Quick Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="glow-border bg-card/80 backdrop-blur-sm border-primary/20">
+              <Card className="professional-border card-professional">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <TrendingUp className={`h-5 w-5 ${teamAccent}`} />
                     <div>
-                      <p className="text-sm text-muted-foreground">My Updates</p>
+                      <p className="readable-text text-sm">My Updates</p>
                       <p className="text-2xl font-bold">{metrics.totalUpdates}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="glow-border bg-card/80 backdrop-blur-sm border-primary/20">
+              <Card className="professional-border card-professional">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <Calendar className={`h-5 w-5 ${teamAccent}`} />

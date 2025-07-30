@@ -190,25 +190,25 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
   ) || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background relative overflow-hidden">
-      {/* Enhanced cosmic background effects */}
-      <div className="absolute inset-0 cosmic-sparkle opacity-20" />
-      <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-xl ufo-pulse" />
-      <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl ufo-float" />
-      <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-blue-500/10 rounded-full blur-lg ufo-pulse" style={{ animationDelay: '1s' }} />
+    <div className="min-h-screen bg-gradient-to-br from-background to-card relative overflow-hidden">
+      {/* Subtle background effects */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute top-20 left-10 w-32 h-32 bg-primary/20 rounded-full blur-xl" />
+        <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/10 rounded-full blur-2xl" />
+      </div>
 
       <div className="relative z-10 container mx-auto px-4 py-8 lg:py-12">
         {/* Header with PieFi UFO Logo */}
         <div className="text-center mb-12 lg:mb-16">
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="p-4 rounded-full bg-primary/10 ufo-glow ufo-float">
+            <div className="p-4 rounded-full bg-primary/10 subtle-glow">
               <Sparkles className="w-10 h-10 text-primary" />
             </div>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-glow bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-professional">
               PieFi Oracle
             </h1>
           </div>
-          <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto px-4 leading-relaxed">
+          <p className="text-xl lg:text-2xl readable-text max-w-3xl mx-auto px-4">
             Your AI-powered incubator assistant. Select your role to access personalized insights and tools.
           </p>
         </div>
@@ -218,9 +218,9 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
           {Object.entries(roleInfo).map(([role, info]) => (
             <Card 
               key={role}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] lg:hover:scale-105 glow-border group ${
-                selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
-              } bg-card/80 backdrop-blur-sm border-primary/20`}
+              className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] professional-border group ${
+                selectedRole === role ? 'ring-2 ring-primary shadow-lg' : ''
+              } card-professional`}
               onClick={() => handleRoleClick(role as UserRole)}
             >
               <CardHeader className="text-center pb-3">
