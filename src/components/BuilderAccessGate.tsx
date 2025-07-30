@@ -1,0 +1,443 @@
+import React, { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Rocket, User, Shield, Eye, Lock, Sparkles, AlertTriangle, Users, Building2 } from "lucide-react";
+import type { UserRole, Team, AccessCode } from "@/types/oracle";
+
+interface BuilderAccessGateProps {
+  onBuilderAuthenticated: (builderName: string, teamId: string, teamInfo: Team) => void;
+  onRoleSelected: (role: UserRole) => void;
+}
+
+const roleInfo = {
+  builder: {
+    label: "Builder",
+    description: "Team member developing products",
+    icon: Rocket,
+    color: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    needsCode: true
+  },
+  mentor: {
+    label: "Mentor", 
+    description: "Guide and advisor to teams",
+    icon: User,
+    color: "bg-green-500/20 text-green-300 border-green-500/30",
+    needsCode: true
+  },
+  lead: {
+    label: "Lead",
+    description: "Incubator program leader", 
+    icon: Shield,
+    color: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+    needsCode: true
+  },
+  guest: {
+    label: "Guest",
+    description: "Public visitor access",
+    icon: Eye,
+    color: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+    needsCode: false
+  }
+};
+
+export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: BuilderAccessGateProps) => {
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [code, setCode] = useState("");
+  const [builderName, setBuilderName] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [error, setError] = useState("");
+  const [showCodeDialog, setShowCodeDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [validatedAccess, setValidatedAccess] = useState<{code: AccessCode, team: Team} | null>(null);
+  
+  const queryClient = useQueryClient();
+
+  // Fetch access codes
+  const { data: accessCodes } = useQuery({
+    queryKey: ['access_codes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('access_codes')
+        .select('*')
+        .eq('is_active', true);
+      if (error) throw error;
+      return data as AccessCode[];
+    },
+  });
+
+  // Fetch teams for builder selection
+  const { data: teams } = useQuery({
+    queryKey: ['teams'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data as Team[];
+    },
+  });
+
+  // Create builder assignment
+  const createAssignmentMutation = useMutation({
+    mutationFn: async (assignment: { builder_name: string; team_id: string; access_code: string }) => {
+      const { data, error } = await supabase
+        .from('builder_assignments')
+        .insert([assignment]);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['builder_assignments'] });
+    }
+  });
+
+  const handleRoleClick = (role: UserRole) => {
+    setSelectedRole(role);
+    setError("");
+    setCode("");
+    setBuilderName("");
+    setSelectedTeamId("");
+    
+    if (roleInfo[role].needsCode) {
+      setShowCodeDialog(true);
+    } else {
+      onRoleSelected(role);
+    }
+  };
+
+  const handleCodeSubmit = () => {
+    if (!selectedRole || !code.trim()) return;
+
+    // For builders, we need both code and team selection
+    if (selectedRole === 'builder') {
+      if (!builderName.trim()) {
+        setError("Please enter your name");
+        return;
+      }
+      if (!selectedTeamId) {
+        setError("Please select your team");
+        return;
+      }
+    }
+
+    // Find valid access code
+    const validCode = accessCodes?.find(ac => {
+      if (selectedRole === 'builder') {
+        // For builders, check team-specific codes
+        return ac.role === selectedRole && ac.code === code.trim() && ac.team_id === selectedTeamId;
+      } else {
+        // For other roles, check global codes (no team_id)
+        return ac.role === selectedRole && ac.code === code.trim() && !ac.team_id;
+      }
+    });
+
+    if (validCode) {
+      if (selectedRole === 'builder') {
+        const team = teams?.find(t => t.id === selectedTeamId);
+        if (team) {
+          setValidatedAccess({ code: validCode, team });
+          setShowConfirmDialog(true);
+          setShowCodeDialog(false);
+        }
+      } else {
+        onRoleSelected(selectedRole);
+        setShowCodeDialog(false);
+      }
+      setCode("");
+      setError("");
+    } else {
+      if (selectedRole === 'builder') {
+        setError("Invalid access code for this team. Please check your code and team selection.");
+      } else {
+        setError("Invalid access code. Please try again.");
+      }
+    }
+  };
+
+  const handleConfirmAccess = async () => {
+    if (!validatedAccess || !builderName.trim()) return;
+
+    try {
+      // Create builder assignment record
+      await createAssignmentMutation.mutateAsync({
+        builder_name: builderName,
+        team_id: validatedAccess.team.id,
+        access_code: validatedAccess.code.code
+      });
+
+      // Authenticate the builder
+      onBuilderAuthenticated(builderName, validatedAccess.team.id, validatedAccess.team);
+      setShowConfirmDialog(false);
+      setValidatedAccess(null);
+    } catch (error) {
+      setError("Failed to complete authentication. Please try again.");
+      setShowConfirmDialog(false);
+    }
+  };
+
+  // Filter teams that have builder access codes
+  const availableTeams = teams?.filter(team => 
+    accessCodes?.some(code => code.team_id === team.id && code.role === 'builder')
+  ) || [];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background relative overflow-hidden">
+      {/* Enhanced cosmic background effects */}
+      <div className="absolute inset-0 cosmic-sparkle opacity-20" />
+      <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-xl ufo-pulse" />
+      <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl ufo-float" />
+      <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-blue-500/10 rounded-full blur-lg ufo-pulse" style={{ animationDelay: '1s' }} />
+
+      <div className="relative z-10 container mx-auto px-4 py-8 lg:py-12">
+        {/* Header with PieFi UFO Logo */}
+        <div className="text-center mb-12 lg:mb-16">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <div className="p-4 rounded-full bg-primary/10 ufo-glow ufo-float">
+              <Sparkles className="w-10 h-10 text-primary" />
+            </div>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-glow bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
+              PieFi Oracle
+            </h1>
+          </div>
+          <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto px-4 leading-relaxed">
+            Your AI-powered incubator assistant. Select your role to access personalized insights and tools.
+          </p>
+        </div>
+
+        {/* Role Selection Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-12 lg:mb-16">
+          {Object.entries(roleInfo).map(([role, info]) => (
+            <Card 
+              key={role}
+              className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] lg:hover:scale-105 glow-border group ${
+                selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
+              } bg-card/80 backdrop-blur-sm border-primary/20`}
+              onClick={() => handleRoleClick(role as UserRole)}
+            >
+              <CardHeader className="text-center pb-3">
+                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
+                  <info.icon className="w-6 h-6" />
+                </div>
+                <CardTitle className="text-lg font-semibold">{info.label}</CardTitle>
+                <CardDescription className="text-sm leading-relaxed">{info.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex flex-col gap-2">
+                  <Badge 
+                    variant={info.needsCode ? "destructive" : "secondary"} 
+                    className="self-center text-xs font-medium"
+                  >
+                    {info.needsCode ? (
+                      <>
+                        <Lock className="w-3 h-3 mr-1" />
+                        Access Code Required
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3 h-3 mr-1" />
+                        Open Access
+                      </>
+                    )}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Demo Access Codes */}
+        <Card className="max-w-4xl mx-auto glow-border bg-card/50 backdrop-blur-sm border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-center flex items-center justify-center gap-2 text-xl">
+              <Lock className="w-6 h-6 text-primary" />
+              Demo Access Codes
+            </CardTitle>
+            <CardDescription className="text-center text-base">
+              Use these codes to test different roles and explore the platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="text-center p-6 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors">
+                <div className="font-semibold text-primary mb-2">Lead</div>
+                <code className="text-sm bg-background px-4 py-2 rounded-md border font-mono">lead2024</code>
+                <div className="text-sm text-muted-foreground mt-2">Full Admin Access</div>
+              </div>
+              <div className="text-center p-6 rounded-lg bg-green-500/5 border border-green-500/20 hover:bg-green-500/10 transition-colors">
+                <div className="font-semibold text-green-600 mb-2">Mentor</div>
+                <code className="text-sm bg-background px-4 py-2 rounded-md border font-mono">guide2024</code>
+                <div className="text-sm text-muted-foreground mt-2">Team Guidance</div>
+              </div>
+              <div className="text-center p-6 rounded-lg bg-blue-500/5 border border-blue-500/20 hover:bg-blue-500/10 transition-colors">
+                <div className="font-semibold text-blue-600 mb-2">Builder</div>
+                <code className="text-sm bg-background px-4 py-2 rounded-md border font-mono">team*_build2024</code>
+                <div className="text-sm text-muted-foreground mt-2">Team-Specific Access</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Access Code Dialog - Enhanced for Builders */}
+      <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
+        <DialogContent className="sm:max-w-lg glow-border bg-card/95 backdrop-blur-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Lock className="w-6 h-6 text-primary" />
+              {selectedRole === 'builder' ? 'Team Access Authentication' : 'Enter Access Code'}
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              {selectedRole === 'builder' 
+                ? 'Enter your details and team-specific access code to continue'
+                : `Please enter your access code to continue as ${selectedRole && roleInfo[selectedRole]?.label}`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {selectedRole === 'builder' && (
+              <>
+                <div>
+                  <Label htmlFor="builder-name" className="text-sm font-medium">Your Name</Label>
+                  <Input
+                    id="builder-name"
+                    value={builderName}
+                    onChange={(e) => setBuilderName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="mt-2"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="team-select" className="text-sm font-medium">Select Your Team</Label>
+                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Choose your assigned team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTeams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          <div className="flex items-center gap-3">
+                            <Building2 className="w-4 h-4" />
+                            <div>
+                              <div className="font-medium">{team.name}</div>
+                              <div className="text-xs text-muted-foreground">{team.stage}</div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+            
+            <div>
+              <Label htmlFor="access-code" className="text-sm font-medium">
+                {selectedRole === 'builder' ? 'Team Access Code' : 'Access Code'}
+              </Label>
+              <Input
+                id="access-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder={selectedRole === 'builder' ? 'Enter your team-specific code' : 'Enter your access code'}
+                className="mt-2 font-mono"
+                autoFocus={selectedRole !== 'builder'}
+              />
+            </div>
+            
+            {error && (
+              <div className="p-4 rounded-md bg-destructive/10 border border-destructive/20">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  <p className="text-sm text-destructive font-medium">{error}</p>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowCodeDialog(false)} className="px-6">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleCodeSubmit} 
+                disabled={!code.trim() || (selectedRole === 'builder' && (!builderName.trim() || !selectedTeamId))} 
+                className="px-6"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog for Builders */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent className="glow-border bg-card/95 backdrop-blur-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Confirm Team Access
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              Please confirm your team assignment details:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          {validatedAccess && (
+            <div className="space-y-4 my-4">
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Name:</span>
+                      <span>{builderName}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Team:</span>
+                      <span>{validatedAccess.team.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Stage:</span>
+                      <Badge className="bg-primary/20 text-primary border-primary/30">
+                        {validatedAccess.team.stage}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Access Code:</span>
+                      <code className="text-sm bg-background px-2 py-1 rounded border font-mono">
+                        {validatedAccess.code.code}
+                      </code>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+                <p className="text-sm text-yellow-200 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  Once confirmed, you'll be locked to this team for this session.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAccess}>
+              Confirm & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};

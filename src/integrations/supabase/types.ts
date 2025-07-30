@@ -19,30 +19,91 @@ export type Database = {
           code: string
           created_at: string
           description: string | null
+          expires_at: string | null
+          generated_by: string | null
           id: string
           is_active: boolean | null
           role: Database["public"]["Enums"]["user_role"]
+          team_id: string | null
           updated_at: string
         }
         Insert: {
           code: string
           created_at?: string
           description?: string | null
+          expires_at?: string | null
+          generated_by?: string | null
           id?: string
           is_active?: boolean | null
           role: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
           code?: string
           created_at?: string
           description?: string | null
+          expires_at?: string | null
+          generated_by?: string | null
           id?: string
           is_active?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "access_codes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      builder_assignments: {
+        Row: {
+          access_code: string
+          assigned_at: string
+          assigned_by: string | null
+          builder_name: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_code: string
+          assigned_at?: string
+          assigned_by?: string | null
+          builder_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          builder_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -356,7 +417,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_team_access_code: {
+        Args: {
+          p_team_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_generated_by?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       team_stage: "ideation" | "development" | "testing" | "launch" | "growth"

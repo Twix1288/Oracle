@@ -66,3 +66,35 @@ export interface RAGDocument {
   created_at: string;
   updated_at: string;
 }
+
+export interface AccessCode {
+  id: string;
+  code: string;
+  role: UserRole;
+  team_id?: string;
+  description?: string;
+  is_active: boolean;
+  expires_at?: string;
+  generated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BuilderAssignment {
+  id: string;
+  builder_name: string;
+  team_id: string;
+  access_code: string;
+  assigned_at: string;
+  assigned_by?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+  icon: string;
+}
