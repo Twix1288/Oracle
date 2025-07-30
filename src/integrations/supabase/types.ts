@@ -14,7 +14,216 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documents: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role_visibility: Database["public"]["Enums"]["user_role"][] | null
+          source_reference: string | null
+          source_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
+          source_reference?: string | null
+          source_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
+          source_reference?: string | null
+          source_type?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          attendance: string[] | null
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attendance?: string[] | null
+          created_at?: string
+          date: string
+          description?: string | null
+          id?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attendance?: string[] | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      members: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_status: {
+        Row: {
+          created_at: string
+          current_status: string | null
+          id: string
+          last_update: string | null
+          pending_actions: string[] | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_status?: string | null
+          id?: string
+          last_update?: string | null
+          pending_actions?: string[] | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_status?: string | null
+          id?: string
+          last_update?: string | null
+          pending_actions?: string[] | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_status_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          assigned_mentor_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          stage: Database["public"]["Enums"]["team_stage"] | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_mentor_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          stage?: Database["public"]["Enums"]["team_stage"] | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_mentor_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          stage?: Database["public"]["Enums"]["team_stage"] | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      updates: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          team_id: string
+          type: Database["public"]["Enums"]["update_type"]
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          team_id: string
+          type: Database["public"]["Enums"]["update_type"]
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          team_id?: string
+          type?: Database["public"]["Enums"]["update_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "updates_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +232,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      team_stage: "ideation" | "development" | "testing" | "launch" | "growth"
+      update_type: "daily" | "milestone" | "mentor_meeting"
+      user_role: "builder" | "mentor" | "lead" | "guest"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +361,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      team_stage: ["ideation", "development", "testing", "launch", "growth"],
+      update_type: ["daily", "milestone", "mentor_meeting"],
+      user_role: ["builder", "mentor", "lead", "guest"],
+    },
   },
 } as const
