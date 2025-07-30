@@ -121,7 +121,7 @@ export const BuilderDashboard = ({
                   <p className="text-2xl font-bold">{metrics.todayUpdates}</p>
                 </div>
               </div>
-            </div>
+            </CardContent>
           </Card>
           
           <Card className="glow-border bg-card/50 backdrop-blur">
@@ -133,7 +133,7 @@ export const BuilderDashboard = ({
                   <p className="text-2xl font-bold">{metrics.weekUpdates}</p>
                 </div>
               </div>
-            </div>
+            </CardContent>
           </Card>
           
           <Card className="glow-border bg-card/50 backdrop-blur">
@@ -145,7 +145,7 @@ export const BuilderDashboard = ({
                   <p className="text-2xl font-bold">{metrics.teamMembers}</p>
                 </div>
               </div>
-            </div>
+            </CardContent>
           </Card>
         </div>
       )}
