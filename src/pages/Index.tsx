@@ -2,10 +2,14 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Brain, BarChart3, Users, Zap, Target, MessageSquare, Calendar } from "lucide-react";
+import { Brain, BarChart3, Users, Zap, Target, MessageSquare, Calendar, Settings, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import { AccessGate } from "@/components/AccessGate";
+import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
+import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
+import { BuilderDashboard } from "@/components/dashboards/BuilderDashboard";
+import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { OracleQuery } from "@/components/OracleQuery";
 import { ProgressTracker } from "@/components/ProgressTracker";
 import { TeamDashboard } from "@/components/TeamDashboard";
@@ -14,7 +18,9 @@ import type { UserRole } from "@/types/oracle";
 
 const Index = () => {
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [activeTab, setActiveTab] = useState("oracle");
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [userId, setUserId] = useState<string>("");
+  const [teamId, setTeamId] = useState<string>("");
   const { toast } = useToast();
   
   const {
@@ -29,6 +35,17 @@ const Index = () => {
     ragLoading,
   } = useOracle(selectedRole || 'guest');
 
+  const handleRoleSelected = (role: UserRole) => {
+    setSelectedRole(role);
+    // Generate temporary user ID for demo purposes
+    setUserId(`${role}-${Date.now()}`);
+    
+    // For builders, assign to first available team or create demo team
+    if (role === 'builder' && teams.length > 0) {
+      setTeamId(teams[0].id);
+    }
+  };
+
   const handleSubmitUpdate = (teamId: string, content: string, type: any, createdBy?: string) => {
     submitUpdate({ teamId, content, type, createdBy });
     toast({
@@ -42,7 +59,7 @@ const Index = () => {
   };
 
   if (!selectedRole) {
-    return <AccessGate onRoleSelected={setSelectedRole} />;
+    return <AccessGate onRoleSelected={handleRoleSelected} />;
   }
 
   if (isLoading) {
@@ -65,12 +82,39 @@ const Index = () => {
     );
   }
 
-  const sidebarItems = [
-    { id: "oracle", label: "Oracle Query", icon: Brain },
-    { id: "teams", label: "Teams", icon: Users },
-    { id: "progress", label: "Progress", icon: Target },
-    { id: "insights", label: "Insights", icon: BarChart3 },
-  ];
+  const getSidebarItems = () => {
+    const baseItems = [
+      { id: "dashboard", label: "Dashboard", icon: Target },
+    ];
+
+    if (selectedRole !== 'guest') {
+      baseItems.push(
+        { id: "oracle", label: "Oracle", icon: Brain },
+        { id: "messages", label: "Messages", icon: MessageSquare }
+      );
+    }
+
+    if (selectedRole === 'lead') {
+      baseItems.push(
+        { id: "teams", label: "Teams", icon: Users },
+        { id: "insights", label: "Analytics", icon: BarChart3 },
+        { id: "settings", label: "Settings", icon: Settings }
+      );
+    } else if (selectedRole === 'mentor') {
+      baseItems.push(
+        { id: "teams", label: "My Teams", icon: Users },
+        { id: "insights", label: "Analytics", icon: BarChart3 }
+      );
+    } else if (selectedRole === 'builder') {
+      baseItems.push(
+        { id: "progress", label: "Progress", icon: Target }
+      );
+    }
+
+    return baseItems;
+  };
+
+  const sidebarItems = getSidebarItems();
 
   return (
     <SidebarProvider>
@@ -120,10 +164,16 @@ const Index = () => {
             {/* Role Change */}
             <div className="mt-auto p-4 border-t border-primary/20">
               <button
-                onClick={() => setSelectedRole(null)}
-                className="w-full p-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                onClick={() => {
+                  setSelectedRole(null);
+                  setUserId("");
+                  setTeamId("");
+                  setActiveTab("dashboard");
+                }}
+                className="w-full flex items-center gap-2 p-2 text-sm text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-primary/10"
               >
-                🚀 Change Role
+                <LogOut className="h-4 w-4" />
+                Exit Mission
               </button>
             </div>
           </SidebarContent>
@@ -144,7 +194,61 @@ const Index = () => {
 
           {/* Content */}
           <main className="flex-1 p-6 space-y-6 overflow-auto">
-            {activeTab === "oracle" && (
+            {activeTab === "dashboard" && (
+              <>
+                {selectedRole === 'lead' && (
+                  <LeadDashboard 
+                    teams={teams || []}
+                    members={members || []}
+                    updates={updates || []}
+                    teamStatuses={teamStatuses || []}
+                    selectedRole={selectedRole}
+                  />
+                )}
+
+                {selectedRole === 'mentor' && (
+                  <MentorDashboard 
+                    teams={teams || []}
+                    members={members || []}
+                    updates={updates || []}
+                    teamStatuses={teamStatuses || []}
+                    selectedRole={selectedRole}
+                    mentorId={userId}
+                  />
+                )}
+
+                {selectedRole === 'builder' && (
+                  <BuilderDashboard 
+                    teams={teams || []}
+                    members={members || []}
+                    updates={updates || []}
+                    teamStatuses={teamStatuses || []}
+                    selectedRole={selectedRole}
+                    builderId={userId}
+                    teamId={teamId}
+                    onSubmitUpdate={(updateData) => {
+                      submitUpdate({ ...updateData, created_by: userId });
+                      toast({
+                        title: "Mission log updated",
+                        description: "Your progress transmission has been recorded.",
+                      });
+                    }}
+                    onQueryRAG={handleRAGQuery}
+                    ragResponse={ragResponse}
+                    ragLoading={ragLoading}
+                  />
+                )}
+
+                {selectedRole === 'guest' && (
+                  <GuestDashboard 
+                    teams={teams || []}
+                    updates={updates || []}
+                  />
+                )}
+              </>
+            )}
+
+            {activeTab === "oracle" && selectedRole !== 'guest' && (
               <OracleQuery
                 onQuery={handleRAGQuery}
                 isLoading={ragLoading}
@@ -162,7 +266,7 @@ const Index = () => {
               />
             )}
 
-            {activeTab === "progress" && (
+            {activeTab === "progress" && selectedRole === 'builder' && (
               <ProgressTracker
                 updates={updates || []}
                 teams={teams || []}
@@ -171,7 +275,7 @@ const Index = () => {
               />
             )}
 
-            {activeTab === "insights" && (
+            {activeTab === "insights" && (selectedRole === 'lead' || selectedRole === 'mentor') && (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <Card className="glow-border bg-card/50 backdrop-blur">
                   <CardHeader>
@@ -234,10 +338,8 @@ const Index = () => {
                         <span className="font-medium capitalize text-primary">{selectedRole}</span>
                       </div>
                       <p className="text-muted-foreground leading-relaxed">
-                        {selectedRole === 'builder' && "Access your team's mission logs and progress tracking"}
                         {selectedRole === 'mentor' && "Monitor and guide your assigned teams across the galaxy"}
                         {selectedRole === 'lead' && "Full mission control and strategic oversight of all operations"}
-                        {selectedRole === 'guest' && "Public transmission access and general mission information"}
                       </p>
                     </div>
                   </CardContent>
