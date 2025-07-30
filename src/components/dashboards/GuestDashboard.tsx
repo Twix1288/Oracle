@@ -1,14 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Users, TrendingUp, Calendar, Sparkles } from "lucide-react";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import type { Team, Update } from "@/types/oracle";
 
 interface GuestDashboardProps {
   teams: Team[];
   updates: Update[];
+  onExit: () => void;
 }
 
-export const GuestDashboard = ({ teams, updates }: GuestDashboardProps) => {
+export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) => {
   // Filter to show only sanitized, public data
   const publicTeams = teams.map(team => ({
     ...team,
@@ -49,7 +51,12 @@ export const GuestDashboard = ({ teams, updates }: GuestDashboardProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <DashboardHeader 
+        role="guest" 
+        onExit={onExit}
+      />
+      <div className="container mx-auto px-6 pb-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-full bg-gray-500/20 ufo-pulse">
@@ -237,6 +244,7 @@ export const GuestDashboard = ({ teams, updates }: GuestDashboardProps) => {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 };

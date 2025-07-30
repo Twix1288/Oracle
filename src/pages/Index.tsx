@@ -93,6 +93,7 @@ function Index() {
           <GuestDashboard 
             teams={teams || []}
             updates={updates || []}
+            onExit={() => setSelectedRole(null)}
           />
         );
       case 'builder':
