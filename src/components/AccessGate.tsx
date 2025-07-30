@@ -77,13 +77,23 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   const handleCodeSubmit = () => {
     if (!selectedRole || !code) return;
 
+    console.log('Validation Debug:', {
+      selectedRole,
+      enteredCode: code,
+      availableCodes: accessCodes?.map(ac => ({ role: ac.role, code: ac.code }))
+    });
+
     const validCode = accessCodes?.find(
-      ac => ac.role === selectedRole && ac.code === code
+      ac => ac.role === selectedRole && ac.code === code.trim()
     );
+
+    console.log('Found valid code:', validCode);
 
     if (validCode) {
       onRoleSelected(selectedRole);
       setShowCodeDialog(false);
+      setCode("");
+      setError("");
     } else {
       setError("Invalid access code. Please try again.");
     }
