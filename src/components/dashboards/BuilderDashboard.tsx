@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { OracleQuery } from "../OracleQuery";
+import { EnhancedOracle } from "../EnhancedOracle";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface BuilderDashboardProps {
@@ -318,24 +318,11 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="oracle">
-          {onQueryRAG ? (
-            <OracleQuery 
-              onQuery={onQueryRAG}
-              isLoading={ragLoading || false}
-              response={ragResponse}
-              selectedRole="builder"
-            />
-          ) : (
-            <Card className="glow-border bg-card/50 backdrop-blur">
-              <CardContent className="p-8 text-center">
-                <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Oracle Unavailable</h3>
-                <p className="text-muted-foreground">
-                  The Oracle AI assistant is currently unavailable.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          <EnhancedOracle 
+            selectedRole="builder"
+            teamId={teamId}
+            userId={builderId}
+          />
         </TabsContent>
 
         <TabsContent value="messages">

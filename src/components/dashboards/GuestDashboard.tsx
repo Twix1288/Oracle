@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Users, TrendingUp, Calendar, Sparkles } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Eye, Users, TrendingUp, Calendar, Sparkles, MessageSquare } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { EnhancedOracle } from "../EnhancedOracle";
 import type { Team, Update } from "@/types/oracle";
 
 interface GuestDashboardProps {
@@ -11,6 +14,7 @@ interface GuestDashboardProps {
 }
 
 export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) => {
+  const [activeTab, setActiveTab] = useState("overview");
   // Filter to show only sanitized, public data
   const publicTeams = teams.map(team => ({
     ...team,
@@ -119,6 +123,24 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
         </Card>
       </div>
 
+      {/* Main Dashboard */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 bg-card/50 backdrop-blur border-primary/20">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
+            <Eye className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Ask Oracle
+          </TabsTrigger>
+          <TabsTrigger value="about" className="data-[state=active]:bg-primary/20">
+            <Sparkles className="h-4 w-4 mr-2" />
+            About
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
       {/* Active Teams Overview */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardHeader>
@@ -212,38 +234,48 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
           )}
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* FAQ Section */}
-      <Card className="glow-border bg-card/50 backdrop-blur">
-        <CardHeader>
-          <CardTitle>About PieFi</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <h4 className="font-medium text-primary">What is PieFi?</h4>
-            <p className="text-sm text-muted-foreground">
-              PieFi is an innovative incubator program that helps teams build and launch cutting-edge products. 
-              We provide mentorship, resources, and guidance throughout the development journey.
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            <h4 className="font-medium text-primary">How does the program work?</h4>
-            <p className="text-sm text-muted-foreground">
-              Teams progress through different stages: ideation, development, testing, launch, and growth. 
-              Each team is paired with experienced mentors who provide guidance and support.
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            <h4 className="font-medium text-primary">Want to join?</h4>
-            <p className="text-sm text-muted-foreground">
-              Interested in joining PieFi? Contact our team to learn about application opportunities 
-              and how you can become part of our innovation ecosystem.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="oracle">
+          <EnhancedOracle 
+            selectedRole="guest"
+          />
+        </TabsContent>
+
+        <TabsContent value="about">
+          {/* FAQ Section */}
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>About PieFi</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <h4 className="font-medium text-primary">What is PieFi?</h4>
+                <p className="text-sm text-muted-foreground">
+                  PieFi is an innovative incubator program that helps teams build and launch cutting-edge products. 
+                  We provide mentorship, resources, and guidance throughout the development journey.
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="font-medium text-primary">How does the program work?</h4>
+                <p className="text-sm text-muted-foreground">
+                  Teams progress through different stages: ideation, development, testing, launch, and growth. 
+                  Each team is paired with experienced mentors who provide guidance and support.
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="font-medium text-primary">Want to join?</h4>
+                <p className="text-sm text-muted-foreground">
+                  Interested in joining PieFi? Contact our team to learn about application opportunities 
+                  and how you can become part of our innovation ecosystem.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
       </div>
     </>
   );

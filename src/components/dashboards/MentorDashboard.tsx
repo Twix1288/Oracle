@@ -6,7 +6,7 @@ import { User, MessageSquare, TrendingUp, AlertTriangle, Clock } from "lucide-re
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { OracleAnalytics } from "../OracleAnalytics";
+import { EnhancedOracle } from "../EnhancedOracle";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface MentorDashboardProps {
@@ -172,9 +172,9 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
             <MessageSquare className="h-4 w-4 mr-2" />
             Messages
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <TrendingUp className="h-4 w-4 mr-2" />
-            Team Analytics
+            Oracle Assistant
           </TabsTrigger>
           <TabsTrigger value="guidance" className="data-[state=active]:bg-primary/20">
             <AlertTriangle className="h-4 w-4 mr-2" />
@@ -207,8 +207,11 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
           <MessagingCenter role="mentor" userId={mentorId} />
         </TabsContent>
 
-        <TabsContent value="analytics">
-          <OracleAnalytics role="mentor" />
+        <TabsContent value="oracle">
+          <EnhancedOracle 
+            selectedRole="mentor"
+            userId={mentorId}
+          />
         </TabsContent>
 
         <TabsContent value="guidance">

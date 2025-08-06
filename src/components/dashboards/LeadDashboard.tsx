@@ -8,7 +8,7 @@ import { Shield, Users, MessageSquare, Activity, Settings, Plus, Eye } from "luc
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { OracleAnalytics } from "../OracleAnalytics";
+import { EnhancedOracle } from "../EnhancedOracle";
 import { AccessCodeManager } from "../AccessCodeManager";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -110,9 +110,9 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
             <MessageSquare className="h-4 w-4 mr-2" />
             Messages
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <Activity className="h-4 w-4 mr-2" />
-            Analytics
+            Oracle Assistant
           </TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20">
             <Settings className="h-4 w-4 mr-2" />
@@ -151,8 +151,11 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
           <MessagingCenter role="lead" />
         </TabsContent>
 
-        <TabsContent value="analytics">
-          <OracleAnalytics role="lead" />
+        <TabsContent value="oracle">
+          <EnhancedOracle 
+            selectedRole="lead"
+            userId="lead_user"
+          />
         </TabsContent>
 
         <TabsContent value="settings">
