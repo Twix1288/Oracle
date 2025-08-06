@@ -218,24 +218,66 @@ serve(async (req) => {
       }
     }
 
-    // Get recent updates for role-based context
-    const { data: recentUpdates } = await supabase
+    // Get recent updates - filter by team if teamId provided
+    let updatesQuery = supabase
       .from('updates')
       .select('*, teams(*)')
-      .order('created_at', { ascending: false })
-      .limit(10);
+      .order('created_at', { ascending: false });
+    
+    if (teamId) {
+      // If in team dashboard, only show team-specific updates
+      updatesQuery = updatesQuery.eq('team_id', teamId);
+    }
+    
+    const { data: recentUpdates } = await updatesQuery.limit(10);
 
     if (recentUpdates) {
-      contextString += `Recent program updates: ${recentUpdates.map(u => `${u.teams?.name}: ${u.content}`).join(', ')}\n`;
+      if (teamId) {
+        contextString += `Your team's recent updates: ${recentUpdates.map(u => u.content).join(', ')}\n`;
+      } else {
+        contextString += `Recent program updates: ${recentUpdates.map(u => `${u.teams?.name}: ${u.content}`).join(', ')}\n`;
+      }
       sourcesCount += recentUpdates.length;
     }
 
     // Role-specific system prompts
     const systemPrompts = {
-      builder: `You are the Oracle, an AI assistant for startup incubator participants. You help builders track progress, get guidance, and stay motivated. Be supportive and practical. Focus on actionable advice and team collaboration. Keep responses professional and concise without hashtags or excessive formatting.`,
-      mentor: `You are the Oracle, an AI assistant for startup incubator mentors. You help track team progress, identify issues, and guide mentorship decisions. Be analytical and strategic. Focus on team development and progress insights. Keep responses professional and concise without hashtags or excessive formatting.`,
-      lead: `You are the Oracle, an AI assistant for incubator program leaders. You help manage the overall program, track multiple teams, and make strategic decisions. Be comprehensive and strategic. Focus on program health and team performance. Keep responses professional and concise without hashtags or excessive formatting.`,
-      guest: `You are the Oracle, providing general information about the startup incubator program. Be welcoming and informative about the program structure and benefits. Keep responses professional and concise without hashtags or excessive formatting.`
+      builder: `You are the Oracle, an AI assistant for startup incubator participants. You help builders track progress, get guidance, and stay motivated. Be supportive and practical. Focus on actionable advice and team collaboration. 
+
+Format your responses professionally using:
+- **Bold text** for important points
+- Bullet points for lists  
+- Clear structure with line breaks
+- Professional tone like ChatGPT
+
+Avoid hashtags but use proper markdown formatting for readability.`,
+      mentor: `You are the Oracle, an AI assistant for startup incubator mentors. You help track team progress, identify issues, and guide mentorship decisions. Be analytical and strategic. Focus on team development and progress insights.
+
+Format your responses professionally using:
+- **Bold text** for important points
+- Bullet points for lists
+- Clear structure with line breaks  
+- Professional tone like ChatGPT
+
+Avoid hashtags but use proper markdown formatting for readability.`,
+      lead: `You are the Oracle, an AI assistant for incubator program leaders. You help manage the overall program, track multiple teams, and make strategic decisions. Be comprehensive and strategic. Focus on program health and team performance.
+
+Format your responses professionally using:
+- **Bold text** for important points
+- Bullet points for lists
+- Clear structure with line breaks
+- Professional tone like ChatGPT
+
+Avoid hashtags but use proper markdown formatting for readability.`,
+      guest: `You are the Oracle, providing general information about the startup incubator program. Be welcoming and informative about the program structure and benefits.
+
+Format your responses professionally using:
+- **Bold text** for important points
+- Bullet points for lists
+- Clear structure with line breaks
+- Professional tone like ChatGPT
+
+Avoid hashtags but use proper markdown formatting for readability.`
     };
 
     // Build enhanced context
@@ -260,7 +302,7 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `Context: ${enhancedContext}\n\nQuery: ${query}\n\nPlease provide a clear, professional response without hashtags, asterisks, or excessive formatting. Be direct and helpful.`
+            content: `Context: ${enhancedContext}\n\nQuery: ${query}\n\nPlease provide a professional response with proper markdown formatting including bullet points and **bold text** where appropriate.`
           }
         ],
         temperature: 0.7,
@@ -271,12 +313,8 @@ serve(async (req) => {
     const completionData = await completion.json();
     let answer = completionData.choices?.[0]?.message?.content || 'No response generated';
 
-    // Clean up response - remove hashtags and excessive formatting
+    // Light cleanup - only remove hashtags, keep markdown formatting
     answer = answer.replace(/#{1,6}\s*/g, ''); // Remove markdown headers
-    answer = answer.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove bold formatting
-    answer = answer.replace(/\*(.*?)\*/g, '$1'); // Remove italic formatting
-    answer = answer.replace(/```[\s\S]*?```/g, ''); // Remove code blocks
-    answer = answer.replace(/`([^`]+)`/g, '$1'); // Remove inline code
     answer = answer.trim();
 
     // Parse structured sections if present
