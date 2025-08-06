@@ -132,29 +132,29 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="text-center space-y-3">
+          <div className="space-y-6 fade-in-up">
+            <div className="text-center space-y-4">
               <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
                 <Target className="h-8 w-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-glow">What do you want to achieve?</h3>
-              <p className="text-muted-foreground">Tell the Oracle about your project vision and goals.</p>
+              <p className="text-muted-foreground text-lg">Tell the Oracle about your project vision and goals.</p>
             </div>
             
             <div className="space-y-4">
-              <label className="text-sm font-medium text-foreground">Project Goal</label>
+              <label className="text-sm font-medium high-contrast-text">Project Goal</label>
               <Textarea
                 placeholder="Describe what you want to build and achieve with your project..."
                 value={formData.projectGoal}
                 onChange={(e) => setFormData({ ...formData, projectGoal: e.target.value })}
-                className="min-h-[120px] bg-background/50 border-primary/20 focus:border-primary/50"
+                className="min-h-[120px] professional-input"
               />
             </div>
 
             <Button 
               onClick={handleNext} 
               disabled={!formData.projectGoal.trim()}
-              className="w-full ufo-gradient hover:opacity-90"
+              className="w-full ufo-gradient hover:opacity-90 py-3 text-lg font-semibold"
             >
               Continue to Development Stage
             </Button>
@@ -163,13 +163,13 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
 
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="text-center space-y-3">
+          <div className="space-y-6 fade-in-up">
+            <div className="text-center space-y-4">
               <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
                 <Rocket className="h-8 w-8 text-primary" />
               </div>
               <h3 className="text-2xl font-bold text-glow">Where are you in development?</h3>
-              <p className="text-muted-foreground">Select your current stage in the 5-phase journey.</p>
+              <p className="text-muted-foreground text-lg">Select your current stage in the 5-phase journey.</p>
             </div>
 
             <div className="space-y-4">
@@ -178,10 +178,10 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
                 return (
                   <Card
                     key={stage}
-                    className={`cursor-pointer transition-all glow-border ${
+                    className={`cursor-pointer transition-all interactive-card glass-card ${
                       formData.currentStage === stage 
-                        ? 'bg-primary/10 border-primary/40' 
-                        : 'bg-card/50 hover:bg-card/70 border-border'
+                        ? 'glow-border border-primary/40 bg-primary/5' 
+                        : 'hover:glow-border'
                     }`}
                     onClick={() => setFormData({ ...formData, currentStage: stage })}
                   >
@@ -191,11 +191,11 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-semibold">{info.title}</h4>
-                          <p className="text-sm text-muted-foreground">{info.description}</p>
+                          <h4 className="font-semibold high-contrast-text">{info.title}</h4>
+                          <p className="text-sm readable-muted">{info.description}</p>
                         </div>
                         {formData.currentStage === stage && (
-                          <Badge className="bg-primary/20 text-primary border-primary/30">
+                          <Badge className="bg-primary/20 text-primary border-primary/30 font-medium">
                             Selected
                           </Badge>
                         )}
@@ -206,11 +206,11 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
               })}
             </div>
 
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
+            <div className="flex gap-4">
+              <Button variant="outline" onClick={handleBack} className="flex-1 glass-button">
                 Back
               </Button>
-              <Button onClick={handleNext} className="flex-1 ufo-gradient hover:opacity-90">
+              <Button onClick={handleNext} className="flex-1 ufo-gradient hover:opacity-90 font-semibold">
                 Continue to Mentorship
               </Button>
             </div>

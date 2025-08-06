@@ -86,7 +86,7 @@ export const EnhancedBuilderDashboard = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-      <DashboardHeader 
+      <DashboardHeader
         role="builder"
         userName={builderName}
         teamName={currentTeam.name}
@@ -103,14 +103,14 @@ export const EnhancedBuilderDashboard = ({
               teamMemberCount={teamMembers.length}
               onLeaveTeam={onLeaveTeam}
             />
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-glow">{currentTeam.name}</h1>
-              <p className="text-muted-foreground">{currentTeam.description || "No description available"}</p>
-              <div className="flex items-center gap-3">
-                <Badge className="bg-primary/20 text-primary border-primary/30">
+            <div className="space-y-3">
+              <h1 className="text-4xl font-bold text-glow fade-in-up">{currentTeam.name}</h1>
+              <p className="text-lg readable-muted">{currentTeam.description || "No description available"}</p>
+              <div className="flex items-center gap-4">
+                <Badge className="bg-primary/20 text-primary border-primary/30 px-3 py-1 font-medium">
                   Stage: {currentTeam.stage}
                 </Badge>
-                <Badge variant="outline" className="border-primary/20">
+                <Badge variant="outline" className="border-primary/20 px-3 py-1">
                   {teamMembers.length} members
                 </Badge>
               </div>
@@ -120,24 +120,24 @@ export const EnhancedBuilderDashboard = ({
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
+          <TabsList className="grid w-full grid-cols-5 glass-card border-primary/20">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <Activity className="h-4 w-4 mr-2" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="progress" className="data-[state=active]:bg-primary/20">
+            <TabsTrigger value="progress" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <Target className="h-4 w-4 mr-2" />
               Progress
             </TabsTrigger>
-            <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+            <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <Sparkles className="h-4 w-4 mr-2" />
               Oracle
             </TabsTrigger>
-            <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20">
+            <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <MessageSquare className="h-4 w-4 mr-2" />
               Messages
             </TabsTrigger>
-            <TabsTrigger value="team" className="data-[state=active]:bg-primary/20">
+            <TabsTrigger value="team" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <Users className="h-4 w-4 mr-2" />
               Team
             </TabsTrigger>
@@ -146,37 +146,43 @@ export const EnhancedBuilderDashboard = ({
           <TabsContent value="overview" className="space-y-6">
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="glow-border bg-card/50">
+              <Card className="glow-border interactive-card">
                 <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="h-8 w-8 text-primary" />
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+                      <TrendingUp className="h-6 w-6 text-primary" />
+                    </div>
                     <div>
-                      <p className="text-2xl font-bold">{teamUpdates.length}</p>
-                      <p className="text-sm text-muted-foreground">Total Updates</p>
+                      <p className="text-3xl font-bold text-glow">{teamUpdates.length}</p>
+                      <p className="text-sm readable-muted">Total Updates</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glow-border bg-card/50">
+              <Card className="glow-border interactive-card">
                 <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Users className="h-8 w-8 text-primary" />
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
                     <div>
-                      <p className="text-2xl font-bold">{teamMembers.length}</p>
-                      <p className="text-sm text-muted-foreground">Team Members</p>
+                      <p className="text-3xl font-bold text-glow">{teamMembers.length}</p>
+                      <p className="text-sm readable-muted">Team Members</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="glow-border bg-card/50">
+              <Card className="glow-border interactive-card">
                 <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Rocket className="h-8 w-8 text-primary" />
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+                      <Rocket className="h-6 w-6 text-primary" />
+                    </div>
                     <div>
-                      <p className="text-2xl font-bold capitalize">{currentTeam.stage}</p>
-                      <p className="text-sm text-muted-foreground">Current Stage</p>
+                      <p className="text-3xl font-bold text-glow capitalize">{currentTeam.stage}</p>
+                      <p className="text-sm readable-muted">Current Stage</p>
                     </div>
                   </div>
                 </CardContent>

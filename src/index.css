@@ -4,63 +4,67 @@
 
 @layer base {
   :root {
-    /* PieFi UFO Theme - Light Mode (for contrast) */
-    --background: 210 20% 98%;
-    --foreground: 222.2 84% 4.9%;
+    /* Professional UFO Theme - Light Mode */
+    --background: 210 25% 98%;
+    --foreground: 222 84% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 84% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 84% 4%;
     --primary: 25 95% 53%; /* UFO Orange */
-    --primary-foreground: 210 20% 98%;
-    --secondary: 210 40% 95%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 95%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 95%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 25 95% 53%; /* UFO Orange */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 94%;
+    --secondary-foreground: 222 84% 11%;
+    --muted: 210 40% 94%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 94%;
+    --accent-foreground: 222 84% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 25 95% 53%;
     --radius: 0.75rem;
 
-    /* UFO Theme Colors */
+    /* UFO Professional Theme Colors */
     --ufo-orange: 25 95% 53%;
-    --ufo-orange-glow: 25 95% 63%;
+    --ufo-orange-bright: 25 100% 60%;
+    --ufo-orange-glow: 25 95% 70%;
     --space-dark: 230 35% 7%;
     --space-darker: 230 35% 4%;
     --cosmic-blue: 220 100% 50%;
     --alien-green: 120 100% 50%;
     --nebula-purple: 280 100% 70%;
+    --stellar-silver: 210 15% 85%;
   }
 
   .dark {
-    /* Professional Dark Theme with Better Contrast */
-    --background: 230 35% 9%; /* Slightly lighter for better readability */
-    --foreground: 210 20% 98%;
-    --card: 230 35% 12%; /* Improved contrast */
-    --card-foreground: 210 20% 96%;
-    --popover: 230 35% 12%;
-    --popover-foreground: 210 20% 96%;
-    --primary: 25 95% 58%; /* Slightly brighter orange for better visibility */
-    --primary-foreground: 230 35% 9%;
-    --secondary: 230 20% 18%; /* Better contrast */
-    --secondary-foreground: 210 20% 94%;
-    --muted: 230 20% 16%; /* Improved readability */
-    --muted-foreground: 215 20% 75%; /* Much better contrast for readable text */
-    --accent: 230 20% 18%;
-    --accent-foreground: 210 20% 94%;
-    --destructive: 0 62.8% 50%; /* Brighter for visibility */
-    --destructive-foreground: 210 20% 98%;
-    --border: 230 20% 22%; /* More visible borders */
-    --input: 230 20% 20%; /* Better input visibility */
+    /* Professional Dark Theme with Enhanced Contrast */
+    --background: 230 35% 5%; /* Darker for better contrast */
+    --foreground: 210 40% 98%; /* Brighter text */
+    --card: 230 30% 8%; /* Better card contrast */
+    --card-foreground: 210 40% 95%;
+    --popover: 230 30% 8%;
+    --popover-foreground: 210 40% 95%;
+    --primary: 25 95% 58%; /* Brighter orange for visibility */
+    --primary-foreground: 230 35% 5%;
+    --secondary: 230 25% 12%; /* Better secondary contrast */
+    --secondary-foreground: 210 40% 90%;
+    --muted: 230 25% 10%; /* Improved muted background */
+    --muted-foreground: 215 25% 80%; /* Much better text contrast */
+    --accent: 230 25% 12%;
+    --accent-foreground: 210 40% 90%;
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 230 25% 18%; /* More visible borders */
+    --input: 230 25% 15%; /* Better input visibility */
     --ring: 25 95% 58%;
 
-    /* Professional text effects */
-    --text-glow: 0 0 8px hsl(var(--primary) / 0.3);
-    --subtle-glow: 0 0 4px hsl(var(--primary) / 0.2);
+    /* Professional Dark Effects */
+    --text-glow: 0 0 12px hsl(var(--primary) / 0.4);
+    --subtle-glow: 0 0 6px hsl(var(--primary) / 0.3);
+    --card-glow: 0 4px 20px hsl(var(--primary) / 0.1);
+    --hover-glow: 0 8px 30px hsl(var(--primary) / 0.2);
   }
 }
 
@@ -72,63 +76,219 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  /* Default to dark mode */
+  /* Default to dark mode for UFO theme */
   html {
     @apply dark;
   }
 }
 
 @layer components {
-  /* Professional Text Styling */
+  /* Professional Typography */
   .text-professional {
     color: hsl(var(--foreground));
     font-weight: 500;
     letter-spacing: 0.025em;
+    line-height: 1.5;
   }
   
   .text-readable {
     color: hsl(var(--muted-foreground));
-    line-height: 1.6;
+    line-height: 1.7;
     font-weight: 400;
   }
 
-  /* Subtle UFO Effects */
-  .subtle-glow {
-    box-shadow: var(--subtle-glow);
-  }
-  
   .text-glow {
     text-shadow: var(--text-glow);
+    color: hsl(var(--primary));
+    font-weight: 600;
   }
 
-  .professional-gradient {
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.8), hsl(var(--primary) / 0.6));
+  .text-contrast {
+    color: hsl(var(--foreground));
+    font-weight: 500;
+    text-shadow: 0 1px 2px hsl(var(--background) / 0.8);
   }
 
-  .card-professional {
-    background: hsl(var(--card) / 0.95);
+  /* Professional UFO Effects */
+  .ufo-gradient {
+    background: linear-gradient(135deg, 
+      hsl(var(--primary) / 1) 0%, 
+      hsl(var(--ufo-orange-bright) / 0.9) 50%, 
+      hsl(var(--primary) / 1) 100%);
+    color: hsl(var(--primary-foreground));
+    font-weight: 600;
+    box-shadow: 
+      0 4px 20px hsl(var(--primary) / 0.3),
+      inset 0 1px 0 hsl(var(--primary) / 0.2);
+  }
+
+  .ufo-gradient:hover {
+    background: linear-gradient(135deg, 
+      hsl(var(--ufo-orange-bright) / 1) 0%, 
+      hsl(var(--primary) / 0.95) 50%, 
+      hsl(var(--ufo-orange-bright) / 1) 100%);
+    box-shadow: 
+      0 6px 25px hsl(var(--primary) / 0.4),
+      inset 0 1px 0 hsl(var(--primary) / 0.3);
+  }
+
+  .glow-border {
     border: 1px solid hsl(var(--border));
-    backdrop-filter: blur(8px);
+    box-shadow: var(--card-glow);
+    backdrop-filter: blur(12px);
+    background: hsl(var(--card) / 0.95);
   }
 
-  /* UFO Animation */
+  .glow-border:hover {
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: var(--hover-glow);
+  }
+
+  .cosmic-sparkle {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cosmic-sparkle::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: 
+      radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.05) 1px, transparent 1px),
+      radial-gradient(circle at 80% 70%, hsl(var(--cosmic-blue) / 0.03) 1px, transparent 1px),
+      radial-gradient(circle at 40% 80%, hsl(var(--alien-green) / 0.03) 1px, transparent 1px);
+    background-size: 80px 80px, 120px 120px, 100px 100px;
+    animation: sparkle 20s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Professional Glassmorphism */
+  .glass-card {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 
+      0 8px 32px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(var(--card) / 0.8);
+  }
+
+  .glass-button {
+    background: hsl(var(--background) / 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border));
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-button:hover {
+    background: hsl(var(--primary) / 0.1);
+    border-color: hsl(var(--primary) / 0.4);
+    box-shadow: 0 4px 20px hsl(var(--primary) / 0.2);
+  }
+
+  /* Dynamic Animations */
   .ufo-float {
     animation: ufo-float 6s ease-in-out infinite;
   }
 
+  .ufo-pulse {
+    animation: ufo-pulse 2s ease-in-out infinite;
+  }
+
+  .ufo-rotate {
+    animation: ufo-rotate 10s linear infinite;
+  }
+
+  .fade-in-up {
+    animation: fade-in-up 0.6s ease-out forwards;
+  }
+
+  .scale-in {
+    animation: scale-in 0.4s ease-out forwards;
+  }
+
+  .slide-in-right {
+    animation: slide-in-right 0.5s ease-out forwards;
+  }
+
+  /* Professional Status Indicators */
+  .status-online {
+    @apply bg-green-500;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 8px hsl(120 100% 50% / 0.4);
+  }
+
+  .status-busy {
+    @apply bg-red-500;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 8px hsl(0 100% 50% / 0.4);
+  }
+
+  .status-away {
+    @apply bg-yellow-500;
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 8px hsl(50 100% 50% / 0.4);
+  }
+
+  /* Enhanced Interactive Elements */
+  .interactive-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+  }
+
+  .interactive-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+      0 12px 40px hsl(var(--primary) / 0.15),
+      0 4px 16px hsl(var(--primary) / 0.1);
+  }
+
+  .professional-input {
+    background: hsl(var(--background) / 0.5);
+    border: 1px solid hsl(var(--border));
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
+  }
+
+  .professional-input:focus {
+    border-color: hsl(var(--primary) / 0.5);
+    box-shadow: 
+      0 0 0 3px hsl(var(--primary) / 0.1),
+      0 4px 12px hsl(var(--primary) / 0.1);
+    background: hsl(var(--background) / 0.8);
+  }
+
+  /* Improved Readability */
+  .high-contrast-text {
+    color: hsl(var(--foreground));
+    text-shadow: 0 1px 3px hsl(var(--background) / 0.5);
+    font-weight: 500;
+  }
+
+  .readable-muted {
+    color: hsl(var(--muted-foreground));
+    font-weight: 400;
+    opacity: 0.9;
+  }
+}
+
+@layer utilities {
+  /* Animation Keyframes */
   @keyframes ufo-float {
     0%, 100% {
       transform: translateY(0px) rotate(0deg);
     }
-    50% {
-      transform: translateY(-20px) rotate(2deg);
+    25% {
+      transform: translateY(-8px) rotate(1deg);
     }
-  }
-
-  .ufo-pulse {
-    animation: ufo-pulse 2s ease-in-out infinite;
+    50% {
+      transform: translateY(-12px) rotate(0deg);
+    }
+    75% {
+      transform: translateY(-8px) rotate(-1deg);
+    }
   }
 
   @keyframes ufo-pulse {
@@ -142,49 +302,54 @@
     }
   }
 
-  /* Cosmic sparkle animation */
-  .cosmic-sparkle {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .cosmic-sparkle::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, hsl(var(--primary) / 0.1) 1px, transparent 1px);
-    background-size: 50px 50px;
-    animation: sparkle 10s linear infinite;
+  @keyframes ufo-rotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   @keyframes sparkle {
     0% {
-      transform: translateX(0) translateY(0);
+      transform: translateX(0) translateY(0) rotate(0deg);
     }
     100% {
-      transform: translateX(-50px) translateY(-50px);
+      transform: translateX(-100px) translateY(-100px) rotate(360deg);
     }
   }
 
-  /* Professional borders */
-  .professional-border {
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 1px 3px hsl(var(--primary) / 0.05);
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
-  .professional-border:hover {
-    border-color: hsl(var(--primary) / 0.3);
-    box-shadow: 0 1px 3px hsl(var(--primary) / 0.1);
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
-  /* Improved readability */
-  .readable-text {
-    color: hsl(var(--muted-foreground));
-    font-size: 0.95rem;
-    line-height: 1.6;
-    font-weight: 400;
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 }
