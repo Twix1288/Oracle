@@ -24,13 +24,27 @@ export const AccessCodeManager = () => {
   const [newCode, setNewCode] = useState({
     role: 'builder' as UserRole,
     code: '',
-    description: ''
+    description: '',
+    team_id: undefined as string | undefined
   });
   const [showCodes, setShowCodes] = useState<Record<string, boolean>>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch teams
+  const { data: teams } = useQuery({
+    queryKey: ['teams'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Fetch access codes
   const { data: accessCodes = [], isLoading } = useQuery({
@@ -56,7 +70,7 @@ export const AccessCodeManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['access_codes'] });
-      setNewCode({ role: 'builder', code: '', description: '' });
+      setNewCode({ role: 'builder', code: '', description: '', team_id: undefined });
       toast({
         title: "Access code created",
         description: "New access code has been generated successfully.",
@@ -119,8 +133,11 @@ export const AccessCodeManager = () => {
   };
 
   const handleCreateCode = () => {
-    if (newCode.code && newCode.role) {
-      createCodeMutation.mutate(newCode);
+    if (newCode.code && newCode.role && newCode.description) {
+      createCodeMutation.mutate({
+        ...newCode,
+        team_id: newCode.role === 'builder' ? newCode.team_id : null
+      });
     }
   };
 
@@ -168,14 +185,14 @@ export const AccessCodeManager = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Role</label>
+              <label className="text-sm font-medium text-foreground">Role</label>
               <Select 
                 value={newCode.role} 
                 onValueChange={(value: UserRole) => setNewCode(prev => ({ ...prev, role: value }))}
               >
-                <SelectTrigger className="bg-background/50 border-primary/20">
+                <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -187,39 +204,58 @@ export const AccessCodeManager = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Access Code</label>
+              <label className="text-sm font-medium text-foreground">User Name</label>
+              <Input
+                value={newCode.description}
+                onChange={(e) => setNewCode(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter user's full name"
+                className="bg-background border-border text-foreground"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Team (Builders only)</label>
+              <Select 
+                value={newCode.team_id || ""} 
+                onValueChange={(value) => setNewCode(prev => ({ ...prev, team_id: value || undefined }))}
+                disabled={newCode.role !== 'builder'}
+              >
+                <SelectTrigger className="bg-background border-border text-foreground">
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Access Code</label>
               <div className="flex gap-2">
                 <Input
                   value={newCode.code}
                   onChange={(e) => setNewCode(prev => ({ ...prev, code: e.target.value }))}
-                  placeholder="Enter custom code"
-                  className="bg-background/50 border-primary/20"
+                  placeholder="Auto-generated"
+                  className="bg-background border-border text-foreground"
+                  readOnly
                 />
                 <Button 
                   variant="outline" 
                   onClick={generateRandomCode}
-                  className="border-primary/30 hover:border-primary/50"
+                  className="border-border text-foreground hover:bg-muted"
                 >
                   Generate
                 </Button>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description (Optional)</label>
-              <Input
-                value={newCode.description}
-                onChange={(e) => setNewCode(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="e.g., Team Alpha access"
-                className="bg-background/50 border-primary/20"
-              />
-            </div>
           </div>
 
           <Button 
             onClick={handleCreateCode}
-            disabled={!newCode.code || !newCode.role || createCodeMutation.isPending}
-            className="ufo-gradient"
+            disabled={!newCode.code || !newCode.role || !newCode.description || createCodeMutation.isPending}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {createCodeMutation.isPending ? "Creating..." : "Create Access Code"}
           </Button>

@@ -117,34 +117,16 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
   const handleCodeSubmit = () => {
     if (!selectedRole || !code.trim()) return;
 
-    // For builders, we need both code and team selection
-    if (selectedRole === 'builder') {
-      if (!builderName.trim()) {
-        setError("Please enter your name");
-        return;
-      }
-      if (!selectedTeamId) {
-        setError("Please select your team");
-        return;
-      }
-    }
-
-    // Find valid access code
-    const validCode = accessCodes?.find(ac => {
-      if (selectedRole === 'builder') {
-        // For builders, check team-specific codes
-        return ac.role === selectedRole && ac.code === code.trim() && ac.team_id === selectedTeamId;
-      } else {
-        // For other roles, check global codes (no team_id)
-        return ac.role === selectedRole && ac.code === code.trim() && !ac.team_id;
-      }
-    });
+    // Find valid access code for any role
+    const validCode = accessCodes?.find(ac => ac.role === selectedRole && ac.code === code.trim());
 
     if (validCode) {
       if (selectedRole === 'builder') {
-        const team = teams?.find(t => t.id === selectedTeamId);
-        if (team) {
+        // For builders, use the name and team from the access code
+        const team = teams?.find(t => t.id === validCode.team_id);
+        if (team && validCode.description) {
           setValidatedAccess({ code: validCode, team });
+          setBuilderName(validCode.description); // Use the name from the access code
           setShowConfirmDialog(true);
           setShowCodeDialog(false);
         }
@@ -155,11 +137,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
       setCode("");
       setError("");
     } else {
-      if (selectedRole === 'builder') {
-        setError("Invalid access code for this team. Please check your code and team selection.");
-      } else {
-        setError("Invalid access code. Please try again.");
-      }
+      setError("Invalid access code. Please try again.");
     }
   };
 
@@ -303,55 +281,21 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
-            {selectedRole === 'builder' && (
-              <>
-                <div>
-                  <Label htmlFor="builder-name" className="text-sm font-medium">Your Name</Label>
-                  <Input
-                    id="builder-name"
-                    value={builderName}
-                    onChange={(e) => setBuilderName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="mt-2"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="team-select" className="text-sm font-medium">Select Your Team</Label>
-                  <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Choose your assigned team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          <div className="flex items-center gap-3">
-                            <Building2 className="w-4 h-4" />
-                            <div>
-                              <div className="font-medium">{team.name}</div>
-                              <div className="text-xs text-muted-foreground">{team.stage}</div>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-            
             <div>
-              <Label htmlFor="access-code" className="text-sm font-medium">
-                {selectedRole === 'builder' ? 'Team Access Code' : 'Access Code'}
+              <Label htmlFor="access-code" className="text-sm font-medium text-foreground">
+                Access Code
               </Label>
               <Input
                 id="access-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder={selectedRole === 'builder' ? 'Enter your team-specific code' : 'Enter your access code'}
-                className="mt-2 font-mono"
-                autoFocus={selectedRole !== 'builder'}
+                placeholder="Enter your access code"
+                className="mt-2 font-mono bg-background border-border text-foreground"
+                autoFocus
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Your lead provided this code with your name and team assignment
+              </p>
             </div>
             
             {error && (
@@ -369,8 +313,8 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
               </Button>
               <Button 
                 onClick={handleCodeSubmit} 
-                disabled={!code.trim() || (selectedRole === 'builder' && (!builderName.trim() || !selectedTeamId))} 
-                className="px-6"
+                disabled={!code.trim()} 
+                className="px-6 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Continue
               </Button>

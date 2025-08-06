@@ -39,26 +39,26 @@
   }
 
   .dark {
-    /* Professional Dark Theme with Enhanced Contrast */
-    --background: 230 35% 5%; /* Darker for better contrast */
-    --foreground: 210 40% 98%; /* Brighter text */
-    --card: 230 30% 8%; /* Better card contrast */
-    --card-foreground: 210 40% 95%;
-    --popover: 230 30% 8%;
-    --popover-foreground: 210 40% 95%;
-    --primary: 25 95% 58%; /* Brighter orange for visibility */
-    --primary-foreground: 230 35% 5%;
-    --secondary: 230 25% 12%; /* Better secondary contrast */
-    --secondary-foreground: 210 40% 90%;
-    --muted: 230 25% 10%; /* Improved muted background */
-    --muted-foreground: 215 25% 80%; /* Much better text contrast */
-    --accent: 230 25% 12%;
-    --accent-foreground: 210 40% 90%;
-    --destructive: 0 63% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 230 25% 18%; /* More visible borders */
-    --input: 230 25% 15%; /* Better input visibility */
-    --ring: 25 95% 58%;
+    /* Professional Dark Theme with Maximum Contrast */
+    --background: 0 0% 3%; /* Darker for better contrast */
+    --foreground: 0 0% 98%; /* Maximum text contrast */
+    --card: 0 0% 8%; /* Better card contrast */
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 25 95% 60%; /* Brighter orange for visibility */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 12%; /* Better secondary contrast */
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 10%; /* Improved muted background */
+    --muted-foreground: 0 0% 85%; /* Much better text contrast */
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 20%; /* More visible borders */
+    --input: 0 0% 15%; /* Better input visibility */
+    --ring: 25 95% 60%;
 
     /* Professional Dark Effects */
     --text-glow: 0 0 12px hsl(var(--primary) / 0.4);
@@ -95,9 +95,9 @@
   }
   
   .text-readable {
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--foreground));
     line-height: 1.7;
-    font-weight: 400;
+    font-weight: 500;
   }
 
   .text-glow {
@@ -269,8 +269,8 @@
 
   .readable-muted {
     color: hsl(var(--muted-foreground));
-    font-weight: 400;
-    opacity: 0.9;
+    font-weight: 500;
+    opacity: 1;
   }
 }
 

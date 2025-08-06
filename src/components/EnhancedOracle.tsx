@@ -141,12 +141,23 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
           const recipient = match[2];
           const message = match[3];
           if (message && recipient) {
-            // In a real app, you'd send the message through your messaging system
+            // Actually send the message via Supabase
+            const { error } = await supabase.from('messages').insert({
+              sender_id: userId || `${selectedRole}_user`,
+              sender_role: selectedRole,
+              receiver_id: recipient,
+              receiver_role: 'builder', // Default to builder, could be enhanced to detect role
+              content: message,
+              team_id: teamId
+            });
+            
+            if (error) throw error;
+            
             return {
               success: true,
-              message: `✅ Message sent to ${recipient}: "${message}"`,
+              message: `Message sent to ${recipient}: "${message}"`,
               sections: {
-                event: `Message scheduled for delivery to ${recipient}`
+                event: `Message delivered to ${recipient}`
               }
             };
           }
@@ -155,9 +166,24 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
         case 'broadcastUpdate':
           const broadcastMessage = match[2];
           if (broadcastMessage) {
+            // Send broadcast message to all teams
+            const { data: allTeams } = await supabase.from('teams').select('id');
+            if (allTeams) {
+              const broadcasts = allTeams.map(team => ({
+                sender_id: userId || `${selectedRole}_user`,
+                sender_role: selectedRole,
+                receiver_role: 'builder' as UserRole,
+                content: `BROADCAST: ${broadcastMessage}`,
+                team_id: team.id
+              }));
+              
+              const { error } = await supabase.from('messages').insert(broadcasts);
+              if (error) throw error;
+            }
+            
             return {
               success: true,
-              message: `📢 Broadcast sent to all teams: "${broadcastMessage}"`,
+              message: `Broadcast sent to all teams: "${broadcastMessage}"`,
               sections: {
                 event: "Broadcast message delivered to all teams"
               }
