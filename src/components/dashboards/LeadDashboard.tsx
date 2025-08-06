@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Shield, Users, MessageSquare, Activity, Settings, Plus, Eye } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
@@ -23,6 +29,53 @@ interface LeadDashboardProps {
 
 export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }: LeadDashboardProps) => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [teamDescription, setTeamDescription] = useState("");
+  const [teamStage, setTeamStage] = useState<"ideation" | "development" | "testing" | "launch" | "growth">("ideation");
+  const [teamTags, setTeamTags] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreateTeam = async () => {
+    if (!teamName.trim()) {
+      toast.error("Team name is required");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const tagsArray = teamTags.split(",").map(tag => tag.trim()).filter(Boolean);
+      
+      const { data, error } = await supabase
+        .from("teams")
+        .insert({
+          name: teamName,
+          description: teamDescription || null,
+          stage: teamStage as "ideation" | "development" | "testing" | "launch" | "growth",
+          tags: tagsArray.length > 0 ? tagsArray : null
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success(`Team "${teamName}" created successfully!`);
+      
+      // Reset form
+      setTeamName("");
+      setTeamDescription("");
+      setTeamStage("ideation");
+      setTeamTags("");
+      setIsCreateTeamOpen(false);
+      
+      // Refresh page to show new team
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(`Failed to create team: ${error.message}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const getEngagementMetrics = () => {
     const totalTeams = teams.length;
@@ -133,10 +186,72 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-semibold">Team Management</h3>
-              <Button className="ufo-gradient">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Team
-              </Button>
+              <Dialog open={isCreateTeamOpen} onOpenChange={setIsCreateTeamOpen}>
+                <DialogTrigger asChild>
+                  <Button className="ufo-gradient">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Team
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Team</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="teamName">Team Name *</Label>
+                      <Input
+                        id="teamName"
+                        value={teamName}
+                        onChange={(e) => setTeamName(e.target.value)}
+                        placeholder="Enter team name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="teamDescription">Description</Label>
+                      <Textarea
+                        id="teamDescription"
+                        value={teamDescription}
+                        onChange={(e) => setTeamDescription(e.target.value)}
+                        placeholder="Brief team description"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="teamStage">Stage</Label>
+                      <Select value={teamStage} onValueChange={(value: any) => setTeamStage(value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ideation">Ideation</SelectItem>
+                          <SelectItem value="development">Development</SelectItem>
+                          <SelectItem value="testing">Testing</SelectItem>
+                          <SelectItem value="launch">Launch</SelectItem>
+                          <SelectItem value="growth">Growth</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="teamTags">Tags</Label>
+                      <Input
+                        id="teamTags"
+                        value={teamTags}
+                        onChange={(e) => setTeamTags(e.target.value)}
+                        placeholder="ai, health, mobile (comma separated)"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateTeam} disabled={isCreating}>
+                      {isCreating ? "Creating..." : "Create Team"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             <TeamDashboard 
               teams={teams} 
