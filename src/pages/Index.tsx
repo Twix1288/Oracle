@@ -104,8 +104,12 @@ function Index() {
             members={members || []}
             updates={updates || []}
             teamStatuses={teamStatuses}
-            onSubmitUpdate={submitUpdate}
-            onQueryRAG={handleQueryRAG}
+            onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
+              submitUpdate({ teamId, content, type, createdBy })
+            }
+            onQueryRAG={(params: { query: string; role: UserRole }) => 
+              queryRAG(params)
+            }
             ragResponse={ragResponse}
             ragLoading={ragLoading}
             onLeaveTeam={handleLeaveTeam}
@@ -119,10 +123,12 @@ function Index() {
             selectedRole={selectedRole}
             builderId="current-builder"
             teamId={teams?.[0]?.id}
-            onSubmitUpdate={submitUpdate}
-            onQueryRAG={handleQueryRAG}
-            ragResponse={ragResponse}
-            ragLoading={ragLoading}
+            onSubmitUpdate={(update: any) => 
+              submitUpdate(update)
+            }
+            onQueryRAG={(query: string, role: UserRole) => 
+              queryRAG({ query, role })
+            }
             onExit={() => setSelectedRole(null)}
           />
         );

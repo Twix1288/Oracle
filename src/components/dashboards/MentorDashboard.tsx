@@ -204,7 +204,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         </TabsContent>
 
         <TabsContent value="messages">
-          <MessagingCenter role="mentor" userId={mentorId} />
+          <MessagingCenter userRole="mentor" userId={mentorId} />
         </TabsContent>
 
         <TabsContent value="oracle">

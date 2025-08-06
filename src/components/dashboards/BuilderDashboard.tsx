@@ -299,10 +299,9 @@ export const BuilderDashboard = ({
         <TabsContent value="updates">
           {builderTeam && onSubmitUpdate ? (
             <ProgressTracker 
+              team={builderTeam}
               updates={teamUpdates} 
-              teams={[builderTeam]} 
-              onSubmitUpdate={onSubmitUpdate}
-              selectedRole="builder" 
+              userRole="builder"
             />
           ) : (
             <Card className="glow-border bg-card/50 backdrop-blur">
@@ -326,7 +325,7 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="messages">
-          <MessagingCenter role="builder" userId={builderId} teamId={teamId} />
+          <MessagingCenter userRole="builder" userId={builderId} teamId={teamId} />
         </TabsContent>
 
         <TabsContent value="team">

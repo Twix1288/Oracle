@@ -87,6 +87,9 @@ export const EnhancedBuilderDashboard = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
       <DashboardHeader 
+        role="builder"
+        userName={builderName}
+        teamName={currentTeam.name}
         onExit={onLeaveTeam}
       />
       
