@@ -4,213 +4,406 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Send, Users, Clock } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  MessageSquare, 
+  Send, 
+  Users, 
+  Radio,
+  Eye,
+  Clock,
+  User,
+  Sparkles
+} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserRole } from "@/types/oracle";
 
-interface MessagingCenterProps {
-  role: UserRole;
-  userId?: string;
-  teamId?: string;
-}
-
 interface Message {
   id: string;
+  sender_id: string;
   sender_role: UserRole;
-  receiver_role: UserRole;
-  sender_id?: string;
   receiver_id?: string;
+  receiver_role: UserRole;
   team_id?: string;
   content: string;
   read_at?: string;
   created_at: string;
 }
 
-export const MessagingCenter = ({ role, userId, teamId }: MessagingCenterProps) => {
+interface MessagingCenterProps {
+  userRole: UserRole;
+  userId: string;
+  teamId?: string;
+}
+
+const roleColors = {
+  builder: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  mentor: 'bg-green-500/10 text-green-400 border-green-500/20',
+  lead: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  guest: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+};
+
+export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("inbox");
+  const { toast } = useToast();
+
+  // New message form
   const [newMessage, setNewMessage] = useState({
-    receiver_role: 'mentor' as UserRole,
-    receiver_id: '',
-    content: ''
-  });
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  // Fetch messages
-  const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['messages', role, userId, teamId],
-    queryFn: async () => {
-      let query = supabase.from('messages').select('*').order('created_at', { ascending: false });
-      
-      // Filter based on role and access
-      if (role === 'builder' && teamId) {
-        query = query.eq('team_id', teamId);
-      }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Message[];
-    },
+    receiverId: "",
+    receiverRole: "mentor" as UserRole,
+    content: "",
+    isBroadcast: false
   });
 
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (messageData: any) => {
+  useEffect(() => {
+    fetchMessages();
+    
+    // Subscribe to real-time message updates
+    const channel = supabase
+      .channel('message-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          const newMsg = payload.new as Message;
+          if (shouldReceiveMessage(newMsg)) {
+            setMessages(prev => [newMsg, ...prev]);
+            
+            // Show toast for new messages
+            if (newMsg.sender_id !== userId) {
+              toast({
+                title: "New Message",
+                description: `From ${newMsg.sender_role}: ${newMsg.content.slice(0, 50)}...`,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, userRole, teamId]);
+
+  const shouldReceiveMessage = (message: Message) => {
+    // Check if this user should receive the message based on role and team
+    return (
+      message.receiver_id === userId ||
+      message.receiver_role === userRole ||
+      (message.team_id === teamId && !message.receiver_id) // Team broadcasts
+    );
+  };
+
+  const fetchMessages = async () => {
+    try {
       const { data, error } = await supabase
         .from('messages')
-        .insert([{
-          sender_role: role,
-          sender_id: userId,
-          team_id: teamId,
-          ...messageData
-        }]);
+        .select('*')
+        .or(`receiver_id.eq.${userId},sender_id.eq.${userId},receiver_role.eq.${userRole}`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
       if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
-      setNewMessage({ receiver_role: 'mentor', receiver_id: '', content: '' });
-    },
-  });
-
-  const handleSendMessage = () => {
-    if (newMessage.content.trim()) {
-      sendMessageMutation.mutate(newMessage);
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
     }
   };
 
-  const getRoleColor = (userRole: UserRole) => {
-    switch (userRole) {
-      case 'lead': return 'bg-purple-500/20 text-purple-300';
-      case 'mentor': return 'bg-green-500/20 text-green-300';
-      case 'builder': return 'bg-blue-500/20 text-blue-300';
-      default: return 'bg-gray-500/20 text-gray-300';
+  const sendMessage = async () => {
+    if (!newMessage.content.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      const messageData = {
+        sender_id: userId,
+        sender_role: userRole,
+        content: newMessage.content,
+        receiver_role: newMessage.receiverRole,
+        ...(newMessage.isBroadcast ? {} : { receiver_id: newMessage.receiverId }),
+        ...(teamId && { team_id: teamId })
+      };
+
+      const { error } = await supabase
+        .from('messages')
+        .insert([messageData]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Message Sent",
+        description: newMessage.isBroadcast 
+          ? `Broadcast sent to all ${newMessage.receiverRole}s`
+          : `Message sent to ${newMessage.receiverRole}`,
+      });
+
+      setNewMessage({
+        receiverId: "",
+        receiverRole: "mentor",
+        content: "",
+        isBroadcast: false
+      });
+
+      fetchMessages();
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Send Failed",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const canSendTo = (receiverRole: UserRole) => {
-    if (role === 'lead') return true;
-    if (role === 'mentor') return ['builder', 'lead'].includes(receiverRole);
-    if (role === 'builder') return ['mentor', 'lead'].includes(receiverRole);
-    return false;
+  const markAsRead = async (messageId: string) => {
+    try {
+      await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', messageId);
+      
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, read_at: new Date().toISOString() }
+            : msg
+        )
+      );
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+    }
   };
+
+  const canSendMessages = () => {
+    return userRole === 'mentor' || userRole === 'lead';
+  };
+
+  const canBroadcast = () => {
+    return userRole === 'mentor' || userRole === 'lead';
+  };
+
+  const receivedMessages = messages.filter(msg => 
+    msg.receiver_id === userId || 
+    msg.receiver_role === userRole ||
+    (msg.team_id === teamId && !msg.receiver_id)
+  );
+
+  const sentMessages = messages.filter(msg => msg.sender_id === userId);
+
+  const renderMessage = (message: Message) => (
+    <Card key={message.id} className={`glow-border ${
+      !message.read_at && message.sender_id !== userId 
+        ? 'bg-primary/5 border-primary/30' 
+        : 'bg-card/50'
+    }`}>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/20">
+              {message.sender_id === userId ? <Send className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">
+                  {message.sender_id === userId ? 'You' : `${message.sender_role}`}
+                </span>
+                <Badge className={roleColors[message.sender_role]}>
+                  {message.sender_role}
+                </Badge>
+                {message.receiver_id ? (
+                  <span className="text-xs text-muted-foreground">
+                    → {message.receiver_role}
+                  </span>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    <Radio className="h-3 w-3 mr-1" />
+                    Broadcast
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {new Date(message.created_at).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          
+          {!message.read_at && message.sender_id !== userId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => markAsRead(message.id)}
+              className="text-xs"
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              Mark Read
+            </Button>
+          )}
+        </div>
+
+        <p className="text-sm leading-relaxed">{message.content}</p>
+
+        {message.read_at && message.sender_id === userId && (
+          <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+            <Eye className="h-3 w-3" />
+            Read {new Date(message.read_at).toLocaleString()}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <div className="p-3 rounded-full bg-primary/20">
+        <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
           <MessageSquare className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold">Communication Center</h2>
-          <p className="text-muted-foreground">Connect with your team and mentors</p>
+          <h2 className="text-2xl font-bold text-glow">Team Communication</h2>
+          <p className="text-muted-foreground">Connect with mentors, leads, and team members</p>
         </div>
+        <Badge className="bg-primary/20 text-primary border-primary/30">
+          {userRole} Access
+        </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Send Message */}
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5 text-primary" />
-              Send Message
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">To:</label>
-              <Select 
-                value={newMessage.receiver_role} 
-                onValueChange={(value: UserRole) => setNewMessage(prev => ({ ...prev, receiver_role: value }))}
-              >
-                <SelectTrigger className="bg-background/50 border-primary/20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {role !== 'lead' && canSendTo('lead') && (
-                    <SelectItem value="lead">Lead</SelectItem>
-                  )}
-                  {role !== 'mentor' && canSendTo('mentor') && (
-                    <SelectItem value="mentor">Mentor</SelectItem>
-                  )}
-                  {role !== 'builder' && canSendTo('builder') && (
-                    <SelectItem value="builder">Builder</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 bg-card/50 backdrop-blur border-primary/20">
+          <TabsTrigger value="inbox" className="data-[state=active]:bg-primary/20">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Inbox ({receivedMessages.filter(m => !m.read_at).length})
+          </TabsTrigger>
+          <TabsTrigger value="sent" className="data-[state=active]:bg-primary/20">
+            <Send className="h-4 w-4 mr-2" />
+            Sent
+          </TabsTrigger>
+          {canSendMessages() && (
+            <TabsTrigger value="compose" className="data-[state=active]:bg-primary/20">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Compose
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="inbox" className="space-y-4">
+          {receivedMessages.length === 0 ? (
+            <Card className="glow-border bg-card/50">
+              <CardContent className="p-8 text-center">
+                <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No messages yet</h3>
+                <p className="text-muted-foreground">Your inbox is empty. Messages from mentors and team members will appear here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {receivedMessages.map(renderMessage)}
             </div>
+          )}
+        </TabsContent>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Message:</label>
-              <Textarea
-                value={newMessage.content}
-                onChange={(e) => setNewMessage(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="Type your message..."
-                className="bg-background/50 border-primary/20 min-h-[100px]"
-              />
+        <TabsContent value="sent" className="space-y-4">
+          {sentMessages.length === 0 ? (
+            <Card className="glow-border bg-card/50">
+              <CardContent className="p-8 text-center">
+                <Send className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No sent messages</h3>
+                <p className="text-muted-foreground">Messages you send will appear here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {sentMessages.map(renderMessage)}
             </div>
+          )}
+        </TabsContent>
 
-            <Button 
-              onClick={handleSendMessage}
-              disabled={!newMessage.content.trim() || sendMessageMutation.isPending}
-              className="w-full ufo-gradient"
-            >
-              {sendMessageMutation.isPending ? (
-                "Sending..."
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Message
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Recent Messages */}
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Recent Messages
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <p className="text-muted-foreground">Loading messages...</p>
-            ) : messages.length === 0 ? (
-              <p className="text-muted-foreground">No messages yet</p>
-            ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {messages.slice(0, 10).map((message) => (
-                  <div 
-                    key={message.id} 
-                    className="p-3 rounded-lg bg-background/30 border border-primary/10 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge className={getRoleColor(message.sender_role)} variant="outline">
-                          {message.sender_role}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">→</span>
-                        <Badge className={getRoleColor(message.receiver_role)} variant="outline">
-                          {message.receiver_role}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {new Date(message.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+        {canSendMessages() && (
+          <TabsContent value="compose">
+            <Card className="glow-border bg-card/50">
+              <CardHeader>
+                <CardTitle>Send Message</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Recipient Role</label>
+                    <select
+                      value={newMessage.receiverRole}
+                      onChange={(e) => setNewMessage({ ...newMessage, receiverRole: e.target.value as UserRole })}
+                      className="w-full p-3 rounded-lg bg-background border border-border focus:border-primary/50"
+                    >
+                      <option value="builder">Builder</option>
+                      <option value="mentor">Mentor</option>
+                      <option value="lead">Lead</option>
+                      <option value="guest">Guest</option>
+                    </select>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+                  {!newMessage.isBroadcast && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Recipient ID (Optional)</label>
+                      <Input
+                        placeholder="Specific user ID"
+                        value={newMessage.receiverId}
+                        onChange={(e) => setNewMessage({ ...newMessage, receiverId: e.target.value })}
+                        className="bg-background/50 border-border focus:border-primary/50"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {canBroadcast() && (
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="broadcast"
+                      checked={newMessage.isBroadcast}
+                      onChange={(e) => setNewMessage({ ...newMessage, isBroadcast: e.target.checked })}
+                      className="rounded border-border"
+                    />
+                    <label htmlFor="broadcast" className="text-sm font-medium">
+                      Send as broadcast to all {newMessage.receiverRole}s
+                    </label>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Message</label>
+                  <Textarea
+                    placeholder="Type your message..."
+                    value={newMessage.content}
+                    onChange={(e) => setNewMessage({ ...newMessage, content: e.target.value })}
+                    className="min-h-[120px] bg-background/50 border-border focus:border-primary/50"
+                  />
+                </div>
+
+                <Button
+                  onClick={sendMessage}
+                  disabled={isLoading || !newMessage.content.trim()}
+                  className="w-full ufo-gradient hover:opacity-90"
+                >
+                  {isLoading ? (
+                    <Clock className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  {newMessage.isBroadcast ? 'Send Broadcast' : 'Send Message'}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 };
