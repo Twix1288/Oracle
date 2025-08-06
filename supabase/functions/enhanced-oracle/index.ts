@@ -17,6 +17,127 @@ interface EnhancedQueryRequest {
   commandResult?: any;
 }
 
+interface CommandResult {
+  executed: boolean;
+  type?: string;
+  message: string;
+  data?: any;
+}
+
+async function executeCommand(query: string, role: string, teamId?: string, userId?: string, supabase?: any): Promise<CommandResult> {
+  const lowerQuery = query.toLowerCase();
+  
+  // Command: Send message
+  if (lowerQuery.includes('send message') || lowerQuery.includes('message to')) {
+    const messageMatch = query.match(/(?:send message to|message to) (\w+)(?:s?)(?:: | saying )(.+)/i);
+    if (messageMatch) {
+      const targetRole = messageMatch[1].toLowerCase();
+      const content = messageMatch[2].trim();
+      
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            sender_id: userId || 'oracle',
+            sender_role: role,
+            receiver_role: targetRole,
+            receiver_id: targetRole === 'builder' && teamId ? teamId : 'all',
+            content: content,
+            team_id: teamId
+          });
+        
+        if (error) throw error;
+        
+        return {
+          executed: true,
+          type: 'sendMessage',
+          message: `✅ Message sent to ${targetRole}s: "${content}"`,
+          data: { targetRole, content }
+        };
+      } catch (error) {
+        return {
+          executed: true,
+          type: 'sendMessage',
+          message: `❌ Failed to send message: ${error.message}`,
+        };
+      }
+    }
+  }
+  
+  // Command: Create update
+  if (lowerQuery.includes('create update') || lowerQuery.includes('add update') || lowerQuery.includes('post update')) {
+    const updateMatch = query.match(/(?:create update|add update|post update)(?:: | saying )(.+)/i);
+    if (updateMatch && teamId) {
+      const content = updateMatch[1].trim();
+      const updateType = lowerQuery.includes('milestone') ? 'milestone' : 'daily';
+      
+      try {
+        const { data, error } = await supabase
+          .from('updates')
+          .insert({
+            team_id: teamId,
+            content: content,
+            type: updateType,
+            created_by: userId || 'oracle'
+          });
+        
+        if (error) throw error;
+        
+        return {
+          executed: true,
+          type: 'createUpdate',
+          message: `✅ Update created: "${content}"`,
+          data: { content, type: updateType }
+        };
+      } catch (error) {
+        return {
+          executed: true,
+          type: 'createUpdate',
+          message: `❌ Failed to create update: ${error.message}`,
+        };
+      }
+    }
+  }
+  
+  // Command: Update status
+  if (lowerQuery.includes('update status') || lowerQuery.includes('change status') || lowerQuery.includes('set status')) {
+    const statusMatch = query.match(/(?:update status|change status|set status)(?:: | to )(.+)/i);
+    if (statusMatch && teamId) {
+      const newStatus = statusMatch[1].trim();
+      
+      try {
+        const { data, error } = await supabase
+          .from('team_status')
+          .upsert({
+            team_id: teamId,
+            current_status: newStatus,
+            last_update: new Date().toISOString()
+          });
+        
+        if (error) throw error;
+        
+        return {
+          executed: true,
+          type: 'updateStatus',
+          message: `✅ Team status updated to: "${newStatus}"`,
+          data: { status: newStatus }
+        };
+      } catch (error) {
+        return {
+          executed: true,
+          type: 'updateStatus',
+          message: `❌ Failed to update status: ${error.message}`,
+        };
+      }
+    }
+  }
+  
+  return {
+    executed: false,
+    message: ''
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -45,6 +166,23 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const startTime = Date.now();
+
+    // Check for and execute commands first
+    const commandResult = await executeCommand(query, role, teamId, userId, supabase);
+    if (commandResult.executed) {
+      return new Response(
+        JSON.stringify({
+          answer: commandResult.message,
+          sources: 0,
+          context_used: false,
+          processing_time: Date.now() - startTime,
+          command_executed: true,
+          command_type: commandResult.type,
+          command_data: commandResult.data
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Generate query embedding
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
