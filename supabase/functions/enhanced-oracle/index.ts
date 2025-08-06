@@ -28,8 +28,8 @@ async function executeCommand(query: string, role: string, teamId?: string, user
   const lowerQuery = query.toLowerCase();
   
   // Command: Send message
-  if (lowerQuery.includes('send message') || lowerQuery.includes('message to')) {
-    const messageMatch = query.match(/(?:send message to|message to) (\w+)(?:s?)(?:: | saying )(.+)/i);
+  if (lowerQuery.includes('send') && (lowerQuery.includes('message to') || lowerQuery.includes('this message to'))) {
+    const messageMatch = query.match(/(?:send (?:this )?message to|message to) (\w+)(?:s?)(?:: | saying |: )(.+)/i);
     if (messageMatch) {
       const targetRole = messageMatch[1].toLowerCase();
       const content = messageMatch[2].trim();
@@ -65,8 +65,8 @@ async function executeCommand(query: string, role: string, teamId?: string, user
   }
   
   // Command: Create update
-  if (lowerQuery.includes('create update') || lowerQuery.includes('add update') || lowerQuery.includes('post update')) {
-    const updateMatch = query.match(/(?:create update|add update|post update)(?:: | saying )(.+)/i);
+  if (lowerQuery.includes('create update') || lowerQuery.includes('add update') || lowerQuery.includes('post update') || lowerQuery.includes('log update')) {
+    const updateMatch = query.match(/(?:create update|add update|post update|log update)(?:: | saying |: )(.+)/i);
     if (updateMatch && teamId) {
       const content = updateMatch[1].trim();
       const updateType = lowerQuery.includes('milestone') ? 'milestone' : 'daily';
