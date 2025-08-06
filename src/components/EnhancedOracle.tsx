@@ -43,14 +43,17 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
   builder: {
     canViewTeamData: true,
     canEditOwnProgress: true,
-    canSendMessages: false,
+    canSendMessages: true, // Everyone can send messages
     canChangeOracleState: false
   },
   lead: {
     canViewTeamData: true,
     canEditOwnProgress: true,
     canSendMessages: true,
-    canChangeOracleState: true
+    canChangeOracleState: true,
+    canViewAllTeams: true,
+    canSendBroadcasts: true,
+    canEditAnyTeam: true
   },
   mentor: {
     canViewTeamData: true,
@@ -63,7 +66,7 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
   guest: {
     canViewTeamData: false,
     canEditOwnProgress: false,
-    canSendMessages: false,
+    canSendMessages: true, // Everyone can send messages
     canChangeOracleState: false
   }
 };
