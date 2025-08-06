@@ -168,17 +168,17 @@ serve(async (req) => {
     const startTime = Date.now();
 
     // Check for and execute commands first
-    const commandResult = await executeCommand(query, role, teamId, userId, supabase);
-    if (commandResult.executed) {
+    const commandExecutionResult = await executeCommand(query, role, teamId, userId, supabase);
+    if (commandExecutionResult.executed) {
       return new Response(
         JSON.stringify({
-          answer: commandResult.message,
+          answer: commandExecutionResult.message,
           sources: 0,
           context_used: false,
           processing_time: Date.now() - startTime,
           command_executed: true,
-          command_type: commandResult.type,
-          command_data: commandResult.data
+          command_type: commandExecutionResult.type,
+          command_data: commandExecutionResult.data
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
