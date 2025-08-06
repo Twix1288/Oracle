@@ -31,8 +31,18 @@ async function executeCommand(query: string, role: string, teamId?: string, user
   if (lowerQuery.includes('send') && (lowerQuery.includes('message to') || lowerQuery.includes('this message to'))) {
     const messageMatch = query.match(/(?:send (?:this )?message to|message to) (\w+)(?:s?)(?:: | saying |: )(.+)/i);
     if (messageMatch) {
-      const targetRole = messageMatch[1].toLowerCase();
+      let targetRole = messageMatch[1].toLowerCase();
       const content = messageMatch[2].trim();
+      
+      // Map plural forms to singular enum values
+      const roleMapping: { [key: string]: string } = {
+        'leads': 'lead',
+        'builders': 'builder', 
+        'mentors': 'mentor',
+        'guests': 'guest'
+      };
+      
+      targetRole = roleMapping[targetRole] || targetRole;
       
       try {
         const { data, error } = await supabase
