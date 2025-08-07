@@ -105,10 +105,68 @@ export type Database = {
           },
         ]
       }
+      builder_onboarding: {
+        Row: {
+          builder_member_id: string | null
+          created_at: string
+          current_challenges: string[] | null
+          embedding: string | null
+          goals: string[] | null
+          id: string
+          notes: string | null
+          project_domain: string | null
+          team_id: string | null
+          tech_stack: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          builder_member_id?: string | null
+          created_at?: string
+          current_challenges?: string[] | null
+          embedding?: string | null
+          goals?: string[] | null
+          id?: string
+          notes?: string | null
+          project_domain?: string | null
+          team_id?: string | null
+          tech_stack?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          builder_member_id?: string | null
+          created_at?: string
+          current_challenges?: string[] | null
+          embedding?: string | null
+          goals?: string[] | null
+          id?: string
+          notes?: string | null
+          project_domain?: string | null
+          team_id?: string | null
+          tech_stack?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_onboarding_builder_member_id_fkey"
+            columns: ["builder_member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_onboarding_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           content: string
           created_at: string
+          embedding: string | null
           id: string
           metadata: Json | null
           role_visibility: Database["public"]["Enums"]["user_role"][] | null
@@ -119,6 +177,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          embedding?: string | null
           id?: string
           metadata?: Json | null
           role_visibility?: Database["public"]["Enums"]["user_role"][] | null
@@ -129,6 +188,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          embedding?: string | null
           id?: string
           metadata?: Json | null
           role_visibility?: Database["public"]["Enums"]["user_role"][] | null
@@ -208,6 +268,50 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentor_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          embedding: string | null
+          id: string
+          industries: string[]
+          member_id: string
+          skills: string[]
+          strengths: string | null
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          industries?: string[]
+          member_id: string
+          skills?: string[]
+          strengths?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          industries?: string[]
+          member_id?: string
+          skills?: string[]
+          strengths?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_profiles_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
             referencedColumns: ["id"]
           },
         ]
@@ -417,6 +521,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
       generate_team_access_code: {
         Args: {
           p_team_id: string
@@ -424,6 +532,94 @@ export type Database = {
           p_generated_by?: string
         }
         Returns: string
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {
