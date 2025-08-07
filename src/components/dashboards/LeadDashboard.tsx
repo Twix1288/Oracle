@@ -36,6 +36,11 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
   const [teamTags, setTeamTags] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
+  // Mentor assignment helpers
+  const mentors = members.filter((m) => m.role === "mentor");
+  const [mentorAssignments, setMentorAssignments] = useState<Record<string, string | "none">>(() =>
+    Object.fromEntries(teams.map((t) => [t.id, (t.assigned_mentor_id as string) || "none"]))
+  );
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
       toast.error("Team name is required");
@@ -74,6 +79,20 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
       toast.error(`Failed to create team: ${error.message}`);
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleAssignMentor = async (teamId: string) => {
+    const selected = mentorAssignments[teamId];
+    const payload = selected === "none" ? { assigned_mentor_id: null } : { assigned_mentor_id: selected };
+    try {
+      const { error } = await supabase.from("teams").update(payload).eq("id", teamId);
+      if (error) throw error;
+      toast.success("Mentor assignment updated");
+      // Simple refresh to sync all data sources and Oracle context
+      window.location.reload();
+    } catch (e: any) {
+      toast.error(`Failed to update mentor: ${e.message}`);
     }
   };
 
@@ -259,6 +278,51 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
               members={members} 
               selectedRole="lead" 
             />
+
+            {/* Mentor Assignment System */}
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Assign Mentors to Teams</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {teams.map((team) => (
+                    <div key={team.id} className="p-3 rounded-lg bg-background/30 border border-primary/10 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">{team.name}</h4>
+                        <Badge variant="outline">{team.stage}</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Assigned Mentor</Label>
+                        <Select
+                          value={mentorAssignments[team.id]}
+                          onValueChange={(val) =>
+                            setMentorAssignments((prev) => ({ ...prev, [team.id]: val as any }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select mentor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Unassigned</SelectItem>
+                            {mentors.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button size="sm" onClick={() => handleAssignMentor(team.id)}>
+                          Save
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

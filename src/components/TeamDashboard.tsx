@@ -95,6 +95,22 @@ export const TeamDashboard = ({ teams, teamStatuses, members, selectedRole }: Te
                   <Progress value={stageProgress[team.stage]} className="h-2" />
                 </div>
 
+                {/* Assigned Mentor */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1 text-sm">
+                    <Users className="h-3 w-3" />
+                    <span>Mentor</span>
+                  </div>
+                  {(() => {
+                    const mentor = members.find((m) => m.id === (team.assigned_mentor_id as any));
+                    return mentor ? (
+                      <Badge variant="secondary" className="text-xs">{mentor.name}</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Unassigned</span>
+                    );
+                  })()}
+                </div>
+
                 {/* Team Members */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-1 text-sm">

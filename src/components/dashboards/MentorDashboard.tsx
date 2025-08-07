@@ -221,24 +221,54 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         <TabsContent value="resources">
           <Card className="glow-border bg-card/50 backdrop-blur">
             <CardHeader>
-              <CardTitle>Mentor Resources</CardTitle>
+              <CardTitle>📚 Resources to Guide Your Team</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div>
-                <h4 className="font-medium text-primary">Project Playbooks</h4>
-                <ul className="list-disc pl-5 mt-1 text-muted-foreground">
-                  <li><a className="story-link" href="#" target="_blank" rel="noreferrer">PieFi Mentor Handbook</a></li>
-                  <li><a className="story-link" href="#" target="_blank" rel="noreferrer">Effective Technical Mentoring</a></li>
-                  <li><a className="story-link" href="#" rel="noreferrer">Oracle Usage Guide for Mentors</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-medium text-primary">Ways to Help</h4>
-                <ul className="list-disc pl-5 mt-1 text-muted-foreground">
-                  <li>Review teams’ last 7 days of updates and highlight gaps</li>
-                  <li>Connect teams with shared challenges to peer-review</li>
-                  <li>Host a focused 30-min unblock session on a key risk</li>
-                </ul>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-4 rounded-lg bg-background/30 border border-primary/10 space-y-2">
+                  <h4 className="font-medium text-primary">Team Communication</h4>
+                  <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                    <li><a className="story-link" href="https://www.atlassian.com/blog/teamwork/team-communication" target="_blank" rel="noreferrer">High‑signal updates and async rituals</a></li>
+                    <li><a className="story-link" href="https://basecamp.com/guides/how-we-communicate" target="_blank" rel="noreferrer">Clear writing for faster teams</a></li>
+                    <li><a className="story-link" href="https://www.youtube.com/watch?v=R3G2oS-p9KE" target="_blank" rel="noreferrer">Running effective standups</a></li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-lg bg-background/30 border border-primary/10 space-y-2">
+                  <h4 className="font-medium text-primary">Leadership</h4>
+                  <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                    <li><a className="story-link" href="https://leaddev.com/leadership-skills" target="_blank" rel="noreferrer">Coaching vs. directing</a></li>
+                    <li><a className="story-link" href="https://rework.withgoogle.com/" target="_blank" rel="noreferrer">Feedback frameworks that stick</a></li>
+                    <li><a className="story-link" href="https://www.youtube.com/watch?v=H0_yKBitO8M" target="_blank" rel="noreferrer">One‑on‑ones that unblock</a></li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-lg bg-background/30 border border-primary/10 space-y-2">
+                  <h4 className="font-medium text-primary">Tech Coaching</h4>
+                  <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                    <li><a className="story-link" href="https://martinfowler.com/articles/lean-engineering.html" target="_blank" rel="noreferrer">Lean engineering practices</a></li>
+                    <li><a className="story-link" href="https://kentcdodds.com/blog" target="_blank" rel="noreferrer">Code review that teaches</a></li>
+                    <li><a className="story-link" href="https://www.youtube.com/watch?v=ZJcT9K_1vZQ" target="_blank" rel="noreferrer">Testing in product teams</a></li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-lg bg-background/30 border border-primary/10 space-y-2">
+                  <h4 className="font-medium text-primary">Startup Advising</h4>
+                  <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                    <li><a className="story-link" href="https://www.ycombinator.com/library" target="_blank" rel="noreferrer">YC library: PMF and iterating</a></li>
+                    <li><a className="story-link" href="https://www.youtube.com/watch?v=Hh6nQf2U14w" target="_blank" rel="noreferrer">Prioritization under uncertainty</a></li>
+                    <li><a className="story-link" href="https://www.paulgraham.com/articles.html" target="_blank" rel="noreferrer">Early user development</a></li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-lg bg-background/30 border border-primary/10 space-y-2">
+                  <h4 className="font-medium text-primary">Using Oracle</h4>
+                  <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                    <li>Ask: “Show risks for my teams without updates in 7 days.”</li>
+                    <li>Ask: “Summarize blockers across assigned teams.”</li>
+                    <li>Ask: “Draft guidance for Team X’s current milestone.”</li>
+                  </ul>
+                </div>
               </div>
             </CardContent>
           </Card>
