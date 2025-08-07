@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, RefreshCcw, User, LogOut, LineChart, Target, ClipboardList } from "lucide-react";
+import { Sparkles, LineChart, Target, ClipboardList } from "lucide-react";
 import type { Team, Update } from "@/types/oracle";
 
 interface PieFiOverviewProps {
@@ -31,12 +31,9 @@ export function PieFiOverview({ team, builderName, updates, onPopulateJourney, i
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" className="glass-button"><RefreshCcw className="h-4 w-4 mr-2"/>Refresh Dashboard</Button>
           <Button className="ufo-gradient" onClick={onPopulateJourney} disabled={isPopulating}>
             <ClipboardList className="h-4 w-4 mr-2"/>{isPopulating ? "Populating..." : "Populate Journey"}
           </Button>
-          <Button variant="outline" className="glass-button"><User className="h-4 w-4 mr-2"/>Profile</Button>
-          <Button variant="destructive"><LogOut className="h-4 w-4 mr-2"/>Sign Out</Button>
         </div>
       </div>
 
