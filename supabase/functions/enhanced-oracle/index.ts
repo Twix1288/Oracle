@@ -24,129 +24,253 @@ interface CommandResult {
   data?: any;
 }
 
-async function executeCommand(query: string, role: string, teamId?: string, userId?: string, supabase?: any): Promise<CommandResult> {
+// Uses LLM to extract an actionable intent from natural language
+async function parseIntentWithLLM(openaiKey: string, text: string): Promise<{
+  action: 'send_message' | 'create_update' | 'update_status' | 'none',
+  target_type?: 'role' | 'team',
+  target_value?: string,
+  content?: string,
+  update_text?: string,
+  status_text?: string
+} | null> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an intent parser for the PieFi Oracle. Return ONLY compact JSON with keys: action (send_message | create_update | update_status | none), target_type (role|team), target_value (role or team name), content (message body), update_text, status_text. Infer intent from natural language. If unsure, action: "none".'
+          },
+          { role: 'user', content: text }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content?.trim();
+    if (!raw) return null;
+
+    // Attempt to parse JSON even if wrapped in code fences
+    const jsonStr = raw.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    return JSON.parse(jsonStr);
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function executeCommand(query: string, role: string, teamId?: string, userId?: string, supabase?: any, openaiKey?: string): Promise<CommandResult> {
   const lowerQuery = query.toLowerCase();
-  
-  // Command: Send message
-  if (lowerQuery.includes('send') && (lowerQuery.includes('message to') || lowerQuery.includes('this message to'))) {
-    const messageMatch = query.match(/(?:send (?:this )?message to|message to) (\w+)(?:s?)(?:: | saying |: )(.+)/i);
-    if (messageMatch) {
-      let targetRole = messageMatch[1].toLowerCase();
-      const content = messageMatch[2].trim();
-      
-      // Map plural forms to singular enum values
-      const roleMapping: { [key: string]: string } = {
-        'leads': 'lead',
-        'builders': 'builder', 
-        'mentors': 'mentor',
-        'guests': 'guest'
-      };
-      
-      targetRole = roleMapping[targetRole] || targetRole;
-      
+
+  // Helper: map plural role to enum
+  const roleMapping: { [k: string]: string } = {
+    lead: 'lead', leads: 'lead',
+    builder: 'builder', builders: 'builder',
+    mentor: 'mentor', mentors: 'mentor',
+    guest: 'guest', guests: 'guest',
+  };
+
+  // 1) Command: Send message to a role (plural/singular) like "Send message to leads: ..."
+  const roleMsgMatch = query.match(/(?:send (?:this )?message to|message to)\s+(builders?|mentors?|leads?|guests?)\s*(?::|\s+saying:|\s+saying\s*|:)\s*(.+)$/i);
+  if (roleMsgMatch) {
+    const targetRole = roleMapping[roleMsgMatch[1].toLowerCase()];
+    const content = roleMsgMatch[2].trim();
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: userId || 'oracle',
+          sender_role: role,
+          receiver_role: targetRole,
+          receiver_id: 'all',
+          content,
+          team_id: teamId || null,
+        });
+      if (error) throw error;
+
+      return { executed: true, type: 'sendMessage', message: `✅ Message sent to ${targetRole}s: "${content}"`, data: { targetRole, content } };
+    } catch (error) {
+      return { executed: true, type: 'sendMessage', message: `❌ Failed to send message: ${error.message}` };
+    }
+  }
+
+  // 2) Command: Send message to a team by name, e.g. "Send message to team Oracle: ..." or "message to Oracle: ..."
+  const teamMsgMatch = query.match(/(?:send (?:this )?message to|message to)\s*(?:team\s+)?["']?(.+?)["']?\s*(?::|\s+saying:|\s+saying\s*|:)\s*(.+)$/i);
+  if (teamMsgMatch) {
+    const maybeTarget = (teamMsgMatch[1] || '').trim();
+    const content = teamMsgMatch[2].trim();
+
+    // If the word is actually a known role, skip this branch (handled above)
+    if (!roleMapping[maybeTarget.toLowerCase()]) {
       try {
-        const { data, error } = await supabase
+        const { data: teamRow, error: teamErr } = await supabase
+          .from('teams')
+          .select('id, name')
+          .ilike('name', maybeTarget)
+          .single();
+
+        if (teamErr || !teamRow) {
+          return { executed: true, type: 'sendMessage', message: `❌ Team not found: "${maybeTarget}"` };
+        }
+
+        const { error } = await supabase
           .from('messages')
           .insert({
             sender_id: userId || 'oracle',
             sender_role: role,
-            receiver_role: targetRole,
-            receiver_id: targetRole === 'builder' && teamId ? teamId : 'all',
-            content: content,
-            team_id: teamId
+            receiver_role: 'builder',
+            receiver_id: teamRow.id,
+            content,
+            team_id: teamRow.id,
           });
-        
         if (error) throw error;
-        
-        return {
-          executed: true,
-          type: 'sendMessage',
-          message: `✅ Message sent to ${targetRole}s: "${content}"`,
-          data: { targetRole, content }
-        };
+
+        return { executed: true, type: 'sendMessage', message: `✅ Message sent to team ${teamRow.name}: "${content}"`, data: { team_id: teamRow.id, content } };
       } catch (error) {
-        return {
-          executed: true,
-          type: 'sendMessage',
-          message: `❌ Failed to send message: ${error.message}`,
-        };
+        return { executed: true, type: 'sendMessage', message: `❌ Failed to send message: ${error.message}` };
       }
     }
   }
-  
-  // Command: Create update
-  if (lowerQuery.includes('create update') || lowerQuery.includes('add update') || lowerQuery.includes('post update') || lowerQuery.includes('log update')) {
-    const updateMatch = query.match(/(?:create update|add update|post update|log update)(?:: | saying |: )(.+)/i);
-    if (updateMatch && teamId) {
+
+  // 3) Command: Create update (supports multiple phrasings)
+  if (lowerQuery.includes('create update') || lowerQuery.includes('add update') || lowerQuery.includes('post update') || lowerQuery.includes('log update') || lowerQuery.startsWith('update:')) {
+    const updateMatch = query.match(/(?:create update|add update|post update|log update|update)\s*(?::\s*|\s+saying\s*|:)\s*(.+)/i);
+    if (updateMatch) {
       const content = updateMatch[1].trim();
       const updateType = lowerQuery.includes('milestone') ? 'milestone' : 'daily';
-      
+
       try {
-        const { data, error } = await supabase
+        if (!teamId) {
+          return { executed: true, type: 'createUpdate', message: '❌ No team context provided for creating an update.' };
+        }
+        const { error } = await supabase
           .from('updates')
-          .insert({
-            team_id: teamId,
-            content: content,
-            type: updateType,
-            created_by: userId || 'oracle'
-          });
-        
+          .insert({ team_id: teamId, content, type: updateType, created_by: userId || 'oracle' });
         if (error) throw error;
-        
-        return {
-          executed: true,
-          type: 'createUpdate',
-          message: `✅ Update created: "${content}"`,
-          data: { content, type: updateType }
-        };
+
+        return { executed: true, type: 'createUpdate', message: `✅ Update created: "${content}"`, data: { content, type: updateType } };
       } catch (error) {
-        return {
-          executed: true,
-          type: 'createUpdate',
-          message: `❌ Failed to create update: ${error.message}`,
-        };
+        return { executed: true, type: 'createUpdate', message: `❌ Failed to create update: ${error.message}` };
       }
     }
   }
-  
-  // Command: Update status
+
+  // 4) Command: Update status
   if (lowerQuery.includes('update status') || lowerQuery.includes('change status') || lowerQuery.includes('set status')) {
-    const statusMatch = query.match(/(?:update status|change status|set status)(?:: | to )(.+)/i);
+    const statusMatch = query.match(/(?:update status|change status|set status)(?::\s*|\s+to\s+)(.+)/i);
     if (statusMatch && teamId) {
       const newStatus = statusMatch[1].trim();
-      
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('team_status')
-          .upsert({
-            team_id: teamId,
-            current_status: newStatus,
-            last_update: new Date().toISOString()
-          });
-        
+          .upsert({ team_id: teamId, current_status: newStatus, last_update: new Date().toISOString() });
         if (error) throw error;
-        
-        return {
-          executed: true,
-          type: 'updateStatus',
-          message: `✅ Team status updated to: "${newStatus}"`,
-          data: { status: newStatus }
-        };
+
+        return { executed: true, type: 'updateStatus', message: `✅ Team status updated to: "${newStatus}"`, data: { status: newStatus } };
       } catch (error) {
-        return {
-          executed: true,
-          type: 'updateStatus',
-          message: `❌ Failed to update status: ${error.message}`,
-        };
+        return { executed: true, type: 'updateStatus', message: `❌ Failed to update status: ${error.message}` };
       }
     }
   }
-  
-  return {
-    executed: false,
-    message: ''
-  };
+
+  // 5) LLM fallback intent parsing for natural language
+  if (openaiKey) {
+    const intent = await parseIntentWithLLM(openaiKey, query);
+    if (intent && intent.action && intent.action !== 'none') {
+      // Normalize and execute based on intent
+      if (intent.action === 'send_message' && intent.content) {
+        if (intent.target_type === 'role' && intent.target_value) {
+          const targetRole = roleMapping[intent.target_value.toLowerCase()] || intent.target_value.toLowerCase();
+          try {
+            const { error } = await supabase
+              .from('messages')
+              .insert({
+                sender_id: userId || 'oracle',
+                sender_role: role,
+                receiver_role: targetRole,
+                receiver_id: 'all',
+                content: intent.content,
+                team_id: teamId || null,
+              });
+            if (error) throw error;
+            return { executed: true, type: 'sendMessage', message: `✅ Message sent to ${targetRole}s: "${intent.content}"` };
+          } catch (error) {
+            return { executed: true, type: 'sendMessage', message: `❌ Failed to send message: ${error.message}` };
+          }
+        }
+
+        if (intent.target_type === 'team' && intent.target_value) {
+          try {
+            const { data: teamRow, error: teamErr } = await supabase
+              .from('teams')
+              .select('id, name')
+              .ilike('name', intent.target_value)
+              .single();
+            if (teamErr || !teamRow) {
+              return { executed: true, type: 'sendMessage', message: `❌ Team not found: "${intent.target_value}"` };
+            }
+            const { error } = await supabase
+              .from('messages')
+              .insert({
+                sender_id: userId || 'oracle',
+                sender_role: role,
+                receiver_role: 'builder',
+                receiver_id: teamRow.id,
+                content: intent.content,
+                team_id: teamRow.id,
+              });
+            if (error) throw error;
+            return { executed: true, type: 'sendMessage', message: `✅ Message sent to team ${teamRow.name}: "${intent.content}"` };
+          } catch (error) {
+            return { executed: true, type: 'sendMessage', message: `❌ Failed to send message: ${error.message}` };
+          }
+        }
+      }
+
+      if (intent.action === 'create_update' && (intent.update_text || intent.content)) {
+        const text = intent.update_text || intent.content || '';
+        if (!text) {
+          return { executed: true, type: 'createUpdate', message: '❌ Could not find update text.' };
+        }
+        try {
+          if (!teamId) {
+            return { executed: true, type: 'createUpdate', message: '❌ No team context provided for creating an update.' };
+          }
+          const { error } = await supabase
+            .from('updates')
+            .insert({ team_id: teamId, content: text, type: 'daily', created_by: userId || 'oracle' });
+          if (error) throw error;
+          return { executed: true, type: 'createUpdate', message: `✅ Update created: "${text}"` };
+        } catch (error) {
+          return { executed: true, type: 'createUpdate', message: `❌ Failed to create update: ${error.message}` };
+        }
+      }
+
+      if (intent.action === 'update_status' && intent.status_text && teamId) {
+        try {
+          const { error } = await supabase
+            .from('team_status')
+            .upsert({ team_id: teamId, current_status: intent.status_text, last_update: new Date().toISOString() });
+          if (error) throw error;
+          return { executed: true, type: 'updateStatus', message: `✅ Team status updated to: "${intent.status_text}"` };
+        } catch (error) {
+          return { executed: true, type: 'updateStatus', message: `❌ Failed to update status: ${error.message}` };
+        }
+      }
+    }
+  }
+
+  return { executed: false, message: '' };
 }
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -178,7 +302,7 @@ serve(async (req) => {
     const startTime = Date.now();
 
     // Check for and execute commands first
-    const commandExecutionResult = await executeCommand(query, role, teamId, userId, supabase);
+    const commandExecutionResult = await executeCommand(query, role, teamId, userId, supabase, openaiKey);
     if (commandExecutionResult.executed) {
       return new Response(
         JSON.stringify({
