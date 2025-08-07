@@ -8,6 +8,7 @@ import { Loader2, Sparkles, Zap, MessageSquare, FileText, Calendar, Users, Send 
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserRole } from "@/types/oracle";
+import ReactMarkdown from "react-markdown";
 
 interface EnhancedOracleProps {
   selectedRole: UserRole;
@@ -366,7 +367,22 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
 
           {/* Main Oracle Response */}
           <div className="space-y-2">
-            <p className="text-sm leading-relaxed">{response.answer}</p>
+            <div className="text-sm leading-relaxed whitespace-pre-wrap space-y-2">
+              <ReactMarkdown
+                components={{
+                  h1: ({...props}) => <strong {...props} />,
+                  h2: ({...props}) => <strong {...props} />,
+                  h3: ({...props}) => <strong {...props} />,
+                  ul: ({...props}) => <ul className="list-disc pl-5 space-y-1" {...props} />,
+                  ol: ({...props}) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
+                  li: ({...props}) => <li className="mb-1" {...props} />,
+                  strong: ({...props}) => <strong className="font-semibold" {...props} />,
+                  p: ({...props}) => <p className="mb-2" {...props} />,
+                }}
+              >
+                {response.answer}
+              </ReactMarkdown>
+            </div>
           </div>
         </CardContent>
       </Card>
