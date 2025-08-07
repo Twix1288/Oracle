@@ -318,6 +318,104 @@ serve(async (req) => {
       );
     }
 
+    // If the query is about teams, build a precise PieFi-only summary directly from DB (no LLM)
+    const teamIntent = /\bteam(s)?\b/i.test(query);
+    if (teamIntent) {
+      // Fetch core PieFi data in parallel
+      const [teamsRes, statusRes, updatesRes, onboardingRes] = await Promise.all([
+        supabase.from('teams').select('id, name, stage, description, updated_at').order('created_at', { ascending: false }),
+        supabase.from('team_status').select('*').order('updated_at', { ascending: false }),
+        supabase.from('updates').select('id, team_id, content, created_at, type').order('created_at', { ascending: false }).limit(100),
+        supabase.from('builder_onboarding').select('id, team_id, project_domain, goals, current_challenges, tech_stack, notes, created_at').order('created_at', { ascending: false })
+      ]);
+
+      const teams = teamsRes.data || [];
+      const statuses = statusRes.data || [];
+      const updates = updatesRes.data || [];
+      const onboardings = onboardingRes.data || [];
+
+      // Latest status per team (first seen due to desc ordering)
+      const latestStatusByTeam = new Map();
+      for (const s of statuses) {
+        if (!latestStatusByTeam.has(s.team_id)) latestStatusByTeam.set(s.team_id, s);
+      }
+
+      // Up to 3 most recent updates per team
+      const updatesByTeam = new Map();
+      for (const u of updates) {
+        const arr = updatesByTeam.get(u.team_id) || [];
+        if (arr.length < 3) {
+          arr.push(u);
+          updatesByTeam.set(u.team_id, arr);
+        }
+      }
+
+      // Latest onboarding per team
+      const onboardingByTeam = new Map();
+      for (const ob of onboardings) {
+        if (!onboardingByTeam.has(ob.team_id)) onboardingByTeam.set(ob.team_id, ob);
+      }
+
+      // Build Markdown answer
+      let md = '';
+      if (teams.length) {
+        for (const t of teams) {
+          md += `**${t.name}**  \n`;
+          md += `- **Stage**: ${t.stage || 'n/a'}  \n`;
+
+          const st = latestStatusByTeam.get(t.id);
+          if (st && st.current_status) {
+            md += `- **Status**: ${st.current_status}  \n`;
+          }
+
+          const ups = updatesByTeam.get(t.id) || [];
+          if (ups.length) {
+            md += `- **Latest Updates**:  \n`;
+            for (const u of ups.slice(0, 3)) {
+              const date = u.created_at ? new Date(u.created_at).toLocaleDateString() : '';
+              md += `  - ${u.content}${date ? ` (${date})` : ''}  \n`;
+            }
+          }
+
+          const ob = onboardingByTeam.get(t.id);
+          const highlights = [] as string[];
+          if (ob && ob.project_domain) highlights.push(`Domain: ${ob.project_domain}`);
+          if (ob && ob.goals && ob.goals.length) highlights.push(`Goals: ${ob.goals.slice(0,2).join(', ')}`);
+          if (ob && ob.current_challenges && ob.current_challenges.length) highlights.push(`Challenges: ${ob.current_challenges.slice(0,2).join(', ')}`);
+          if (ob && ob.tech_stack && ob.tech_stack.length) highlights.push(`Tech: ${ob.tech_stack.slice(0,3).join(', ')}`);
+          if (highlights.length) {
+            md += `- **Onboarding**: ${highlights.join(' | ')}  \n`;
+          }
+
+          md += `\n`;
+        }
+      } else {
+        md = 'No teams found in PieFi.';
+      }
+
+      const processingTime = Date.now() - startTime;
+
+      // Log and return
+      try {
+        await supabase.from('oracle_logs').insert({
+          query,
+          response: md,
+          user_role: role,
+          user_id: userId,
+          team_id: null,
+          sources_count: teams.length,
+          processing_time_ms: processingTime
+        });
+      } catch (_) {}
+
+      return new Response(JSON.stringify({
+        answer: md.trim(),
+        sources: teams.length,
+        context_used: true,
+        processing_time: processingTime
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // Generate query embedding
     const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
