@@ -318,14 +318,44 @@ serve(async (req) => {
       );
     }
 
-    // If the query is about teams, build a precise PieFi-only summary directly from DB (no LLM)
+    // If the query is about PieFi entities, build precise summaries directly from DB (no LLM)
     const teamIntent = /\bteam(s)?\b/i.test(query);
-    if (teamIntent) {
+    const projectsIntent = /\bproject(s)?\b/i.test(query);
+    const mentorsIntent = /\bmentor(s)?\b/i.test(query);
+    const leadsIntent = /\blead(s)?\b/i.test(query);
+    const membersIntent = /\bmember(s)?\b/i.test(query);
+    const progressIntent = /(\bprogress\b|\bstage\b|\bmilestone(s)?\b)/i.test(query);
+
+    // Helper to log + return
+    const logAndReturn = async (md: string, sourceCount: number, teamIdForLog: string | null = null) => {
+      const processingTime = Date.now() - startTime;
+      try {
+        await supabase.from('oracle_logs').insert({
+          query,
+          response: md,
+          user_role: role,
+          user_id: userId,
+          team_id: teamIdForLog,
+          sources_count: sourceCount,
+          processing_time_ms: processingTime
+        });
+      } catch (_) {}
+
+      return new Response(JSON.stringify({
+        answer: md.trim(),
+        sources: sourceCount,
+        context_used: true,
+        processing_time: processingTime
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    };
+
+    // TEAMS or PROJECTS (projects are teams in PieFi)
+    if (teamIntent || projectsIntent) {
       // Fetch core PieFi data in parallel
       const [teamsRes, statusRes, updatesRes, onboardingRes] = await Promise.all([
         supabase.from('teams').select('id, name, stage, description, updated_at').order('created_at', { ascending: false }),
         supabase.from('team_status').select('*').order('updated_at', { ascending: false }),
-        supabase.from('updates').select('id, team_id, content, created_at, type').order('created_at', { ascending: false }).limit(100),
+        supabase.from('updates').select('id, team_id, content, created_at, type').order('created_at', { ascending: false }).limit(200),
         supabase.from('builder_onboarding').select('id, team_id, project_domain, goals, current_challenges, tech_stack, notes, created_at').order('created_at', { ascending: false })
       ]);
 
@@ -393,27 +423,138 @@ serve(async (req) => {
         md = 'No teams found in PieFi.';
       }
 
-      const processingTime = Date.now() - startTime;
+      return await logAndReturn(md, teams.length);
+    }
 
-      // Log and return
-      try {
-        await supabase.from('oracle_logs').insert({
-          query,
-          response: md,
-          user_role: role,
-          user_id: userId,
-          team_id: null,
-          sources_count: teams.length,
-          processing_time_ms: processingTime
-        });
-      } catch (_) {}
+    // MENTORS
+    if (mentorsIntent) {
+      const [profilesRes, mentorsRes, teamsRes] = await Promise.all([
+        supabase.from('mentor_profiles').select('member_id, skills, industries, strengths, updated_at'),
+        supabase.from('members').select('id, name, role, team_id').eq('role', 'mentor'),
+        supabase.from('teams').select('id, name')
+      ]);
 
-      return new Response(JSON.stringify({
-        answer: md.trim(),
-        sources: teams.length,
-        context_used: true,
-        processing_time: processingTime
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const profiles = profilesRes.data || [];
+      const mentors = mentorsRes.data || [];
+      const teamMap = new Map((teamsRes.data || []).map((t: any) => [t.id, t.name]));
+      const profMap = new Map(profiles.map((p: any) => [p.member_id, p]));
+
+      if (!mentors.length) {
+        return await logAndReturn('No mentors found in PieFi.', 0);
+      }
+
+      let md = '';
+      for (const m of mentors) {
+        const p = profMap.get(m.id) || {};
+        md += `**${m.name}**  \n`;
+        if (p.skills && p.skills.length) md += `- **Skills**: ${p.skills.slice(0,6).join(', ')}  \n`;
+        if (p.industries && p.industries.length) md += `- **Industries**: ${p.industries.slice(0,4).join(', ')}  \n`;
+        if (p.strengths) md += `- **Strengths**: ${p.strengths}  \n`;
+        if (m.team_id) md += `- **Team**: ${teamMap.get(m.team_id) || 'Unassigned'}  \n`;
+        md += `\n`;
+      }
+
+      return await logAndReturn(md, mentors.length);
+    }
+
+    // LEADS
+    if (leadsIntent) {
+      const [leadsRes, teamsRes] = await Promise.all([
+        supabase.from('members').select('id, name, team_id, role').eq('role', 'lead'),
+        supabase.from('teams').select('id, name, stage')
+      ]);
+
+      const leads = leadsRes.data || [];
+      const teamMap = new Map((teamsRes.data || []).map((t: any) => [t.id, t]));
+
+      if (!leads.length) {
+        return await logAndReturn('No leads found in PieFi.', 0);
+      }
+
+      let md = '';
+      for (const l of leads) {
+        const team = l.team_id ? teamMap.get(l.team_id) : null;
+        md += `**${l.name}**  \n`;
+        if (team) md += `- **Team**: ${team.name} (${team.stage})  \n`;
+        md += `\n`;
+      }
+
+      return await logAndReturn(md, leads.length);
+    }
+
+    // MEMBERS (all non-mentor/lead members)
+    if (membersIntent) {
+      const [membersRes, teamsRes] = await Promise.all([
+        supabase.from('members').select('id, name, role, team_id').order('created_at', { ascending: false }),
+        supabase.from('teams').select('id, name')
+      ]);
+
+      const members = membersRes.data || [];
+      const teamMap = new Map((teamsRes.data || []).map((t: any) => [t.id, t.name]));
+
+      if (!members.length) {
+        return await logAndReturn('No members found in PieFi.', 0);
+      }
+
+      // Group by team
+      const grouped = new Map<string, any[]>();
+      for (const m of members) {
+        const key = m.team_id ? teamMap.get(m.team_id) || 'Unassigned' : 'Unassigned';
+        const arr = grouped.get(key) || [];
+        arr.push(m);
+        grouped.set(key, arr);
+      }
+
+      let md = '';
+      for (const [teamName, arr] of grouped.entries()) {
+        md += `**${teamName}**  \n`;
+        // Role breakdown
+        const byRole = arr.reduce((acc: any, x: any) => { acc[x.role] = (acc[x.role] || 0) + 1; return acc; }, {});
+        md += `- **Roles**: ${Object.entries(byRole).map(([r,c]) => `${r}: ${c}`).join(', ')}  \n`;
+        md += `- **Members**:  \n`;
+        for (const m of arr) {
+          md += `  - ${m.name} (${m.role})  \n`;
+        }
+        md += `\n`;
+      }
+
+      return await logAndReturn(md, members.length);
+    }
+
+    // PROGRESS / STAGE / MILESTONES (program view)
+    if (progressIntent) {
+      const [teamsRes, statusRes, updatesRes] = await Promise.all([
+        supabase.from('teams').select('id, name, stage').order('created_at', { ascending: false }),
+        supabase.from('team_status').select('team_id, current_status, last_update, updated_at').order('updated_at', { ascending: false }),
+        supabase.from('updates').select('team_id, created_at').order('created_at', { ascending: false })
+      ]);
+
+      const teams = teamsRes.data || [];
+      const statuses = statusRes.data || [];
+      const updates = updatesRes.data || [];
+
+      const latestStatusByTeam = new Map();
+      for (const s of statuses) if (!latestStatusByTeam.has(s.team_id)) latestStatusByTeam.set(s.team_id, s);
+
+      const updatesCountByTeam = new Map<string, number>();
+      for (const u of updates) updatesCountByTeam.set(u.team_id, (updatesCountByTeam.get(u.team_id) || 0) + 1);
+
+      let md = '';
+      if (teams.length) {
+        for (const t of teams) {
+          const st = latestStatusByTeam.get(t.id);
+          const count = updatesCountByTeam.get(t.id) || 0;
+          md += `**${t.name}**  \n`;
+          md += `- **Stage**: ${t.stage || 'n/a'}  \n`;
+          if (st && st.current_status) md += `- **Last Status**: ${st.current_status}  \n`;
+          md += `- **Updates Logged**: ${count}  \n`;
+          md += `\n`;
+        }
+      } else {
+        md = 'No progress data found for PieFi teams.';
+      }
+
+      return await logAndReturn(md, teams.length);
     }
 
     // Generate query embedding
