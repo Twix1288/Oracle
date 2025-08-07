@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageSquare, TrendingUp, AlertTriangle, Clock } from "lucide-react";
+import { User, MessageSquare, TrendingUp, AlertTriangle, Clock, BookOpen } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
@@ -163,7 +163,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="teams" className="data-[state=active]:bg-primary/20">
             <User className="h-4 w-4 mr-2" />
             My Teams
@@ -175,6 +175,10 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
           <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <TrendingUp className="h-4 w-4 mr-2" />
             Oracle Assistant
+          </TabsTrigger>
+          <TabsTrigger value="resources" className="data-[state=active]:bg-primary/20">
+            <BookOpen className="h-4 w-4 mr-2" />
+            Resources
           </TabsTrigger>
           <TabsTrigger value="guidance" className="data-[state=active]:bg-primary/20">
             <AlertTriangle className="h-4 w-4 mr-2" />
@@ -212,6 +216,32 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
             selectedRole="mentor"
             userId={mentorId}
           />
+        </TabsContent>
+
+        <TabsContent value="resources">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Mentor Resources</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div>
+                <h4 className="font-medium text-primary">Project Playbooks</h4>
+                <ul className="list-disc pl-5 mt-1 text-muted-foreground">
+                  <li><a className="story-link" href="#" target="_blank" rel="noreferrer">PieFi Mentor Handbook</a></li>
+                  <li><a className="story-link" href="#" target="_blank" rel="noreferrer">Effective Technical Mentoring</a></li>
+                  <li><a className="story-link" href="#" rel="noreferrer">Oracle Usage Guide for Mentors</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-medium text-primary">Ways to Help</h4>
+                <ul className="list-disc pl-5 mt-1 text-muted-foreground">
+                  <li>Review teams’ last 7 days of updates and highlight gaps</li>
+                  <li>Connect teams with shared challenges to peer-review</li>
+                  <li>Host a focused 30-min unblock session on a key risk</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="guidance">

@@ -25,6 +25,7 @@ import {
 import type { Team, Member, Update, TeamStatus, UserRole, UpdateType, TeamStage } from "@/types/oracle";
 import { PieFiOverview } from "./PieFiOverview";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface EnhancedBuilderDashboardProps {
   team: Team;
@@ -343,6 +344,43 @@ Investment Opportunity & Funding Needs`;
     setCurrentTeam(prev => ({ ...prev, stage: newStage }));
   };
 
+  const [isPopulating, setIsPopulating] = useState(false);
+  const handlePopulateJourney = async () => {
+    try {
+      setIsPopulating(true);
+      toast.message("Populating journey...", { description: "Seeding sample updates and advancing stage" });
+
+      const seedUpdates = [
+        { type: 'milestone' as UpdateType, content: 'MVP designed and core ontology drafted', created_by: builderName },
+        { type: 'daily' as UpdateType, content: 'Implemented Oracle query flow and messaging basics', created_by: builderName },
+        { type: 'daily' as UpdateType, content: 'User interview: clarified accelerator operator pain points', created_by: builderName },
+      ];
+
+      if (onSubmitUpdate) {
+        seedUpdates.forEach(u => onSubmitUpdate(currentTeam.id, u.content, u.type, u.created_by));
+      } else {
+        await supabase.from('updates').insert(
+          seedUpdates.map(u => ({ team_id: currentTeam.id, content: u.content, type: u.type, created_by: u.created_by }))
+        );
+      }
+
+      const order: TeamStage[] = ['ideation','development','testing','launch','growth'];
+      const currIdx = order.indexOf(currentTeam.stage);
+      const nextStage = order[Math.min(currIdx + 1, order.length - 1)];
+      if (nextStage !== currentTeam.stage) {
+        await supabase.from('teams').update({ stage: nextStage }).eq('id', currentTeam.id);
+        setCurrentTeam(prev => ({ ...prev, stage: nextStage }));
+      }
+
+      toast.success("Journey populated");
+      setActiveTab('progress');
+    } catch (e: any) {
+      toast.error("Failed to populate journey", { description: e?.message });
+    } finally {
+      setIsPopulating(false);
+    }
+  };
+  
   // Show onboarding if needed
   if (showOnboarding) {
     return (
@@ -414,7 +452,7 @@ Investment Opportunity & Funding Needs`;
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <PieFiOverview team={currentTeam} builderName={builderName} updates={teamUpdates} />
+            <PieFiOverview team={currentTeam} builderName={builderName} updates={teamUpdates} onPopulateJourney={handlePopulateJourney} isPopulating={isPopulating} />
           </TabsContent>
 
           <TabsContent value="progress" className="space-y-6">

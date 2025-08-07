@@ -9,9 +9,11 @@ interface PieFiOverviewProps {
   team: Team;
   builderName: string;
   updates: Update[];
+  onPopulateJourney?: () => void;
+  isPopulating?: boolean;
 }
 
-export function PieFiOverview({ team, builderName, updates }: PieFiOverviewProps) {
+export function PieFiOverview({ team, builderName, updates, onPopulateJourney, isPopulating }: PieFiOverviewProps) {
   const recentUpdates = updates.slice(0, 3);
 
   return (
@@ -30,7 +32,9 @@ export function PieFiOverview({ team, builderName, updates }: PieFiOverviewProps
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" className="glass-button"><RefreshCcw className="h-4 w-4 mr-2"/>Refresh Dashboard</Button>
-          <Button className="ufo-gradient"><ClipboardList className="h-4 w-4 mr-2"/>Populate Journey</Button>
+          <Button className="ufo-gradient" onClick={onPopulateJourney} disabled={isPopulating}>
+            <ClipboardList className="h-4 w-4 mr-2"/>{isPopulating ? "Populating..." : "Populate Journey"}
+          </Button>
           <Button variant="outline" className="glass-button"><User className="h-4 w-4 mr-2"/>Profile</Button>
           <Button variant="destructive"><LogOut className="h-4 w-4 mr-2"/>Sign Out</Button>
         </div>
@@ -125,35 +129,6 @@ export function PieFiOverview({ team, builderName, updates }: PieFiOverviewProps
         </CardContent>
       </Card>
 
-      {/* Project Dashboard */}
-      <Card className="glow-border bg-card/50">
-        <CardHeader>
-          <CardTitle>Comprehensive Project Dashboard</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <div>
-            <p className="font-semibold">Executive Summary</p>
-            <p className="readable-muted mt-1">Piefi Oracle is a purpose-built agent for accelerator ecosystems — centralized updates, messaging, and intelligent commands that track progress, connect experts, and preserve institutional memory.</p>
-          </div>
-          <div>
-            <p className="font-semibold">Key Metrics</p>
-            <ul className="list-disc pl-5 mt-1 space-y-1">
-              <li>Viability Score: 80%</li>
-              <li>Journey Complete: 50%</li>
-              <li>Milestones: 6</li>
-              <li>AI Confidence: 75%</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold">AI Risk Assessment</p>
-            <ul className="list-disc pl-5 mt-1 space-y-1">
-              <li>Execution Risk: Medium (70% confidence)</li>
-              <li>Market Risk: High (95% confidence)</li>
-              <li>Technical Risk: High (90% confidence)</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
