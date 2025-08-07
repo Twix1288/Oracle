@@ -40,7 +40,7 @@
 
   .dark {
     /* Professional Dark Theme with Maximum Contrast */
-    --background: 0 0% 3%; /* Darker for better contrast */
+    --background: 0 0% 0%; /* Pure black background */
     --foreground: 0 0% 98%; /* Maximum text contrast */
     --card: 0 0% 8%; /* Better card contrast */
     --card-foreground: 0 0% 98%;
