@@ -26,6 +26,8 @@ import type { Team, Member, Update, TeamStatus, UserRole, UpdateType, TeamStage 
 import { PieFiOverview } from "./PieFiOverview";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface EnhancedBuilderDashboardProps {
   team: Team;
@@ -345,42 +347,46 @@ Investment Opportunity & Funding Needs`;
   };
 
   const [isPopulating, setIsPopulating] = useState(false);
+  const [showJourneyDialog, setShowJourneyDialog] = useState(false);
+  const [journeyText, setJourneyText] = useState("");
+  const [journeySubmitting, setJourneySubmitting] = useState(false);
+
   const handlePopulateJourney = async () => {
+    setShowJourneyDialog(true);
+  };
+
+  const handleJourneySubmit = async () => {
+    if (!journeyText.trim()) {
+      toast.message("Please add a brief progress note.");
+      return;
+    }
     try {
+      setJourneySubmitting(true);
       setIsPopulating(true);
-      toast.message("Populating journey...", { description: "Seeding sample updates and advancing stage" });
+      const { data, error } = await supabase.functions.invoke('journey-assistant', {
+        body: { teamId: currentTeam.id, text: journeyText.trim(), role: 'builder', userId: builderName }
+      });
+      if (error) throw error;
 
-      const seedUpdates = [
-        { type: 'milestone' as UpdateType, content: 'MVP designed and core ontology drafted', created_by: builderName },
-        { type: 'daily' as UpdateType, content: 'Implemented Oracle query flow and messaging basics', created_by: builderName },
-        { type: 'daily' as UpdateType, content: 'User interview: clarified accelerator operator pain points', created_by: builderName },
-      ];
+      const detected = data?.detected_stage as TeamStage | undefined;
+      const feedback = (data?.feedback as string) || "";
+      const summary = (data?.summary as string) || "";
 
-      if (onSubmitUpdate) {
-        seedUpdates.forEach(u => onSubmitUpdate(currentTeam.id, u.content, u.type, u.created_by));
-      } else {
-        await supabase.from('updates').insert(
-          seedUpdates.map(u => ({ team_id: currentTeam.id, content: u.content, type: u.type, created_by: u.created_by }))
-        );
+      if (detected && detected !== currentTeam.stage) {
+        setCurrentTeam(prev => ({ ...prev, stage: detected }));
       }
 
-      const order: TeamStage[] = ['ideation','development','testing','launch','growth'];
-      const currIdx = order.indexOf(currentTeam.stage);
-      const nextStage = order[Math.min(currIdx + 1, order.length - 1)];
-      if (nextStage !== currentTeam.stage) {
-        await supabase.from('teams').update({ stage: nextStage }).eq('id', currentTeam.id);
-        setCurrentTeam(prev => ({ ...prev, stage: nextStage }));
-      }
-
-      toast.success("Journey populated");
+      toast.success("Journey updated", { description: summary || feedback.slice(0, 120) });
       setActiveTab('progress');
+      setShowJourneyDialog(false);
+      setJourneyText("");
     } catch (e: any) {
-      toast.error("Failed to populate journey", { description: e?.message });
+      toast.error("Failed to update journey", { description: e?.message });
     } finally {
+      setJourneySubmitting(false);
       setIsPopulating(false);
     }
   };
-  
   // Show onboarding if needed
   if (showOnboarding) {
     return (
@@ -452,7 +458,38 @@ Investment Opportunity & Funding Needs`;
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <PieFiOverview team={currentTeam} builderName={builderName} updates={teamUpdates} onPopulateJourney={handlePopulateJourney} isPopulating={isPopulating} />
+            <PieFiOverview 
+              team={currentTeam}
+              builderName={builderName}
+              updates={teamUpdates}
+              onPopulateJourney={handlePopulateJourney}
+              isPopulating={journeySubmitting}
+            />
+
+            <Dialog open={showJourneyDialog} onOpenChange={setShowJourneyDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Update your journey</DialogTitle>
+                  <DialogDescription>
+                    Describe what you achieved and what you're working on. The AI will detect your stage and provide feedback.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Textarea
+                    value={journeyText}
+                    onChange={(e) => setJourneyText(e.target.value)}
+                    placeholder="E.g. Shipped MVP auth, interviewed 3 mentors, now integrating messaging. Blocked by deployment issue."
+                    rows={6}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowJourneyDialog(false)} disabled={journeySubmitting}>Cancel</Button>
+                  <Button onClick={handleJourneySubmit} disabled={journeySubmitting} className="ufo-gradient">
+                    {journeySubmitting ? 'Analyzing…' : 'Analyze & Update'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="progress" className="space-y-6">

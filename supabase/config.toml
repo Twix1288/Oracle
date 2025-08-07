@@ -34,6 +34,9 @@ port = 54327
 [functions.rag-query]
 verify_jwt = false
 
+[functions.journey-assistant]
+verify_jwt = false
+
 [analytics]
 enabled = false
 port = 54328
