@@ -337,8 +337,18 @@ serve(async (req) => {
     // Fetch relevant documents and context
     let contextString = '';
     let sourcesCount = 0;
+    let recommendedMentors: any[] = [];
 
-    // Get team-specific context if available
+    // Get team-specific context if available + onboarding + mentor matching
+    const cosineSim = (a: number[], b: number[]) => {
+      if (!a || !b || a.length !== b.length) return -1;
+      let dot = 0, na = 0, nb = 0;
+      for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+      return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-8);
+    };
+
+    let onboardingVec: number[] | null = null;
+
     if (teamId) {
       const { data: teamData } = await supabase
         .from('teams')
@@ -348,7 +358,95 @@ serve(async (req) => {
       
       if (teamData) {
         contextString += `Team: ${teamData.name} (${teamData.stage})\n`;
-        contextString += `Recent updates: ${teamData.updates?.slice(0, 5).map(u => u.content).join(', ')}\n`;
+        contextString += `Recent updates: ${teamData.updates?.slice(0, 5).map((u: any) => u.content).join(', ')}\n`;
+      }
+
+      // Fetch latest builder onboarding
+      const { data: onboarding } = await supabase
+        .from('builder_onboarding')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (onboarding) {
+        const onboardingText = [
+          onboarding.project_domain,
+          ...(onboarding.current_challenges || []),
+          ...(onboarding.goals || []),
+          ...(onboarding.tech_stack || []),
+          onboarding.notes || ''
+        ].filter(Boolean).join(' | ');
+
+        if (onboarding.embedding) {
+          onboardingVec = onboarding.embedding as unknown as number[];
+        } else if (onboardingText) {
+          // Compute embedding on the fly and persist
+          try {
+            const obResp = await fetch('https://api.openai.com/v1/embeddings', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ model: 'text-embedding-3-small', input: onboardingText })
+            });
+            const obData = await obResp.json();
+            onboardingVec = obData.data?.[0]?.embedding || null;
+            if (onboardingVec) {
+              await supabase.from('builder_onboarding').update({ embedding: onboardingVec }).eq('id', onboarding.id);
+            }
+          } catch (_) { /* ignore */ }
+        }
+
+        if (onboardingText) {
+          contextString += `Onboarding: ${onboardingText}\n`;
+        }
+      }
+
+      // Mentor matching via vector similarity (client-side cosine)
+      try {
+        const { data: mentorProfiles } = await supabase
+          .from('mentor_profiles')
+          .select('*')
+          .not('embedding', 'is', null);
+
+        if (mentorProfiles && mentorProfiles.length) {
+          const memberIds = mentorProfiles.map((m: any) => m.member_id);
+          const { data: memberRows } = await supabase
+            .from('members')
+            .select('id, name, role')
+            .in('id', memberIds);
+          const memberMap = new Map((memberRows || []).map((m: any) => [m.id, m]));
+
+          const baseVec: number[] = onboardingVec
+            ? queryEmbedding.map((v: number, i: number) => (v + onboardingVec![i]) / 2)
+            : queryEmbedding;
+
+          const scored = mentorProfiles
+            .map((mp: any) => {
+              const sim = cosineSim(baseVec, mp.embedding as unknown as number[]);
+              const member = memberMap.get(mp.member_id);
+              return { mp, member, sim };
+            })
+            .filter((r: any) => r.sim > 0 && r.member && r.member.role === 'mentor')
+            .sort((a: any, b: any) => b.sim - a.sim)
+            .slice(0, 5);
+
+          recommendedMentors = scored.map((r: any) => ({
+            member_id: r.mp.member_id,
+            name: r.member.name,
+            skills: r.mp.skills,
+            industries: r.mp.industries,
+            strengths: r.mp.strengths,
+            similarity: Number(r.sim.toFixed(4))
+          }));
+
+          if (recommendedMentors.length) {
+            contextString += `Recommended mentors: ${recommendedMentors.map(m => `${m.name} (${(m.skills||[]).slice(0,3).join('/')})`).join(', ')}\n`;
+            sourcesCount += recommendedMentors.length;
+          }
+        }
+      } catch (err) {
+        console.error('Mentor matching failed:', err);
       }
     }
 
@@ -367,9 +465,9 @@ serve(async (req) => {
 
     if (recentUpdates) {
       if (teamId) {
-        contextString += `Your team's recent updates: ${recentUpdates.map(u => u.content).join(', ')}\n`;
+        contextString += `Your team's recent updates: ${recentUpdates.map((u: any) => u.content).join(', ')}\n`;
       } else {
-        contextString += `Recent program updates: ${recentUpdates.map(u => `${u.teams?.name}: ${u.content}`).join(', ')}\n`;
+        contextString += `Recent program updates: ${recentUpdates.map((u: any) => `${u.teams?.name}: ${u.content}`).join(', ')}\n`;
       }
       sourcesCount += recentUpdates.length;
     }
@@ -492,14 +590,27 @@ Avoid hashtags but use proper markdown formatting for readability.`
       console.error('Failed to log interaction:', logError);
     }
 
-    // Store as new document for future RAG
+    // Store as new document for future RAG (with embedding)
     try {
+      const docContent = `Q: ${query}\nA: ${answer}`;
+      let docEmbedding: number[] | null = null;
+      try {
+        const emb = await fetch('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'text-embedding-3-small', input: docContent })
+        });
+        const embData = await emb.json();
+        docEmbedding = embData.data?.[0]?.embedding || null;
+      } catch (_) { /* ignore */ }
+
       await supabase.from('documents').insert({
-        content: `Q: ${query}\nA: ${answer}`,
+        content: docContent,
         metadata: { role, teamId, userId, generated: true },
         role_visibility: [role],
         source_type: 'oracle_qa',
-        source_reference: userId || 'anonymous'
+        source_reference: userId || 'anonymous',
+        embedding: docEmbedding
       });
     } catch (docError) {
       console.error('Failed to store document:', docError);
@@ -510,6 +621,7 @@ Avoid hashtags but use proper markdown formatting for readability.`
       sources: sourcesCount,
       context_used: Boolean(contextString),
       sections: Object.keys(sections).length > 0 ? sections : undefined,
+      recommendations: recommendedMentors.length ? { mentors: recommendedMentors } : undefined,
       processing_time: processingTime
     };
 
