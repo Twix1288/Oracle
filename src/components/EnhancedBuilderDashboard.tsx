@@ -10,6 +10,8 @@ import { QueryBar } from "./QueryBar";
 import { EnhancedOracle } from "./EnhancedOracle";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { MessagingCenter } from "./MessagingCenter";
+import { TeamRoom } from "./TeamRoom";
+import { BuilderLounge } from "./BuilderLounge";
 import { 
   Users, 
   Activity, 
@@ -434,7 +436,7 @@ Investment Opportunity & Funding Needs`;
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 glass-card border-primary/20">
+          <TabsList className="grid w-full grid-cols-7 glass-card border-primary/20">
             <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <Activity className="h-4 w-4 mr-2" />
               Overview
@@ -450,6 +452,14 @@ Investment Opportunity & Funding Needs`;
             <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <MessageSquare className="h-4 w-4 mr-2" />
               Messages
+            </TabsTrigger>
+            <TabsTrigger value="team-room" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
+              <Users className="h-4 w-4 mr-2" />
+              Team Room
+            </TabsTrigger>
+            <TabsTrigger value="lounge" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
+              <Users className="h-4 w-4 mr-2" />
+              Builder Lounge
             </TabsTrigger>
             <TabsTrigger value="team" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary font-medium">
               <Users className="h-4 w-4 mr-2" />
@@ -515,6 +525,19 @@ Investment Opportunity & Funding Needs`;
               userId={builderName}
               teamId={currentTeam.id}
             />
+          </TabsContent>
+
+          <TabsContent value="team-room" className="space-y-6">
+            <TeamRoom 
+              teamId={currentTeam.id}
+              teamName={currentTeam.name}
+              userRole={"builder"}
+              userId={builderName}
+            />
+          </TabsContent>
+
+          <TabsContent value="lounge" className="space-y-6">
+            <BuilderLounge userId={builderName} />
           </TabsContent>
 
           <TabsContent value="team" className="space-y-6">

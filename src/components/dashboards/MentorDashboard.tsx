@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { EnhancedOracle } from "../EnhancedOracle";
+import { MentorRequests } from "../MentorRequests";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface MentorDashboardProps {
@@ -163,7 +164,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-6 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="teams" className="data-[state=active]:bg-primary/20">
             <User className="h-4 w-4 mr-2" />
             My Teams
@@ -171,6 +172,10 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
           <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20">
             <MessageSquare className="h-4 w-4 mr-2" />
             Messages
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="data-[state=active]:bg-primary/20">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Requests
           </TabsTrigger>
           <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <TrendingUp className="h-4 w-4 mr-2" />
