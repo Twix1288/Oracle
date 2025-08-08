@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Shield, Users, MessageSquare, Activity, Settings, Plus, Eye } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -38,9 +39,44 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
 
   // Mentor assignment helpers
   const mentors = members.filter((m) => m.role === "mentor");
+  const queryClient = useQueryClient();
+  const [mentorsList, setMentorsList] = useState<Member[]>(mentors);
+  useEffect(() => {
+    setMentorsList(mentors);
+  }, [members]);
+
+  const [isAddMentorOpen, setIsAddMentorOpen] = useState(false);
+  const [newMentorName, setNewMentorName] = useState("");
+  const [savingMentor, setSavingMentor] = useState(false);
+
   const [mentorAssignments, setMentorAssignments] = useState<Record<string, string | "none">>(() =>
     Object.fromEntries(teams.map((t) => [t.id, (t.assigned_mentor_id as string) || "none"]))
   );
+
+  const createMentor = async () => {
+    if (!newMentorName.trim()) {
+      toast.error("Mentor name is required");
+      return;
+    }
+    setSavingMentor(true);
+    try {
+      const { data, error } = await supabase
+        .from("members")
+        .insert({ name: newMentorName.trim(), role: "mentor" })
+        .select()
+        .single();
+      if (error) throw error;
+      setMentorsList((prev) => [data as Member, ...prev]);
+      toast.success("Mentor added successfully");
+      setIsAddMentorOpen(false);
+      setNewMentorName("");
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+    } catch (e: any) {
+      toast.error(`Failed to add mentor: ${e.message}`);
+    } finally {
+      setSavingMentor(false);
+    }
+  };
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
       toast.error("Team name is required");
@@ -281,10 +317,42 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
 
             {/* Mentor Assignment System */}
             <Card className="glow-border bg-card/50 backdrop-blur">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Assign Mentors to Teams</CardTitle>
+                <Dialog open={isAddMentorOpen} onOpenChange={setIsAddMentorOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="ufo-gradient">
+                      <Plus className="h-4 w-4 mr-1" /> Add Mentor
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                      <DialogTitle>Add Mentor</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-3 py-2">
+                      <div className="grid gap-2">
+                        <Label htmlFor="mentorName">Name *</Label>
+                        <Input
+                          id="mentorName"
+                          value={newMentorName}
+                          onChange={(e) => setNewMentorName(e.target.value)}
+                          placeholder="Enter mentor name"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsAddMentorOpen(false)}>Cancel</Button>
+                      <Button onClick={createMentor} disabled={savingMentor}>
+                        {savingMentor ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="space-y-4">
+                {mentorsList.length === 0 && (
+                  <div className="text-sm text-muted-foreground">No mentors yet. Use "Add Mentor" to create one.</div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {teams.map((team) => (
                     <div key={team.id} className="p-3 rounded-lg bg-background/30 border border-primary/10 space-y-3">
@@ -305,7 +373,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Unassigned</SelectItem>
-                            {mentors.map((m) => (
+                            {mentorsList.map((m) => (
                               <SelectItem key={m.id} value={m.id}>
                                 {m.name}
                               </SelectItem>
