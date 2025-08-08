@@ -232,37 +232,6 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
           ))}
         </div>
 
-        {/* Demo Access Codes */}
-        <Card className="max-w-4xl mx-auto glow-border bg-card/50 backdrop-blur-sm border-primary/30">
-          <CardHeader>
-            <CardTitle className="text-center flex items-center justify-center gap-2 text-xl">
-              <Lock className="w-6 h-6 text-primary" />
-              Demo Access Codes
-            </CardTitle>
-            <CardDescription className="text-center text-base">
-              Use these codes to test different roles and explore the platform
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="text-center p-6 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors">
-                <div className="font-semibold text-primary mb-2">Lead</div>
-                <code className="text-sm bg-background px-4 py-2 rounded-md border font-mono">lead2024</code>
-                <div className="text-sm text-muted-foreground mt-2">Full Admin Access</div>
-              </div>
-              <div className="text-center p-6 rounded-lg bg-green-500/5 border border-green-500/20 hover:bg-green-500/10 transition-colors">
-                <div className="font-semibold text-green-600 mb-2">Mentor</div>
-                <code className="text-sm bg-background px-4 py-2 rounded-md border font-mono">guide2024</code>
-                <div className="text-sm text-muted-foreground mt-2">Team Guidance</div>
-              </div>
-              <div className="text-center p-6 rounded-lg bg-blue-500/5 border border-blue-500/20 hover:bg-blue-500/10 transition-colors">
-                <div className="font-semibold text-blue-600 mb-2">Builder</div>
-                <code className="text-sm bg-background px-4 py-2 rounded-md border font-mono">team*_build2024</code>
-                <div className="text-sm text-muted-foreground mt-2">Team-Specific Access</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Access Code Dialog - Enhanced for Builders */}

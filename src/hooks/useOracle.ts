@@ -120,36 +120,17 @@ export const useOracle = (selectedRole: UserRole) => {
   const getFilteredData = () => {
     switch (selectedRole) {
       case 'builder':
-        // Builders see their team's data
-        return {
-          teams: teams?.slice(0, 1), // For demo, show first team
-          updates: updates?.slice(0, 10),
-          members: members?.slice(0, 5),
-        };
       case 'mentor':
-        // Mentors see teams they mentor
-        return {
-          teams: teams?.slice(0, 3), // For demo, show first 3 teams
-          updates: updates?.slice(0, 20),
-          members: members?.slice(0, 10),
-        };
       case 'lead':
-        // Leads see all data
+        // Show full data for authenticated roles
         return {
           teams,
           updates,
           members,
         };
       case 'guest':
-        // Guests see limited public data
-        return {
-          teams: teams?.map(team => ({ ...team, description: 'Public team information' })),
-          updates: updates?.slice(0, 5).map(update => ({ 
-            ...update, 
-            content: 'Public update summary' 
-          })),
-          members: [],
-        };
+        // Guests see no private data in launch mode
+        return { teams: [], updates: [], members: [] };
       default:
         return { teams: [], updates: [], members: [] };
     }
