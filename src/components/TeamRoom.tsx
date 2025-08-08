@@ -34,6 +34,8 @@ export function TeamRoom({ teamId, teamName, userRole, userId }: TeamRoomProps) 
   const [requestMentor, setRequestMentor] = useState(false);
   const [sending, setSending] = useState(false);
   const [online, setOnline] = useState<Record<string, { user: string; role: UserRole; online_at: string }[]>>({});
+  const [aiSummary, setAiSummary] = useState<string>("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const onlineCount = useMemo(() => {
     return Object.values(online).reduce((acc, arr) => acc + arr.length, 0);
@@ -131,6 +133,40 @@ export function TeamRoom({ teamId, teamName, userRole, userId }: TeamRoomProps) 
           )}
         </div>
 
+        {/* AI Summary */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">AI summary uses PieFi Oracle + RAG across updates and messages</div>
+            <Button
+              onClick={async () => {
+                try {
+                  setAiLoading(true);
+                  const prompt = `Summarize the last 20 team messages and recent updates for team ${teamName || ''}. Provide: 1) key themes, 2) blockers/risks, 3) next 3 actions. Be concise for PieFi.`;
+                  const { data, error } = await supabase.functions.invoke('enhanced-oracle', {
+                    body: { query: prompt, role: userRole, teamId, userId }
+                  });
+                  if (error) throw error;
+                  setAiSummary((data?.answer as string) || '');
+                } catch (e: any) {
+                  toast({ title: 'Oracle failed', description: e?.message || 'Try again', variant: 'destructive' });
+                } finally {
+                  setAiLoading(false);
+                }
+              }}
+              disabled={aiLoading}
+              className="ufo-gradient hover:opacity-90"
+            >
+              {aiLoading ? 'Summarizing…' : 'Summarize thread'}
+            </Button>
+          </div>
+          {aiSummary && (
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 whitespace-pre-wrap text-sm">
+              {aiSummary}
+            </div>
+          )}
+        </div>
+
+        {/* Composer */}
         <div className="space-y-2">
           <Textarea
             placeholder="Share an update or ask a question to your team..."

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, MessageSquare, TrendingUp, AlertTriangle, Clock, BookOpen } from "lucide-react";
@@ -9,6 +10,7 @@ import { MessagingCenter } from "../MessagingCenter";
 import { EnhancedOracle } from "../EnhancedOracle";
 import { MentorRequests } from "../MentorRequests";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MentorDashboardProps {
   teams: Team[];
@@ -22,6 +24,8 @@ interface MentorDashboardProps {
 
 export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorId, onExit }: MentorDashboardProps) => {
   const [activeTab, setActiveTab] = useState("teams");
+  const [reqLoading, setReqLoading] = useState(false);
+  const [reqSummary, setReqSummary] = useState<string>("");
 
   // Filter teams assigned to this mentor
   const assignedTeams = teams.filter(team => team.assigned_mentor_id === mentorId);
@@ -214,6 +218,50 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
 
         <TabsContent value="messages">
           <MessagingCenter userRole="mentor" userId={mentorId} />
+        </TabsContent>
+
+        <TabsContent value="requests">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <MentorRequests mentorId={mentorId} assignedTeamIds={assignedTeamIds} />
+            </div>
+            <div className="space-y-3">
+              <Card className="glow-border bg-card/50 backdrop-blur">
+                <CardHeader>
+                  <CardTitle>Oracle Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm text-muted-foreground">RAG summary across mentor requests and team updates.</div>
+                  <Button
+                    disabled={reqLoading}
+                    onClick={async () => {
+                      try {
+                        setReqLoading(true);
+                        const prompt = `Summarize mentor requests for my assigned teams. Highlight critical blockers, duplicates, and propose next 3 actions per theme.`;
+                        const { data, error } = await supabase.functions.invoke('enhanced-oracle', {
+                          body: { query: prompt, role: 'mentor', userId: mentorId }
+                        });
+                        if (error) throw error;
+                        setReqSummary((data?.answer as string) || '');
+                      } catch (e: any) {
+                        setReqSummary('');
+                      } finally {
+                        setReqLoading(false);
+                      }
+                    }}
+                    className="ufo-gradient hover:opacity-90"
+                  >
+                    {reqLoading ? 'Summarizing…' : 'Summarize Requests'}
+                  </Button>
+                  {reqSummary && (
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 whitespace-pre-wrap text-sm">
+                      {reqSummary}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="oracle">
