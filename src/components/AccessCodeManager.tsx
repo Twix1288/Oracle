@@ -25,7 +25,8 @@ export const AccessCodeManager = () => {
     role: 'builder' as UserRole,
     code: '',
     description: '',
-    team_id: undefined as string | undefined
+    team_id: undefined as string | undefined,
+    mentor_id: undefined as string | undefined
   });
   const [showCodes, setShowCodes] = useState<Record<string, boolean>>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -40,6 +41,20 @@ export const AccessCodeManager = () => {
       const { data, error } = await supabase
         .from('teams')
         .select('*')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch mentors
+  const { data: mentors } = useQuery({
+    queryKey: ['mentors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .eq('role', 'mentor')
         .order('name');
       if (error) throw error;
       return data;
@@ -68,12 +83,15 @@ export const AccessCodeManager = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['access_codes'] });
-      setNewCode({ role: 'builder', code: '', description: '', team_id: undefined });
+      if (variables?.role === 'mentor' && variables?.team_id && variables?.member_id) {
+        assignMentorMutation.mutate({ team_id: variables.team_id, mentor_id: variables.member_id });
+      }
+      setNewCode({ role: 'builder', code: '', description: '', team_id: undefined, mentor_id: undefined });
       toast({
-        title: "Access code created",
-        description: "New access code has been generated successfully.",
+        title: 'Access code created',
+        description: 'New access code has been generated successfully.',
       });
     },
     onError: (error) => {
@@ -101,6 +119,21 @@ export const AccessCodeManager = () => {
         title: "Code updated",
         description: "Access code status has been updated.",
       });
+    },
+  });
+
+  // Assign mentor to team mutation
+  const assignMentorMutation = useMutation({
+    mutationFn: async ({ team_id, mentor_id }: { team_id: string; mentor_id: string }) => {
+      const { error } = await supabase
+        .from('teams')
+        .update({ assigned_mentor_id: mentor_id })
+        .eq('id', team_id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      toast({ title: 'Mentor assigned', description: 'Mentor linked to team.' });
     },
   });
 
@@ -134,10 +167,16 @@ export const AccessCodeManager = () => {
 
   const handleCreateCode = () => {
     if (newCode.code && newCode.role && newCode.description) {
-      createCodeMutation.mutate({
-        ...newCode,
-        team_id: newCode.role === 'builder' ? newCode.team_id : null
-      });
+      const base: any = {
+        role: newCode.role,
+        code: newCode.code,
+        description: newCode.description,
+        team_id: (newCode.role === 'builder' || newCode.role === 'mentor') ? newCode.team_id : null,
+      };
+      if (newCode.role === 'mentor') {
+        base.member_id = newCode.mentor_id;
+      }
+      createCodeMutation.mutate(base);
     }
   };
 
@@ -214,11 +253,11 @@ export const AccessCodeManager = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Team (Builders only)</label>
+              <label className="text-sm font-medium text-foreground">Team</label>
               <Select 
                 value={newCode.team_id || ""} 
                 onValueChange={(value) => setNewCode(prev => ({ ...prev, team_id: value || undefined }))}
-                disabled={newCode.role !== 'builder'}
+                disabled={!['builder','mentor'].includes(newCode.role)}
               >
                 <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue placeholder="Select team" />
@@ -230,6 +269,25 @@ export const AccessCodeManager = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {newCode.role === 'mentor' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Mentor</label>
+                <Select 
+                  value={newCode.mentor_id || ""} 
+                  onValueChange={(value) => setNewCode(prev => ({ ...prev, mentor_id: value || undefined }))}
+                >
+                  <SelectTrigger className="bg-background border-border text-foreground">
+                    <SelectValue placeholder="Select mentor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mentors?.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Access Code</label>
@@ -254,7 +312,7 @@ export const AccessCodeManager = () => {
 
           <Button 
             onClick={handleCreateCode}
-            disabled={!newCode.code || !newCode.role || !newCode.description || createCodeMutation.isPending}
+            disabled={!newCode.code || !newCode.role || !newCode.description || (newCode.role === 'mentor' && (!newCode.team_id || !newCode.mentor_id)) || createCodeMutation.isPending}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {createCodeMutation.isPending ? "Creating..." : "Create Access Code"}

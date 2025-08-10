@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, MessageSquare, TrendingUp, AlertTriangle, Clock, BookOpen } from "lucide-react";
+import { User, MessageSquare, TrendingUp, AlertTriangle, BookOpen } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
@@ -44,27 +44,12 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
     const recentUpdates = mentorUpdates.filter(update => 
       new Date(update.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
     ).length;
-    const staleTeams = assignedTeams.filter(team => {
-      const status = mentorTeamStatuses.find(s => s.team_id === team.id);
-      return !status?.last_update || 
-        new Date(status.last_update) < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    }).length;
 
-    return { totalTeams, recentUpdates, staleTeams };
+    return { totalTeams, recentUpdates };
   };
 
   const metrics = getMentorMetrics();
 
-  const getTeamRiskLevel = (teamId: string) => {
-    const teamUpdates = mentorUpdates.filter(u => u.team_id === teamId);
-    const recentUpdates = teamUpdates.filter(u => 
-      new Date(u.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    );
-    
-    if (recentUpdates.length === 0) return "high";
-    if (recentUpdates.length < 3) return "medium";
-    return "low";
-  };
 
   return (
     <>
@@ -85,7 +70,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
       </div>
 
       {/* Quick Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="glow-border bg-card/50 backdrop-blur">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -110,61 +95,8 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
           </CardContent>
         </Card>
         
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-400" />
-              <div>
-                <p className="text-sm text-muted-foreground">Teams at Risk</p>
-                <p className="text-2xl font-bold">{metrics.staleTeams}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Team Risk Overview */}
-      {assignedTeams.length > 0 && (
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-primary" />
-              Team Health Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assignedTeams.map((team) => {
-                const riskLevel = getTeamRiskLevel(team.id);
-                const riskColors = {
-                  low: "bg-green-500/20 text-green-300 border-green-500/30",
-                  medium: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-                  high: "bg-red-500/20 text-red-300 border-red-500/30"
-                };
-                
-                return (
-                  <div key={team.id} className="p-3 rounded-lg bg-background/30 border border-primary/10">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{team.name}</h4>
-                      <Badge className={riskColors[riskLevel]} variant="outline">
-                        {riskLevel} risk
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{team.description}</p>
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {teamStatuses.find(s => s.team_id === team.id)?.last_update ? 
-                        `Updated ${new Date(teamStatuses.find(s => s.team_id === team.id)?.last_update).toLocaleDateString()}` :
-                        "No recent updates"
-                      }
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

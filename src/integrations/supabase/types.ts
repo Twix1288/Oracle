@@ -23,6 +23,7 @@ export type Database = {
           generated_by: string | null
           id: string
           is_active: boolean | null
+          member_id: string | null
           role: Database["public"]["Enums"]["user_role"]
           team_id: string | null
           updated_at: string
@@ -35,6 +36,7 @@ export type Database = {
           generated_by?: string | null
           id?: string
           is_active?: boolean | null
+          member_id?: string | null
           role: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           updated_at?: string
@@ -47,11 +49,19 @@ export type Database = {
           generated_by?: string | null
           id?: string
           is_active?: boolean | null
+          member_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "access_codes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "access_codes_team_id_fkey"
             columns: ["team_id"]
@@ -476,7 +486,15 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_assigned_mentor_id_fkey"
+            columns: ["assigned_mentor_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       updates: {
         Row: {
