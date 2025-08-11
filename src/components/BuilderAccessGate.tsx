@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Rocket, User, Shield, Eye, Lock, Sparkles, AlertTriangle, Users, Building2 } from "lucide-react";
-import type { UserRole, Team, AccessCode } from "@/types/oracle";
+import type { UserRole, Team } from "@/types/oracle";
 
 interface BuilderAccessGateProps {
   onBuilderAuthenticated: (builderName: string, teamId: string, teamInfo: Team) => void;
@@ -56,22 +56,11 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
   const [error, setError] = useState("");
   const [showCodeDialog, setShowCodeDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [validatedAccess, setValidatedAccess] = useState<{code: AccessCode, team: Team} | null>(null);
+  const [validatedAccess, setValidatedAccess] = useState<{ team: Team; description?: string } | null>(null);
+  const [validatedCode, setValidatedCode] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
 
-  // Fetch access codes
-  const { data: accessCodes } = useQuery({
-    queryKey: ['access_codes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('access_codes')
-        .select('*')
-        .eq('is_active', true);
-      if (error) throw error;
-      return data as AccessCode[];
-    },
-  });
 
   // Fetch teams for builder selection
   const { data: teams } = useQuery({
@@ -114,19 +103,27 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
     }
   };
 
-  const handleCodeSubmit = () => {
+  const handleCodeSubmit = async () => {
     if (!selectedRole || !code.trim()) return;
 
-    // Find valid access code for any role
-    const validCode = accessCodes?.find(ac => ac.role === selectedRole && ac.code === code.trim());
+    const { data, error } = await supabase.rpc('validate_access_code', {
+      p_code: code.trim(),
+      p_role: selectedRole,
+    });
 
-    if (validCode) {
+    if (error) {
+      setError("Validation failed. Please try again.");
+      return;
+    }
+
+    if (data && data.length > 0) {
       if (selectedRole === 'builder') {
-        // For builders, use the name and team from the access code
-        const team = teams?.find(t => t.id === validCode.team_id);
-        if (team && validCode.description) {
-          setValidatedAccess({ code: validCode, team });
-          setBuilderName(validCode.description); // Use the name from the access code
+        const row = data[0] as { team_id: string; description?: string };
+        const team = teams?.find(t => t.id === row.team_id);
+        if (team) {
+          setValidatedAccess({ team, description: row.description || '' });
+          setBuilderName(row.description || '');
+          setValidatedCode(code.trim());
           setShowConfirmDialog(true);
           setShowCodeDialog(false);
         }
@@ -142,14 +139,14 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
   };
 
   const handleConfirmAccess = async () => {
-    if (!validatedAccess || !builderName.trim()) return;
+    if (!validatedAccess || !builderName.trim() || !validatedCode) return;
 
     try {
       // Create builder assignment record
       await createAssignmentMutation.mutateAsync({
         builder_name: builderName,
         team_id: validatedAccess.team.id,
-        access_code: validatedAccess.code.code
+        access_code: validatedCode
       });
 
       // Authenticate the builder
@@ -162,10 +159,6 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
     }
   };
 
-  // Filter teams that have builder access codes
-  const availableTeams = teams?.filter(team => 
-    accessCodes?.some(code => code.team_id === team.id && code.role === 'builder')
-  ) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-card relative overflow-hidden">
@@ -327,7 +320,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
                     <div className="flex justify-between items-center">
                       <span className="font-medium">Access Code:</span>
                       <code className="text-sm bg-background px-2 py-1 rounded border font-mono">
-                        {validatedAccess.code.code}
+                        {validatedCode}
                       </code>
                     </div>
                   </div>

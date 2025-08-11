@@ -51,17 +51,6 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   const [error, setError] = useState("");
   const [showCodeDialog, setShowCodeDialog] = useState(false);
 
-  const { data: accessCodes } = useQuery({
-    queryKey: ['access_codes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('access_codes')
-        .select('*')
-        .eq('is_active', true);
-      if (error) throw error;
-      return data;
-    },
-  });
 
   const handleRoleClick = (role: UserRole) => {
     setSelectedRole(role);
@@ -74,22 +63,20 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
     }
   };
 
-  const handleCodeSubmit = () => {
+  const handleCodeSubmit = async () => {
     if (!selectedRole || !code) return;
 
-    console.log('Validation Debug:', {
-      selectedRole,
-      enteredCode: code,
-      availableCodes: accessCodes?.map(ac => ({ role: ac.role, code: ac.code }))
+    const { data, error } = await supabase.rpc('validate_access_code', {
+      p_code: code.trim(),
+      p_role: selectedRole,
     });
 
-    const validCode = accessCodes?.find(
-      ac => ac.role === selectedRole && ac.code === code.trim()
-    );
+    if (error) {
+      setError("Validation failed. Please try again.");
+      return;
+    }
 
-    console.log('Found valid code:', validCode);
-
-    if (validCode) {
+    if (data && data.length > 0) {
       onRoleSelected(selectedRole);
       setShowCodeDialog(false);
       setCode("");

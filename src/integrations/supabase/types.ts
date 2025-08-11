@@ -551,6 +551,21 @@ export type Database = {
         }
         Returns: string
       }
+      get_access_codes_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string
+          member_id: string
+          description: string
+          is_active: boolean
+          expires_at: string
+          created_at: string
+          updated_at: string
+          generated_by: string
+        }[]
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
@@ -614,6 +629,21 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      validate_access_code: {
+        Args: {
+          p_code: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: {
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string
+          member_id: string
+          description: string
+          expires_at: string
+          is_active: boolean
+        }[]
       }
       vector_avg: {
         Args: { "": number[] }
