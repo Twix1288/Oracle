@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ufoLogo from '@/assets/ufo-logo.png';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -202,105 +203,127 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background relative overflow-hidden">
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="absolute top-24 left-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-24 right-10 w-56 h-56 bg-primary/10 rounded-full blur-3xl animate-[pulse_4s_ease-in-out_infinite]" />
+    <div className="min-h-screen ufo-gradient relative overflow-hidden">
+      {/* UFO Cosmic Background Elements */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl ufo-float"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl ufo-float delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-primary/5 rounded-full blur-2xl cosmic-sparkle"></div>
+        
+        {/* Floating particles */}
+        <div className="absolute top-10 left-10 w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-1 h-1 bg-accent rounded-full animate-pulse delay-500"></div>
+        <div className="absolute bottom-20 left-1/3 w-1.5 h-1.5 bg-primary rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute top-1/3 right-1/3 w-1 h-1 bg-accent rounded-full animate-pulse delay-700"></div>
       </div>
 
       <div className="relative z-10">
-        <header className="container mx-auto px-4 py-10 lg:py-16 text-center animate-fade-in">
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 hover-scale">
+        <header className="container mx-auto px-4 py-10 lg:py-16 text-center animate-fade-in relative z-10">
+          <div className="inline-block relative mb-8">
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
+            <div className="relative glass-card p-6 rounded-3xl glow-border">
+              <img 
+                src={ufoLogo} 
+                alt="PieFi UFO Logo" 
+                className="w-20 h-20 mx-auto"
+              />
+            </div>
+          </div>
+          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full glass-button glow-border text-primary hover-scale mb-6">
             <span role="img" aria-label="pie">🥧</span>
             The Next-Gen Builder Camp for Santa Cruz
           </div>
-          <h1 className="mt-6 text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight">
-            Pie Fi
+          <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight text-glow">
+            <span className="ufo-gradient bg-clip-text text-transparent">Pie Fi</span>
           </h1>
-          <p className="mt-2 text-lg text-muted-foreground">10 Weeks. 10 Teams. Real Products.</p>
-          <p className="mt-4 max-w-3xl mx-auto text-balance text-muted-foreground">
+          <p className="mt-4 text-xl md:text-2xl text-professional">10 Weeks. 10 Teams. Real Products.</p>
+          <p className="mt-6 max-w-3xl mx-auto text-balance text-readable leading-relaxed">
             A 10-week summer builder camp that turns students and early builders into founders.
             Build something people want, with the resources and community to make it happen.
           </p>
-          <p className="mt-4 italic text-sm text-muted-foreground">"The next wave will be built this summer, not in five years"</p>
+          <p className="mt-6 italic text-lg text-accent font-medium">"The next wave will be built this summer, not in five years"</p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <span className="inline-flex items-center gap-2 px-6 py-3 rounded-full glass-button glow-border text-accent animate-pulse">
               <span role="img" aria-label="fire">🔥</span> Applications open now!
             </span>
-            <span className="text-sm text-muted-foreground">Co-hosted with <strong>Santa Cruz Works</strong></span>
-            <span className="text-sm text-muted-foreground">Primary Sponsor <strong>Goodwin</strong></span>
+            <span className="text-sm text-readable">Co-hosted with <strong className="text-primary">Santa Cruz Works</strong></span>
+            <span className="text-sm text-readable">Primary Sponsor <strong className="text-primary">Goodwin</strong></span>
           </div>
         </header>
 
         <main className="container mx-auto px-4 space-y-12 lg:space-y-16">
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <article className="col-span-2 p-6 rounded-xl border bg-card/60 backdrop-blur animate-enter">
-              <h2 className="text-2xl font-bold mb-2">What is Pie Fi?</h2>
+            <article className="col-span-2 glass-card glow-border animate-enter">
+              <h2 className="text-2xl font-bold mb-2 text-professional">🏗️ Santa Cruz's First Builder Launchpad</h2>
+              <h3 className="text-xl font-semibold mb-2 text-professional">What is Pie Fi?</h3>
               <p className="text-muted-foreground mb-6">A new kind of builder clubhouse in Santa Cruz</p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg border bg-background/60 hover-scale">
-                  <h3 className="font-semibold">Builder Clubhouse</h3>
+                <div className="p-4 rounded-lg glass-card hover-scale glow-border">
+                  <h4 className="font-semibold text-professional">🏗️ Builder Clubhouse</h4>
                   <p className="text-sm text-muted-foreground">Where ideas become products</p>
                 </div>
-                <div className="p-4 rounded-lg border bg-background/60 hover-scale">
-                  <h3 className="font-semibold">Real Community</h3>
+                <div className="p-4 rounded-lg glass-card hover-scale glow-border">
+                  <h4 className="font-semibold text-professional">🤝 Real Community</h4>
                   <p className="text-sm text-muted-foreground">Students & founders building together</p>
                 </div>
-                <div className="p-4 rounded-lg border bg-background/60 hover-scale">
-                  <h3 className="font-semibold">Pizza Restaurant</h3>
+                <div className="p-4 rounded-lg glass-card hover-scale glow-border">
+                  <h4 className="font-semibold text-professional">🍕 Pizza Restaurant</h4>
                   <p className="text-sm text-muted-foreground">Part accelerator, all community</p>
                 </div>
               </div>
             </article>
 
-            <aside className="p-6 rounded-xl border bg-card/60 backdrop-blur animate-enter">
-              <h2 className="text-xl font-bold mb-4">Choose your role</h2>
-              <p className="text-sm text-muted-foreground mb-4">Use your access code to enter.</p>
-              <div className="grid grid-cols-1 gap-3">
-                {/* Role Selection Grid */}
-                {Object.entries(roleInfo).map(([role, info]) => (
-                  <Card 
-                    key={role}
-                    className={`cursor-pointer transition-all hover:scale-105 glow-border group ${
-                      selectedRole === role ? 'ring-2 ring-primary shadow-lg' : ''
-                    }`}
-                    onClick={() => handleRoleClick(role as UserRole)}
-                  >
-                    <CardHeader className="py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${info.color}`}>
-                          <info.icon className="w-5 h-5" />
+            <aside className="glass-card glow-border animate-enter">
+              <div className="absolute inset-0 ufo-gradient opacity-5 rounded-lg"></div>
+              <div className="relative p-6">
+                <h2 className="text-xl font-bold mb-4 text-professional">🚀 Choose your role</h2>
+                <p className="text-sm text-muted-foreground mb-4">Use your access code to enter the cosmic community.</p>
+                <div className="grid grid-cols-1 gap-3">
+                  {/* Role Selection Grid */}
+                  {Object.entries(roleInfo).map(([role, info]) => (
+                    <Card 
+                      key={role}
+                      className={`cursor-pointer transition-all hover-scale glass-button glow-border group ${
+                        selectedRole === role ? 'ring-2 ring-primary shadow-lg bg-primary/20' : ''
+                      }`}
+                      onClick={() => handleRoleClick(role as UserRole)}
+                    >
+                      <CardHeader className="py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center cosmic-sparkle ${info.color}`}>
+                            <info.icon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <CardTitle className="text-base text-professional">{info.label}</CardTitle>
+                            <CardDescription className="text-xs">{info.description}</CardDescription>
+                          </div>
+                          <Badge variant={info.needsCode ? "destructive" : "secondary"} className="text-2xs">
+                            {info.needsCode ? 'Code' : 'Open'}
+                          </Badge>
                         </div>
-                        <div className="flex-1">
-                          <CardTitle className="text-base">{info.label}</CardTitle>
-                          <CardDescription className="text-xs">{info.description}</CardDescription>
-                        </div>
-                        <Badge variant={info.needsCode ? "destructive" : "secondary"} className="text-2xs">
-                          {info.needsCode ? 'Code' : 'Open'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </aside>
           </section>
 
-          <section className="p-6 rounded-xl border bg-card/60 backdrop-blur animate-enter">
-            <h2 className="text-2xl font-bold mb-2">Why Now?</h2>
+          <section className="glass-card glow-border animate-enter">
+            <h2 className="text-2xl font-bold mb-2 text-professional">Why Now?</h2>
             <p className="text-muted-foreground mb-6">The startup playbook has been completely rewritten</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 rounded-lg border bg-background/60 hover-scale">
-                <h3 className="font-semibold">Funding isn't the bottleneck</h3>
+              <div className="p-4 rounded-lg glass-card hover-scale glow-border">
+                <h3 className="font-semibold text-professional">Funding isn't the bottleneck</h3>
                 <p className="text-sm text-muted-foreground">It's orientation, momentum, and proximity to the right people</p>
               </div>
-              <div className="p-4 rounded-lg border bg-background/60 hover-scale">
-                <h3 className="font-semibold">AI has flattened building</h3>
+              <div className="p-4 rounded-lg glass-card hover-scale glow-border">
+                <h3 className="font-semibold text-professional">AI has flattened building</h3>
                 <p className="text-sm text-muted-foreground">Anyone can ship. Distribution starts on Day 1</p>
               </div>
-              <div className="p-4 rounded-lg border bg-background/60 hover-scale">
-                <h3 className="font-semibold">Builders need real reps</h3>
+              <div className="p-4 rounded-lg glass-card hover-scale glow-border">
+                <h3 className="font-semibold text-professional">Builders need real reps</h3>
                 <p className="text-sm text-muted-foreground">Ship in public, learn fast, grow from a place that knows how</p>
               </div>
             </div>
