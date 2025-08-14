@@ -129,8 +129,8 @@ export const useOracle = (selectedRole: UserRole) => {
           members,
         };
       case 'guest':
-        // Guests see no private data in launch mode
-        return { teams: [], updates: [], members: [] };
+        // Guests see sanitized public data
+        return { teams, updates, members };
       default:
         return { teams: [], updates: [], members: [] };
     }
