@@ -104,10 +104,11 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
 
   const fetchMessages = async () => {
     try {
+      // Fetch messages where user is sender or receiver
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`receiver_id.eq.${accessCode},sender_id.eq.${accessCode},receiver_role.eq.${userRole}`)
+        .or(`sender_id.eq.${accessCode},receiver_id.eq.${accessCode},and(receiver_id.is.null,receiver_role.eq.${userRole})`)
         .order('created_at', { ascending: false })
         .limit(50);
 
