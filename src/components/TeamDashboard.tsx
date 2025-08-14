@@ -13,11 +13,11 @@ interface TeamDashboardProps {
 }
 
 const stageColors = {
-  ideation: "bg-yellow-500/10 text-yellow-700 border-yellow-200",
-  development: "bg-blue-500/10 text-blue-700 border-blue-200",
-  testing: "bg-orange-500/10 text-orange-700 border-orange-200",
-  launch: "bg-green-500/10 text-green-700 border-green-200",
-  growth: "bg-purple-500/10 text-purple-700 border-purple-200"
+  ideation: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  development: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  testing: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  launch: "bg-green-500/20 text-green-300 border-green-500/30",
+  growth: "bg-purple-500/20 text-purple-300 border-purple-500/30"
 };
 
 const stageProgress = {
@@ -69,7 +69,7 @@ export const TeamDashboard = ({ teams, teamStatuses, members, selectedRole }: Te
           const status = getTeamStatus(team.id);
           
           return (
-            <Card key={team.id} className="hover:shadow-lg transition-shadow">
+            <Card key={team.id} className="glow-border bg-card/50 backdrop-blur hover:bg-card/70 transition-all">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg">{team.name}</CardTitle>
