@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -545,25 +545,25 @@ export type Database = {
       }
       generate_team_access_code: {
         Args: {
-          p_team_id: string
-          p_role: Database["public"]["Enums"]["user_role"]
           p_generated_by?: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_team_id: string
         }
         Returns: string
       }
       get_access_codes_overview: {
         Args: Record<PropertyKey, never>
         Returns: {
+          created_at: string
+          description: string
+          expires_at: string
+          generated_by: string
           id: string
+          is_active: boolean
+          member_id: string
           role: Database["public"]["Enums"]["user_role"]
           team_id: string
-          member_id: string
-          description: string
-          is_active: boolean
-          expires_at: string
-          created_at: string
           updated_at: string
-          generated_by: string
         }[]
       }
       halfvec_avg: {
@@ -636,13 +636,13 @@ export type Database = {
           p_role: Database["public"]["Enums"]["user_role"]
         }
         Returns: {
-          id: string
-          role: Database["public"]["Enums"]["user_role"]
-          team_id: string
-          member_id: string
           description: string
           expires_at: string
+          id: string
           is_active: boolean
+          member_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string
         }[]
       }
       vector_avg: {
