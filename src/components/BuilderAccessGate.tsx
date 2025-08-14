@@ -6,11 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Rocket, User, Shield, Eye, Lock, Sparkles, AlertTriangle, Users, Building2 } from "lucide-react";
 import type { UserRole, Team } from "@/types/oracle";
 
@@ -65,8 +63,8 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
 
   // SEO: title, meta description, canonical, and FAQ structured data
   useEffect(() => {
-    document.title = "Pie Fi – Next-Gen Builder Camp | Roles & Access";
-    const desc = "Pie Fi: 10 weeks, 10 teams, real products. Santa Cruz builder camp with mentorship, funding, and community.";
+    document.title = "PieFi – Santa Cruz Builder Camp | Access Portal";
+    const desc = "Join PieFi: 10-week builder camp in Santa Cruz. Real products, expert mentorship, and startup community.";
     let meta = document.querySelector('meta[name="description"]');
     if (!meta) {
       meta = document.createElement('meta');
@@ -201,220 +199,179 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
     }
   };
 
-
   return (
-    <div className="min-h-screen ufo-gradient relative overflow-hidden">
-      {/* UFO Cosmic Background Elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl ufo-float"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl ufo-float delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-primary/5 rounded-full blur-2xl cosmic-sparkle"></div>
-        
-        {/* Floating particles */}
-        <div className="absolute top-10 left-10 w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-1 h-1 bg-accent rounded-full animate-pulse delay-500"></div>
-        <div className="absolute bottom-20 left-1/3 w-1.5 h-1.5 bg-primary rounded-full animate-pulse delay-1000"></div>
-        <div className="absolute top-1/3 right-1/3 w-1 h-1 bg-accent rounded-full animate-pulse delay-700"></div>
-      </div>
-
-      <div className="relative z-10">
-        <header className="container mx-auto px-4 py-10 lg:py-16 text-center animate-fade-in relative z-10">
-          <div className="inline-block relative mb-8">
-            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse"></div>
-            <div className="relative glass-card p-6 rounded-3xl glow-border">
-              <img 
-                src={ufoLogo} 
-                alt="PieFi UFO Logo" 
-                className="w-20 h-20 mx-auto"
-              />
+    <div className="min-h-screen bg-background">
+      <div className="relative">
+        {/* Professional Header */}
+        <header className="bg-card border-b">
+          <div className="container mx-auto px-6 py-8">
+            <div className="flex items-center justify-center mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                  <img 
+                    src={ufoLogo} 
+                    alt="PieFi Logo" 
+                    className="w-12 h-12"
+                  />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-professional">PieFi</h1>
+                  <p className="text-muted-foreground">Santa Cruz Builder Camp</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full glass-button glow-border text-primary hover-scale mb-6">
-            <span role="img" aria-label="pie">🥧</span>
-            The Next-Gen Builder Camp for Santa Cruz
-          </div>
-          <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight text-glow">
-            <span className="ufo-gradient bg-clip-text text-transparent">Pie Fi</span>
-          </h1>
-          <p className="mt-4 text-xl md:text-2xl text-professional">10 Weeks. 10 Teams. Real Products.</p>
-          <p className="mt-6 max-w-3xl mx-auto text-balance text-readable leading-relaxed">
-            A 10-week summer builder camp that turns students and early builders into founders.
-            Build something people want, with the resources and community to make it happen.
-          </p>
-          <p className="mt-6 italic text-lg text-accent font-medium">"The next wave will be built this summer, not in five years"</p>
-
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <span className="inline-flex items-center gap-2 px-6 py-3 rounded-full glass-button glow-border text-accent animate-pulse">
-              <span role="img" aria-label="fire">🔥</span> Applications open now!
-            </span>
-            <span className="text-sm text-readable">Co-hosted with <strong className="text-primary">Santa Cruz Works</strong></span>
-            <span className="text-sm text-readable">Primary Sponsor <strong className="text-primary">Goodwin</strong></span>
+            
+            <div className="text-center max-w-3xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent text-sm font-medium mb-6">
+                <Sparkles className="w-4 h-4" />
+                Applications Open Now
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-professional mb-4">
+                10 Weeks. 10 Teams. Real Products.
+              </h2>
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                A builder camp that turns students and early founders into product creators. 
+                Build something people want with expert mentorship and community support.
+              </p>
+            </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 space-y-12 lg:space-y-16">
-          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <article className="col-span-2 glass-card glow-border animate-enter">
-              <h2 className="text-2xl font-bold mb-2 text-professional">🏗️ Santa Cruz's First Builder Launchpad</h2>
-              <h3 className="text-xl font-semibold mb-2 text-professional">What is Pie Fi?</h3>
-              <p className="text-muted-foreground mb-6">A new kind of builder clubhouse in Santa Cruz</p>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg glass-card hover-scale glow-border">
-                  <h4 className="font-semibold text-professional">🏗️ Builder Clubhouse</h4>
-                  <p className="text-sm text-muted-foreground">Where ideas become products</p>
-                </div>
-                <div className="p-4 rounded-lg glass-card hover-scale glow-border">
-                  <h4 className="font-semibold text-professional">🤝 Real Community</h4>
-                  <p className="text-sm text-muted-foreground">Students & founders building together</p>
-                </div>
-                <div className="p-4 rounded-lg glass-card hover-scale glow-border">
-                  <h4 className="font-semibold text-professional">🍕 Pizza Restaurant</h4>
-                  <p className="text-sm text-muted-foreground">Part accelerator, all community</p>
-                </div>
-              </div>
-            </article>
-
-            <aside className="glass-card glow-border animate-enter">
-              <div className="absolute inset-0 ufo-gradient opacity-5 rounded-lg"></div>
-              <div className="relative p-6">
-                <h2 className="text-xl font-bold mb-4 text-professional">🚀 Choose your role</h2>
-                <p className="text-sm text-muted-foreground mb-4">Use your access code to enter the cosmic community.</p>
-                <div className="grid grid-cols-1 gap-3">
-                  {/* Role Selection Grid */}
-                  {Object.entries(roleInfo).map(([role, info]) => (
-                    <Card 
-                      key={role}
-                      className={`cursor-pointer transition-all hover-scale glass-button glow-border group ${
-                        selectedRole === role ? 'ring-2 ring-primary shadow-lg bg-primary/20' : ''
-                      }`}
-                      onClick={() => handleRoleClick(role as UserRole)}
-                    >
-                      <CardHeader className="py-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center cosmic-sparkle ${info.color}`}>
-                            <info.icon className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <CardTitle className="text-base text-professional">{info.label}</CardTitle>
-                            <CardDescription className="text-xs">{info.description}</CardDescription>
-                          </div>
-                          <Badge variant={info.needsCode ? "destructive" : "secondary"} className="text-2xs">
-                            {info.needsCode ? 'Code' : 'Open'}
-                          </Badge>
+        {/* Main Content */}
+        <main className="container mx-auto px-6 py-12">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid lg:grid-cols-3 gap-8">
+              
+              {/* Program Overview */}
+              <div className="lg:col-span-2 space-y-8">
+                <Card className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Building2 className="w-6 h-6 text-primary" />
+                    <h3 className="text-xl font-semibold text-professional">Program Overview</h3>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                          <span className="text-primary font-semibold">10</span>
                         </div>
-                      </CardHeader>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </aside>
-          </section>
+                        <div>
+                          <h4 className="font-medium text-professional">Teams Selected</h4>
+                          <p className="text-sm text-muted-foreground">Carefully chosen startups with real potential</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                          <span className="text-primary font-semibold">10</span>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-professional">Week Sprint</h4>
+                          <p className="text-sm text-muted-foreground">Intensive build period with milestones</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                          <Users className="w-4 h-4 text-accent" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-professional">Expert Mentorship</h4>
+                          <p className="text-sm text-muted-foreground">Industry veterans guide your journey</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
+                          <Rocket className="w-4 h-4 text-accent" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-professional">Demo Day</h4>
+                          <p className="text-sm text-muted-foreground">Launch to investors and community</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
 
-          <section className="glass-card glow-border animate-enter">
-            <h2 className="text-2xl font-bold mb-2 text-professional">Why Now?</h2>
-            <p className="text-muted-foreground mb-6">The startup playbook has been completely rewritten</p>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="p-4 rounded-lg glass-card hover-scale glow-border">
-                <h3 className="font-semibold text-professional">Funding isn't the bottleneck</h3>
-                <p className="text-sm text-muted-foreground">It's orientation, momentum, and proximity to the right people</p>
+                <Card className="p-6">
+                  <h3 className="text-xl font-semibold text-professional mb-4">Why Now?</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <h4 className="font-medium text-professional mb-2">AI-Powered Building</h4>
+                      <p className="text-sm text-muted-foreground">Anyone can ship products. Distribution starts on Day 1.</p>
+                    </div>
+                    <div className="p-4 bg-muted/30 rounded-lg">
+                      <h4 className="font-medium text-professional mb-2">Real Experience</h4>
+                      <p className="text-sm text-muted-foreground">Ship in public, learn fast, grow with community.</p>
+                    </div>
+                  </div>
+                </Card>
               </div>
-              <div className="p-4 rounded-lg glass-card hover-scale glow-border">
-                <h3 className="font-semibold text-professional">AI has flattened building</h3>
-                <p className="text-sm text-muted-foreground">Anyone can ship. Distribution starts on Day 1</p>
-              </div>
-              <div className="p-4 rounded-lg glass-card hover-scale glow-border">
-                <h3 className="font-semibold text-professional">Builders need real reps</h3>
-                <p className="text-sm text-muted-foreground">Ship in public, learn fast, grow from a place that knows how</p>
+
+              {/* Access Panel */}
+              <div className="lg:col-span-1">
+                <Card className="p-6 sticky top-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-professional">Access Portal</h3>
+                      <p className="text-sm text-muted-foreground">Choose your role to continue</p>
+                    </div>
+                  </div>
+                  
+                  {error && (
+                    <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <p className="text-sm text-destructive">{error}</p>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-3">
+                    {Object.entries(roleInfo).map(([role, info]) => (
+                      <Card 
+                        key={role}
+                        className={`cursor-pointer transition-all duration-200 border-2 hover:border-primary/50 ${
+                          selectedRole === role ? 'border-primary bg-primary/5' : 'border-border'
+                        }`}
+                        onClick={() => handleRoleClick(role as UserRole)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                              <info.icon className="w-5 h-5 text-foreground" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-professional">{info.label}</h4>
+                                <Badge variant={info.needsCode ? "destructive" : "secondary"} className="text-xs">
+                                  {info.needsCode ? <Lock className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+                                  {info.needsCode ? 'Code Required' : 'Open Access'}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{info.description}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-6 pt-4 border-t">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Sponsored by <strong>Goodwin</strong> • Co-hosted with <strong>Santa Cruz Works</strong>
+                    </p>
+                  </div>
+                </Card>
               </div>
             </div>
-          </section>
-
-          <section className="p-6 rounded-xl border bg-primary/5 animate-enter">
-            <h2 className="text-2xl font-bold mb-2">The 10 in 10 Program</h2>
-            <p className="text-muted-foreground mb-6">Turn ideas into shipped products</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 rounded-lg border bg-background/60 text-center">
-                <div className="text-4xl font-bold">10</div>
-                <div className="text-sm text-muted-foreground">Teams Selected</div>
-              </div>
-              <div className="p-4 rounded-lg border bg-background/60 text-center">
-                <div className="text-4xl font-bold">10</div>
-                <div className="text-sm text-muted-foreground">Week Sprint</div>
-              </div>
-              <div className="p-4 rounded-lg border bg-background/60 text-center">
-                <div className="text-4xl">🍕</div>
-                <div className="text-sm text-muted-foreground">10 Pizzas / Team</div>
-              </div>
-              <div className="p-4 rounded-lg border bg-background/60 text-center">
-                <div className="text-4xl font-bold">1</div>
-                <div className="text-sm text-muted-foreground">Demo Day</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="p-6 rounded-xl border bg-card/60 backdrop-blur animate-enter">
-            <h2 className="text-2xl font-bold mb-4">Crystal clear expectations</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg border bg-background/60">
-                <h3 className="font-semibold">What It IS</h3>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  <li>10-week builder sprint for next-gen founders</li>
-                  <li>Launchpad for shipping real products & forming teams</li>
-                  <li>Small needs-based grants and full Pie Fi Stack</li>
-                  <li>Public building, squad energy, peer learning</li>
-                  <li>Tangible products, career-launching, demo day</li>
-                </ul>
-              </div>
-              <div className="p-4 rounded-lg border bg-background/60">
-                <h3 className="font-semibold">What It ISN'T</h3>
-                <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                  <li>Another hackathon or pitch contest</li>
-                  <li>Cash grab or startup lottery</li>
-                  <li>Traditional fund or guaranteed investment</li>
-                  <li>Solo, secretive, or zero-sum</li>
-                  <li>Participation trophy</li>
-                </ul>
-              </div>
-            </div>
-          </section>
-
-          <section className="p-6 rounded-xl border bg-card/60 backdrop-blur animate-enter">
-            <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
-            <div className="max-w-3xl">
-              <Accordion type="single" collapsible>
-                <AccordionItem value="q1">
-                  <AccordionTrigger>Do I need an idea/team to apply?</AccordionTrigger>
-                  <AccordionContent>No, individuals welcome! We'll help you squad up.</AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="q2">
-                  <AccordionTrigger>Do I have to be from Santa Cruz?</AccordionTrigger>
-                  <AccordionContent>Not at all! We welcome anyone from the Bay Area who can make it to events.</AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="q3">
-                  <AccordionTrigger>Is funding guaranteed?</AccordionTrigger>
-                  <AccordionContent>No. Small grants may be available case-by-case; real value is mentorship, resources, and community.</AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="q4">
-                  <AccordionTrigger>Do I have to be technical?</AccordionTrigger>
-                  <AccordionContent>No. We value diverse skills like design, business, and domain expertise.</AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="q5">
-                  <AccordionTrigger>What happens at Demo Day?</AccordionTrigger>
-                  <AccordionContent>A launchpad to meet investors, users, and media—your product's debut.</AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="q6">
-                  <AccordionTrigger>Is this just another accelerator?</AccordionTrigger>
-                  <AccordionContent>No. We’re building a sustainable, community-first builder model.</AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          </section>
+          </div>
         </main>
       </div>
 
-      {/* Access Code Dialog - Enhanced for Builders */}
+      {/* Access Code Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="sm:max-w-lg glow-border bg-card/95 backdrop-blur-sm">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Lock className="w-6 h-6 text-primary" />
@@ -437,7 +394,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="Enter your access code"
-                className="mt-2 font-mono bg-background border-border text-foreground"
+                className="mt-2 font-mono"
                 autoFocus
               />
               <p className="text-xs text-muted-foreground mt-1">
@@ -461,7 +418,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
               <Button 
                 onClick={handleCodeSubmit} 
                 disabled={!code.trim()} 
-                className="px-6 bg-primary text-primary-foreground hover:bg-primary/90"
+                className="px-6"
               >
                 Continue
               </Button>
@@ -472,7 +429,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
 
       {/* Confirmation Dialog for Builders */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent className="glow-border bg-card/95 backdrop-blur-sm">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
@@ -513,7 +470,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
               </Card>
               
               <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20">
-                <p className="text-sm text-yellow-200 flex items-center gap-2">
+                <p className="text-sm text-yellow-700 dark:text-yellow-200 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" />
                   Once confirmed, you'll be locked to this team for this session.
                 </p>
