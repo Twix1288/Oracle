@@ -538,7 +538,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const answer = data.choices[0].message.content;
+    const journeyAnswer = data.choices[0].message.content;
 
     // Generate next actions based on stage
     const nextActions = generateNextActions(stageAnalysis.stage);
@@ -546,7 +546,7 @@ serve(async (req) => {
     // Store interaction for learning
     await supabase.from('oracle_logs').insert({
       query,
-      response: answer,
+      response: journeyAnswer,
       user_role: role,
       user_id: userId,
       team_id: teamId,
