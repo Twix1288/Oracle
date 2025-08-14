@@ -367,21 +367,30 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
 
           {/* Main Oracle Response */}
           <div className="space-y-2">
-            <div className="text-sm leading-relaxed whitespace-pre-wrap space-y-2">
-              <ReactMarkdown
-                components={{
-                  h1: ({...props}) => <strong {...props} />,
-                  h2: ({...props}) => <strong {...props} />,
-                  h3: ({...props}) => <strong {...props} />,
-                  ul: ({...props}) => <ul className="list-disc pl-5 space-y-1" {...props} />,
-                  ol: ({...props}) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
-                  li: ({...props}) => <li className="mb-1" {...props} />,
-                  strong: ({...props}) => <strong className="font-semibold" {...props} />,
-                  p: ({...props}) => <p className="mb-2" {...props} />,
-                }}
-              >
-                {response.answer}
-              </ReactMarkdown>
+            <div className="p-4 rounded-lg bg-background/50 border border-primary/10">
+              <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
+                <ReactMarkdown
+                  components={{
+                    h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
+                    h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
+                    h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
+                    ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
+                    ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
+                    li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
+                    strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                    p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
+                    blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
+                    code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                  }}
+                >
+                  {response.answer.length > 800 ? `${response.answer.substring(0, 800)}...` : response.answer}
+                </ReactMarkdown>
+                {response.answer.length > 800 && (
+                  <Button variant="ghost" size="sm" className="text-xs text-primary">
+                    View Full Response
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>

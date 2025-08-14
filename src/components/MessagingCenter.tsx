@@ -33,7 +33,7 @@ interface Message {
 
 interface MessagingCenterProps {
   userRole: UserRole;
-  userId: string;
+  accessCode: string; // Using access code as user ID for clarity
   teamId?: string;
 }
 
@@ -44,7 +44,7 @@ const roleColors = {
   guest: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
 };
 
-export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterProps) => {
+export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCenterProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("inbox");
@@ -77,7 +77,7 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
             setMessages(prev => [newMsg, ...prev]);
             
             // Show toast for new messages
-            if (newMsg.sender_id !== userId) {
+            if (newMsg.sender_id !== accessCode) {
               toast({
                 title: "New Message",
                 description: `From ${newMsg.sender_role}: ${newMsg.content.slice(0, 50)}...`,
@@ -91,12 +91,12 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, userRole, teamId]);
+  }, [accessCode, userRole, teamId]);
 
   const shouldReceiveMessage = (message: Message) => {
     // Check if this user should receive the message based on role and team
     return (
-      message.receiver_id === userId ||
+      message.receiver_id === accessCode ||
       message.receiver_role === userRole ||
       (message.team_id === teamId && !message.receiver_id) // Team broadcasts
     );
@@ -107,7 +107,7 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`receiver_id.eq.${userId},sender_id.eq.${userId},receiver_role.eq.${userRole}`)
+        .or(`receiver_id.eq.${accessCode},sender_id.eq.${accessCode},receiver_role.eq.${userRole}`)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -124,7 +124,7 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
     setIsLoading(true);
     try {
       const messageData = {
-        sender_id: userId,
+        sender_id: accessCode, // Using access code as sender ID
         sender_role: userRole,
         content: newMessage.content,
         receiver_role: newMessage.receiverRole,
@@ -193,16 +193,16 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
   };
 
   const receivedMessages = messages.filter(msg => 
-    msg.receiver_id === userId || 
+    msg.receiver_id === accessCode || 
     msg.receiver_role === userRole ||
     (msg.team_id === teamId && !msg.receiver_id)
   );
 
-  const sentMessages = messages.filter(msg => msg.sender_id === userId);
+  const sentMessages = messages.filter(msg => msg.sender_id === accessCode);
 
   const renderMessage = (message: Message) => (
     <Card key={message.id} className={`glow-border ${
-      !message.read_at && message.sender_id !== userId 
+      !message.read_at && message.sender_id !== accessCode 
         ? 'bg-primary/5 border-primary/30' 
         : 'bg-card/50'
     }`}>
@@ -210,12 +210,12 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full bg-primary/20">
-              {message.sender_id === userId ? <Send className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
+              {message.sender_id === accessCode ? <Send className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium">
-                  {message.sender_id === userId ? 'You' : `${message.sender_role}`}
+                  {message.sender_id === accessCode ? 'You' : `${message.sender_id}`}
                 </span>
                 <Badge className={roleColors[message.sender_role]}>
                   {message.sender_role}
@@ -237,7 +237,7 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
             </div>
           </div>
           
-          {!message.read_at && message.sender_id !== userId && (
+          {!message.read_at && message.sender_id !== accessCode && (
             <Button
               variant="ghost"
               size="sm"
@@ -252,7 +252,7 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
 
         <p className="text-sm leading-relaxed">{message.content}</p>
 
-        {message.read_at && message.sender_id === userId && (
+        {message.read_at && message.sender_id === accessCode && (
           <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
             <Eye className="h-3 w-3" />
             Read {new Date(message.read_at).toLocaleString()}
@@ -351,9 +351,9 @@ export const MessagingCenter = ({ userRole, userId, teamId }: MessagingCenterPro
 
                   {!newMessage.isBroadcast && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Recipient ID (Optional)</label>
+                      <label className="text-sm font-medium">Recipient Access Code</label>
                       <Input
-                        placeholder="Specific user ID"
+                        placeholder="Access code of recipient"
                         value={newMessage.receiverId}
                         onChange={(e) => setNewMessage({ ...newMessage, receiverId: e.target.value })}
                         className="bg-background/50 border-border focus:border-primary/50"

@@ -395,7 +395,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
         </TabsContent>
 
         <TabsContent value="messages">
-          <MessagingCenter userRole="lead" userId="lead-user" />
+          <MessagingCenter userRole="lead" accessCode="lead-user" />
         </TabsContent>
 
         <TabsContent value="oracle">
