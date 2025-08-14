@@ -241,6 +241,51 @@ export type Database = {
         }
         Relationships: []
       }
+      journey_stages: {
+        Row: {
+          ai_impact: string | null
+          cac_focus: string | null
+          characteristics: string[] | null
+          created_at: string
+          description: string
+          frameworks: string[] | null
+          id: string
+          stage_name: string
+          stage_order: number
+          support_needed: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_impact?: string | null
+          cac_focus?: string | null
+          characteristics?: string[] | null
+          created_at?: string
+          description: string
+          frameworks?: string[] | null
+          id?: string
+          stage_name: string
+          stage_order: number
+          support_needed?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_impact?: string | null
+          cac_focus?: string | null
+          characteristics?: string[] | null
+          created_at?: string
+          description?: string
+          frameworks?: string[] | null
+          id?: string
+          stage_name?: string
+          stage_order?: number
+          support_needed?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       members: {
         Row: {
           assigned_by: string | null

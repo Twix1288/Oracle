@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserRole } from "@/types/oracle";
 import ReactMarkdown from "react-markdown";
+import { useJourneyService, type JourneyResponse } from "@/hooks/useJourneyService";
 
 interface EnhancedOracleProps {
   selectedRole: UserRole;
@@ -75,11 +76,12 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
 export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleProps) => {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [responses, setResponses] = useState<OracleResponse[]>([]);
+  const [responses, setResponses] = useState<JourneyResponse[]>([]);
   const [activeTab, setActiveTab] = useState("chat");
   const { toast } = useToast();
 
   const permissions = rolePermissions[selectedRole];
+  const { queryJourney, journeyLoading, journeyStages, getStage } = useJourneyService(selectedRole);
 
   // Natural language command patterns
   const commandPatterns = {
@@ -233,29 +235,22 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
         commandResult = await executeCommand(command.type, command.match, query);
       }
 
-      // Always send to Oracle for enhanced response
-      const { data, error } = await supabase.functions.invoke('enhanced-oracle', {
-        body: { 
-          query, 
-          role: selectedRole, 
-          teamId,
-          userId,
-          commandExecuted: Boolean(commandResult),
-          commandType: command?.type,
-          commandResult 
-        }
-      });
-
-      if (error) throw error;
-
-      const response: OracleResponse = {
-        ...data,
+      // Send to enhanced journey-aware Oracle
+      queryJourney({
+        query,
+        role: selectedRole,
+        teamId,
+        userId,
         commandExecuted: Boolean(commandResult),
         commandType: command?.type,
         commandResult
-      };
+      });
 
-      setResponses(prev => [response, ...prev]);
+      // Wait for response and add to history
+      if (journeyLoading) {
+        // Handle loading state
+        return;
+      }
       setQuery("");
 
       if (commandResult?.success) {
@@ -300,7 +295,7 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
     ]
   };
 
-  const renderResponse = (response: OracleResponse, index: number) => (
+  const renderResponse = (response: JourneyResponse, index: number) => (
     <div key={index} className="space-y-4">
       {/* Command Execution Result */}
       {response.commandExecuted && response.commandResult && (

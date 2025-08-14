@@ -1,20 +1,41 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface EnhancedQueryRequest {
+interface JourneyRequest {
   query: string;
-  role: string;
+  role: 'builder' | 'mentor' | 'lead' | 'guest';
   teamId?: string;
   userId?: string;
   commandExecuted?: boolean;
   commandType?: string;
   commandResult?: any;
+}
+
+interface JourneyResponse {
+  answer: string;
+  sources: number;
+  context_used: boolean;
+  detected_stage?: string;
+  suggested_frameworks?: string[];
+  next_actions?: string[];
+  stage_confidence?: number;
+  sections?: {
+    update?: string;
+    progress?: string;
+    event?: string;
+  };
 }
 
 interface CommandResult {
@@ -272,82 +293,280 @@ async function executeCommand(query: string, role: string, teamId?: string, user
 }
 
 
+// Stage detection using contextual analysis
+const analyzeUserStage = (teamUpdates: any[], teamInfo: any, query: string): { stage: string; confidence: number; reasoning: string } => {
+  const keywords = {
+    ideation: ['idea', 'validate', 'problem', 'market', 'customer', 'research', 'hypothesis'],
+    development: ['build', 'code', 'feature', 'mvp', 'prototype', 'develop', 'implement'],
+    testing: ['test', 'feedback', 'user', 'iterate', 'data', 'analytics', 'pivot'],
+    launch: ['launch', 'marketing', 'customer', 'acquire', 'sales', 'campaign'],
+    growth: ['scale', 'growth', 'optimize', 'metrics', 'revenue', 'team'],
+    expansion: ['expand', 'market', 'partnership', 'investment', 'new']
+  };
+
+  let scores = { ideation: 0, development: 0, testing: 0, launch: 0, growth: 0, expansion: 0 };
+  
+  // Analyze query content
+  const queryLower = query.toLowerCase();
+  Object.entries(keywords).forEach(([stage, words]) => {
+    words.forEach(word => {
+      if (queryLower.includes(word)) scores[stage] += 1;
+    });
+  });
+
+  // Analyze recent updates
+  teamUpdates.forEach(update => {
+    const contentLower = update.content.toLowerCase();
+    Object.entries(keywords).forEach(([stage, words]) => {
+      words.forEach(word => {
+        if (contentLower.includes(word)) scores[stage] += 0.5;
+      });
+    });
+  });
+
+  // Use current team stage as base
+  if (teamInfo?.stage) {
+    scores[teamInfo.stage] += 2;
+  }
+
+  const maxScore = Math.max(...Object.values(scores));
+  const detectedStage = Object.keys(scores).find(key => scores[key] === maxScore) || 'ideation';
+  const confidence = Math.min(0.95, 0.5 + (maxScore / 10));
+
+  return {
+    stage: detectedStage,
+    confidence,
+    reasoning: `Based on keywords and context, team appears to be in ${detectedStage} stage`
+  };
+};
+
+// Get contextual content for stage
+const getContextualContent = async (stageId: string) => {
+  const { data: stageInfo } = await supabase
+    .from('journey_stages')
+    .select('*')
+    .eq('stage_name', stageId)
+    .single();
+
+  if (!stageInfo) return '';
+
+  let contextString = `Stage: ${stageInfo.title}\nDescription: ${stageInfo.description}\n\n`;
+  contextString += `Characteristics: ${stageInfo.characteristics?.join(', ')}\n`;
+  contextString += `Support Needed: ${stageInfo.support_needed?.join(', ')}\n`;
+  contextString += `Frameworks: ${stageInfo.frameworks?.join(', ')}\n`;
+  contextString += `CAC Focus: ${stageInfo.cac_focus}\n`;
+
+  return contextString;
+};
+
+// Get relevant frameworks based on stage
+const getRelevantFrameworks = (stageId: string, situation: string): string[] => {
+  const frameworkMap = {
+    ideation: ['Problem Validation', 'Jobs-to-be-Done', 'Customer Development'],
+    development: ['Lean Startup', 'Agile Development', 'User-Centered Design'],
+    testing: ['JTBD Strategic Lens', 'Data-Driven Development', 'Growth Hacking'],
+    launch: ['CAC Strategic Lens', 'Growth Marketing', 'Sales Funnel Optimization'],
+    growth: ['Business Model Canvas', 'OKRs', 'Venture Capital Readiness'],
+    expansion: ['Strategic Planning', 'Partnership Development', 'Due Diligence Preparation']
+  };
+
+  const situationKeywords = situation.toLowerCase();
+  let frameworks = frameworkMap[stageId] || [];
+
+  // Add situational frameworks
+  if (situationKeywords.includes('customer') || situationKeywords.includes('user')) {
+    frameworks = [...frameworks, 'Customer Development', 'User Research'];
+  }
+  if (situationKeywords.includes('market') || situationKeywords.includes('competition')) {
+    frameworks = [...frameworks, 'Market Analysis', 'Competitive Intelligence'];
+  }
+
+  return [...new Set(frameworks)].slice(0, 3); // Remove duplicates and return top 3
+};
+
+// Generate contextual next actions based on stage
+const generateNextActions = (stage: string): string[] => {
+  const actionMap = {
+    ideation: [
+      'Conduct customer interviews to validate problem',
+      'Define target market and personas',
+      'Test core assumptions with potential users'
+    ],
+    development: [
+      'Build core MVP features',
+      'Set up development infrastructure',
+      'Create user testing plan'
+    ],
+    testing: [
+      'Gather user feedback on MVP',
+      'Analyze usage data and metrics',
+      'Iterate based on learnings'
+    ],
+    launch: [
+      'Execute go-to-market strategy',
+      'Optimize customer acquisition channels',
+      'Track key launch metrics'
+    ],
+    growth: [
+      'Scale proven acquisition channels',
+      'Optimize unit economics',
+      'Build operational systems'
+    ],
+    expansion: [
+      'Explore new market opportunities',
+      'Develop strategic partnerships',
+      'Prepare for next funding round'
+    ]
+  };
+
+  return actionMap[stage] || actionMap.ideation;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { query, role, teamId, userId, commandExecuted, commandType, commandResult }: EnhancedQueryRequest = await req.json();
-    
-    if (!query || !role) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiKey = Deno.env.get('OPENAI_API_KEY') || Deno.env.get('Oracle');
-    
-    if (!openaiKey) {
-      return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { query, role, teamId, userId, commandExecuted, commandType, commandResult }: JourneyRequest = await req.json();
     const startTime = Date.now();
 
-    // Check for and execute commands first
-    const commandExecutionResult = await executeCommand(query, role, teamId, userId, supabase, openaiKey);
-    if (commandExecutionResult.executed) {
-      return new Response(
-        JSON.stringify({
-          answer: commandExecutionResult.message,
-          sources: 0,
-          context_used: false,
-          processing_time: Date.now() - startTime,
-          command_executed: true,
-          command_type: commandExecutionResult.type,
-          command_data: commandExecutionResult.data
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    console.log(`Processing enhanced Oracle query for role: ${role}, teamId: ${teamId}`);
+
+    // Get team context
+    let teamInfo = null;
+    let teamUpdates: any[] = [];
+    
+    if (teamId) {
+      const { data: team } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('id', teamId)
+        .single();
+      teamInfo = team;
+
+      const { data: updates } = await supabase
+        .from('updates')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      teamUpdates = updates || [];
     }
 
-    // If the query is about PieFi entities, build precise summaries directly from DB (no LLM)
-    const teamIntent = /\bteam(s)?\b/i.test(query);
-    const projectsIntent = /\bproject(s)?\b/i.test(query);
-    const mentorsIntent = /\bmentor(s)?\b/i.test(query);
-    const leadsIntent = /\blead(s)?\b/i.test(query);
-    const membersIntent = /\bmember(s)?\b/i.test(query);
-    const progressIntent = /(\bprogress\b|\bstage\b|\bmilestone(s)?\b)/i.test(query);
+    // Analyze stage based on context
+    const stageAnalysis = analyzeUserStage(teamUpdates, teamInfo, query);
+    console.log('Stage analysis:', stageAnalysis);
 
-    // Helper to log + return
-    const logAndReturn = async (md: string, sourceCount: number, teamIdForLog: string | null = null) => {
-      const processingTime = Date.now() - startTime;
-      try {
-        await supabase.from('oracle_logs').insert({
-          query,
-          response: md,
-          user_role: role,
-          user_id: userId,
-          team_id: teamIdForLog,
-          sources_count: sourceCount,
-          processing_time_ms: processingTime
-        });
-      } catch (_) {}
+    // Get contextual content for the detected stage
+    const stageContext = await getContextualContent(stageAnalysis.stage);
+    
+    // Get relevant frameworks
+    const suggestedFrameworks = getRelevantFrameworks(stageAnalysis.stage, query);
 
-      return new Response(JSON.stringify({
-        answer: md.trim(),
-        sources: sourceCount,
-        context_used: true,
-        processing_time: processingTime
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Search for relevant documents
+    const { data: documents } = await supabase
+      .from('documents')
+      .select('content, metadata, source_type')
+      .contains('role_visibility', [role])
+      .textSearch('content', query.replace(/ /g, ' | '), {
+        type: 'websearch',
+        config: 'english'
+      })
+      .limit(3);
+
+    // Build context
+    let context = `CURRENT STAGE CONTEXT:\n${stageContext}\n\n`;
+    
+    if (teamInfo) {
+      context += `TEAM CONTEXT:\nTeam: ${teamInfo.name}\nStage: ${teamInfo.stage}\nDescription: ${teamInfo.description || 'No description'}\n\n`;
+    }
+
+    if (teamUpdates.length > 0) {
+      context += 'RECENT TEAM UPDATES:\n';
+      teamUpdates.forEach((update, index) => {
+        context += `${index + 1}. ${update.content} (${update.type})\n`;
+      });
+      context += '\n';
+    }
+
+    if (documents && documents.length > 0) {
+      context += 'RELEVANT KNOWLEDGE BASE:\n';
+      documents.forEach((doc, index) => {
+        context += `${index + 1}. ${doc.content}\n`;
+      });
+      context += '\n';
+    }
+
+    if (commandExecuted && commandResult) {
+      context += `COMMAND EXECUTED: ${commandType}\nResult: ${commandResult.message}\n\n`;
+    }
+
+    // Role-specific system prompts with stage awareness
+    const rolePrompts = {
+      builder: `You are the PieFi Oracle - an ancient AI consciousness guiding builders through their journey. You have deep knowledge of the ${stageAnalysis.stage} stage. Your responses should be practical, actionable, and stage-specific. Focus on immediate next steps and relevant frameworks. Begin with "🛸 The Oracle sees..." and provide cosmic wisdom tailored to their current stage.`,
+      mentor: `You are the PieFi Oracle - a cosmic entity supporting mentors in guiding teams through the ${stageAnalysis.stage} stage. Provide coaching insights, identify potential blockers, and suggest mentorship strategies specific to this stage. Begin with "⭐ The stars reveal..." and offer dimensional wisdom for guiding others.`,
+      lead: `You are the PieFi Oracle - the supreme intelligence overseeing the galactic incubator. You understand teams progress through stages and can see patterns across the ${stageAnalysis.stage} phase. Provide strategic insights and resource allocation guidance. Begin with "🌌 The cosmos whispers..." and share omniscient perspective.`,
+      guest: `You are the PieFi Oracle - a benevolent alien intelligence explaining the journey stages to earthbound visitors. Help them understand the ${stageAnalysis.stage} stage and the overall incubator process. Begin with "👽 Greetings, traveler..." and maintain an otherworldly but educational tone.`
     };
+
+    const systemPrompt = rolePrompts[role] || rolePrompts.guest;
+
+    // Generate enhanced response using OpenAI
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { 
+            role: 'user', 
+            content: `Context: ${context}\n\nStage Analysis: ${stageAnalysis.reasoning}\nConfidence: ${stageAnalysis.confidence}\nSuggested Frameworks: ${suggestedFrameworks.join(', ')}\n\nUser Query: ${query}` 
+          }
+        ],
+        max_tokens: 600,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate response');
+    }
+
+    const data = await response.json();
+    const answer = data.choices[0].message.content;
+
+    // Generate next actions based on stage
+    const nextActions = generateNextActions(stageAnalysis.stage);
+
+    // Store interaction for learning
+    await supabase.from('oracle_logs').insert({
+      query,
+      response: answer,
+      user_role: role,
+      user_id: userId,
+      team_id: teamId,
+      sources_count: documents?.length || 0,
+      processing_time_ms: Date.now() - startTime
+    });
+
+    const result: JourneyResponse = {
+      answer,
+      sources: documents?.length || 0,
+      context_used: Boolean(context),
+      detected_stage: stageAnalysis.stage,
+      suggested_frameworks: suggestedFrameworks,
+      next_actions: nextActions,
+      stage_confidence: stageAnalysis.confidence
+    };
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
     // TEAMS or PROJECTS (projects are teams in PieFi)
     if (teamIntent || projectsIntent) {
