@@ -70,11 +70,13 @@ export interface RAGDocument {
 export interface AccessCode {
   id: string;
   code: string;
-  role: UserRole;
   team_id?: string;
+  team_name?: string;
   description?: string;
   is_active: boolean;
   expires_at?: string;
+  max_uses?: number;
+  current_uses?: number;
   generated_by?: string;
   created_at: string;
   updated_at: string;

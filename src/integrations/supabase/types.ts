@@ -18,50 +18,46 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          current_uses: number | null
           description: string | null
           expires_at: string | null
           generated_by: string | null
           id: string
           is_active: boolean | null
-          member_id: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          max_uses: number | null
           team_id: string | null
+          team_name: string | null
           updated_at: string
         }
         Insert: {
           code: string
           created_at?: string
+          current_uses?: number | null
           description?: string | null
           expires_at?: string | null
           generated_by?: string | null
           id?: string
           is_active?: boolean | null
-          member_id?: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          max_uses?: number | null
           team_id?: string | null
+          team_name?: string | null
           updated_at?: string
         }
         Update: {
           code?: string
           created_at?: string
+          current_uses?: number | null
           description?: string | null
           expires_at?: string | null
           generated_by?: string | null
           id?: string
           is_active?: boolean | null
-          member_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          max_uses?: number | null
           team_id?: string | null
+          team_name?: string | null
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "access_codes_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "access_codes_team_id_fkey"
             columns: ["team_id"]
@@ -462,6 +458,80 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          availability: string | null
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          email: string
+          experience_level: string | null
+          full_name: string | null
+          github_url: string | null
+          help_needed: string[] | null
+          id: string
+          linkedin_url: string | null
+          onboarding_completed: boolean | null
+          personal_goals: string[] | null
+          portfolio_url: string | null
+          project_vision: string | null
+          skills: string[] | null
+          team_id: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          availability?: string | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email: string
+          experience_level?: string | null
+          full_name?: string | null
+          github_url?: string | null
+          help_needed?: string[] | null
+          id: string
+          linkedin_url?: string | null
+          onboarding_completed?: boolean | null
+          personal_goals?: string[] | null
+          portfolio_url?: string | null
+          project_vision?: string | null
+          skills?: string[] | null
+          team_id?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          availability?: string | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          email?: string
+          experience_level?: string | null
+          full_name?: string | null
+          github_url?: string | null
+          help_needed?: string[] | null
+          id?: string
+          linkedin_url?: string | null
+          onboarding_completed?: boolean | null
+          personal_goals?: string[] | null
+          portfolio_url?: string | null
+          project_vision?: string | null
+          skills?: string[] | null
+          team_id?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_status: {
         Row: {
           created_at: string
@@ -655,6 +725,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      join_team_with_code: {
+        Args: { p_code: string; p_user_id: string }
+        Returns: Json
+      }
       l2_norm: {
         Args: { "": unknown } | { "": unknown }
         Returns: number
@@ -688,6 +762,19 @@ export type Database = {
           member_id: string
           role: Database["public"]["Enums"]["user_role"]
           team_id: string
+        }[]
+      }
+      validate_team_access_code: {
+        Args: { p_code: string }
+        Returns: {
+          current_uses: number
+          description: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          max_uses: number
+          team_id: string
+          team_name: string
         }[]
       }
       vector_avg: {
