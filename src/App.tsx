@@ -30,9 +30,10 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     return <DetailedOnboarding onComplete={() => window.location.reload()} />;
   }
 
-  if (!profile?.team_id) {
-    return <TeamJoinFlow onComplete={() => window.location.reload()} />;
-  }
+  // Optional team joining - skip if user doesn't want to join a team yet
+  // if (!profile?.team_id) {
+  //   return <TeamJoinFlow onComplete={() => window.location.reload()} />;
+  // }
 
   return <>{children}</>;
 }

@@ -475,6 +475,7 @@ export type Database = {
           personal_goals: string[] | null
           portfolio_url: string | null
           project_vision: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
           skills: string[] | null
           team_id: string | null
           timezone: string | null
@@ -496,6 +497,7 @@ export type Database = {
           personal_goals?: string[] | null
           portfolio_url?: string | null
           project_vision?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           skills?: string[] | null
           team_id?: string | null
           timezone?: string | null
@@ -517,6 +519,7 @@ export type Database = {
           personal_goals?: string[] | null
           portfolio_url?: string | null
           project_vision?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           skills?: string[] | null
           team_id?: string | null
           timezone?: string | null
@@ -528,6 +531,51 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_assignments: {
+        Row: {
+          assigned_by: string | null
+          assigned_role: Database["public"]["Enums"]["user_role"]
+          created_at: string
+          id: string
+          reason: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_role: Database["public"]["Enums"]["user_role"]
+          created_at?: string
+          id?: string
+          reason?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_role?: Database["public"]["Enums"]["user_role"]
+          created_at?: string
+          id?: string
+          reason?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -654,6 +702,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_user_id: string
+        }
+        Returns: Json
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -680,6 +735,10 @@ export type Database = {
           team_id: string
           updated_at: string
         }[]
+      }
+      get_user_role: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
       }
       halfvec_avg: {
         Args: { "": number[] }

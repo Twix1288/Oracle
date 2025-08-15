@@ -19,6 +19,7 @@ export interface UserProfile {
   github_url?: string;
   portfolio_url?: string;
   team_id?: string;
+  role: 'builder' | 'mentor' | 'lead' | 'guest';
   onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
@@ -127,6 +128,31 @@ export const useAuth = () => {
     return data as any;
   };
 
+  const assignRole = async (userId: string, role: 'builder' | 'mentor' | 'lead' | 'guest', reason?: string) => {
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    const { data, error } = await supabase.rpc('assign_user_role', {
+      p_user_id: userId,
+      p_role: role
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Log the role assignment
+    if (data && typeof data === 'object' && 'success' in data && data.success) {
+      await supabase.from('role_assignments').insert({
+        user_id: userId,
+        assigned_role: role,
+        assigned_by: user.id,
+        reason: reason || 'Role assigned'
+      });
+    }
+
+    return data as any;
+  };
+
   return {
     user,
     session,
@@ -135,5 +161,6 @@ export const useAuth = () => {
     signOut,
     updateProfile,
     joinTeamWithCode,
+    assignRole,
   };
 };

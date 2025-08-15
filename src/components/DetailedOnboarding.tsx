@@ -99,6 +99,7 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
       const { error } = await updateProfile({
         ...formData,
         onboarding_completed: true,
+        role: 'builder', // Default role for new users
       });
 
       if (error) throw error;
