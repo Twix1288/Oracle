@@ -15,7 +15,7 @@ import { Shield, Users, MessageSquare, Activity, Settings, Plus, Eye } from "luc
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { EnhancedOracle } from "../EnhancedOracle";
+import { SuperOracle } from "../SuperOracle";
 import { AccessCodeManager } from "../AccessCodeManager";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -399,9 +399,8 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
         </TabsContent>
 
         <TabsContent value="oracle">
-          <EnhancedOracle 
+          <SuperOracle 
             selectedRole="lead"
-            userId="lead_user"
           />
         </TabsContent>
 

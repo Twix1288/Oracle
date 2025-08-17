@@ -7,7 +7,7 @@ import { User, MessageSquare, TrendingUp, AlertTriangle, BookOpen } from "lucide
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { EnhancedOracle } from "../EnhancedOracle";
+import { SuperOracle } from "../SuperOracle";
 import { MentorRequests } from "../MentorRequests";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 import { supabase } from "@/integrations/supabase/client";
@@ -197,9 +197,8 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         </TabsContent>
 
         <TabsContent value="oracle">
-          <EnhancedOracle 
+          <SuperOracle 
             selectedRole="mentor"
-            userId={mentorId}
           />
         </TabsContent>
 

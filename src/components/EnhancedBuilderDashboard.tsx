@@ -7,7 +7,7 @@ import { DashboardHeader } from "./DashboardHeader";
 import { ProgressTracker } from "./ProgressTracker";
 import { TeamProfileCard } from "./TeamProfileCard";
 import { QueryBar } from "./QueryBar";
-import { EnhancedOracle } from "./EnhancedOracle";
+import { SuperOracle } from "./SuperOracle";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { MessagingCenter } from "./MessagingCenter";
 import { TeamRoom } from "./TeamRoom";
@@ -512,10 +512,9 @@ Investment Opportunity & Funding Needs`;
           </TabsContent>
 
           <TabsContent value="oracle" className="space-y-6">
-            <EnhancedOracle 
+            <SuperOracle 
               selectedRole="builder"
               teamId={currentTeam.id}
-              userId={builderName}
             />
           </TabsContent>
 

@@ -1,0 +1,609 @@
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { 
+  Bot, 
+  Send, 
+  Sparkles, 
+  Users, 
+  Hash, 
+  Zap,
+  MessageSquare,
+  Star,
+  Play,
+  Link as LinkIcon,
+  User,
+  Crown,
+  Shield,
+  Heart,
+  Loader2
+} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import type { UserRole } from "@/types/oracle";
+import ReactMarkdown from "react-markdown";
+
+interface SuperOracleProps {
+  selectedRole: UserRole;
+  teamId?: string;
+}
+
+interface ChatMessage {
+  id: string;
+  type: 'user' | 'oracle' | 'system';
+  content: string;
+  timestamp: string;
+  author?: {
+    name: string;
+    role: UserRole;
+    avatar?: string;
+  };
+  metadata?: {
+    command?: string;
+    sources?: number;
+    resources?: OracleResource[];
+    mentions?: string[];
+    confidence?: number;
+    stage?: string;
+  };
+  sections?: {
+    answer: string;
+    resources?: OracleResource[];
+    actions?: string[];
+    mentions?: string[];
+  };
+}
+
+interface OracleResource {
+  title: string;
+  url: string;
+  type: 'youtube' | 'article' | 'documentation' | 'tutorial' | 'tool';
+  description: string;
+  relevance: number;
+}
+
+interface SlashCommand {
+  command: string;
+  description: string;
+  usage: string;
+  roleRequired: UserRole[];
+  category: 'team' | 'user' | 'oracle' | 'admin';
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    command: '/status',
+    description: 'Check team or user status',
+    usage: '/status [@user | @team]',
+    roleRequired: ['builder', 'mentor', 'lead'],
+    category: 'team'
+  },
+  {
+    command: '/update',
+    description: 'Log progress update',
+    usage: '/update your progress description',
+    roleRequired: ['builder', 'mentor', 'lead'],
+    category: 'team'
+  },
+  {
+    command: '/message',
+    description: 'Send message to user or team',
+    usage: '/message @target your message',
+    roleRequired: ['mentor', 'lead'],
+    category: 'team'
+  },
+  {
+    command: '/find',
+    description: 'Find team members by skills',
+    usage: '/find [skill | expertise]',
+    roleRequired: ['builder', 'mentor', 'lead'],
+    category: 'user'
+  },
+  {
+    command: '/resources',
+    description: 'Get curated resources for your project',
+    usage: '/resources [topic | technology]',
+    roleRequired: ['builder', 'mentor', 'lead', 'guest'],
+    category: 'oracle'
+  },
+  {
+    command: '/analyze',
+    description: 'Deep analysis of team progress',
+    usage: '/analyze [@team | overall]',
+    roleRequired: ['mentor', 'lead'],
+    category: 'admin'
+  },
+  {
+    command: '/broadcast',
+    description: 'Send announcement to all teams',
+    usage: '/broadcast your announcement',
+    roleRequired: ['lead'],
+    category: 'admin'
+  }
+];
+
+const getRoleIcon = (role: UserRole) => {
+  switch (role) {
+    case 'lead': return <Crown className="h-3 w-3 text-purple-400" />;
+    case 'mentor': return <Shield className="h-3 w-3 text-green-400" />;
+    case 'builder': return <Zap className="h-3 w-3 text-blue-400" />;
+    default: return <User className="h-3 w-3 text-gray-400" />;
+  }
+};
+
+const getRoleColor = (role: UserRole) => {
+  switch (role) {
+    case 'lead': return 'text-purple-400';
+    case 'mentor': return 'text-green-400';
+    case 'builder': return 'text-blue-400';
+    default: return 'text-gray-400';
+  }
+};
+
+export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showCommands, setShowCommands] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const { profile } = useAuth();
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    // Add welcome message
+    const welcomeMessage: ChatMessage = {
+      id: 'welcome',
+      type: 'oracle',
+      content: `🛸 **Welcome to the PieFi Oracle, ${profile?.full_name || 'Explorer'}!**\n\nI'm your intelligent AI companion, ready to help you navigate your journey. I can:\n\n✨ **Answer questions** with context about your team and progress\n🔍 **Find resources** tailored to your specific project and needs\n👥 **Connect you** with teammates based on skills and expertise\n⚡ **Execute commands** to update progress, send messages, and more\n\nTry asking me anything or use slash commands like \`/help\` to get started!`,
+      timestamp: new Date().toISOString(),
+      author: {
+        name: 'Oracle',
+        role: 'guest' as UserRole,
+        avatar: '🛸'
+      },
+      metadata: {
+        confidence: 100
+      }
+    };
+    setMessages([welcomeMessage]);
+  }, [profile]);
+
+  const parseMessage = (text: string) => {
+    const mentions = text.match(/@(\w+)/g) || [];
+    const commands = text.match(/\/(\w+)/g) || [];
+    
+    return {
+      mentions: mentions.map(m => m.slice(1)),
+      commands: commands.map(c => c.slice(1)),
+      hasSlashCommand: text.startsWith('/')
+    };
+  };
+
+  const executeSlashCommand = async (command: string, args: string[]) => {
+    const cmd = SLASH_COMMANDS.find(c => c.command === `/${command}`);
+    
+    if (!cmd) {
+      return {
+        success: false,
+        message: `Unknown command: /${command}. Type /help to see available commands.`
+      };
+    }
+
+    if (!cmd.roleRequired.includes(selectedRole)) {
+      return {
+        success: false,
+        message: `You don't have permission to use /${command}. Required roles: ${cmd.roleRequired.join(', ')}`
+      };
+    }
+
+    try {
+      switch (command) {
+        case 'help':
+          const availableCommands = SLASH_COMMANDS.filter(c => c.roleRequired.includes(selectedRole));
+          return {
+            success: true,
+            message: `**Available Commands:**\n\n${availableCommands.map(c => 
+              `\`${c.command}\` - ${c.description}\n*Usage:* ${c.usage}`
+            ).join('\n\n')}`
+          };
+
+        case 'status':
+          if (args.length === 0) {
+            // Show current user/team status
+            const { data: teamData } = await supabase
+              .from('teams')
+              .select('*, team_status(*)')
+              .eq('id', teamId)
+              .single();
+            
+            return {
+              success: true,
+              message: `**Team Status:**\n${teamData?.name}: ${teamData?.team_status?.[0]?.current_status || 'No status set'}`
+            };
+          }
+          break;
+
+        case 'find':
+          const skill = args.join(' ');
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('full_name, role, skills')
+            .contains('skills', [skill]);
+          
+          if (profiles && profiles.length > 0) {
+            return {
+              success: true,
+              message: `**Found ${profiles.length} people with "${skill}" skills:**\n\n${profiles.map(p => 
+                `• **${p.full_name}** (${p.role}) - ${p.skills?.join(', ')}`
+              ).join('\n')}`
+            };
+          } else {
+            return {
+              success: true,
+              message: `No team members found with "${skill}" skills.`
+            };
+          }
+
+        case 'update':
+          if (teamId) {
+            const updateContent = args.join(' ');
+            const { error } = await supabase
+              .from('updates')
+              .insert({
+                team_id: teamId,
+                content: updateContent,
+                type: 'daily',
+                created_by: profile?.id
+              });
+            
+            if (!error) {
+              return {
+                success: true,
+                message: `✅ Update logged: "${updateContent}"`
+              };
+            }
+          }
+          break;
+
+        default:
+          return {
+            success: false,
+            message: `Command /${command} not implemented yet.`
+          };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error executing command: ${error.message}`
+      };
+    }
+
+    return {
+      success: false,
+      message: `Failed to execute /${command}`
+    };
+  };
+
+  const queryOracle = async (query: string) => {
+    const response = await supabase.functions.invoke('super-oracle', {
+      body: {
+        query,
+        role: selectedRole,
+        teamId,
+        userId: profile?.id,
+        userProfile: profile,
+        contextRequest: {
+          needsResources: true,
+          needsMentions: true,
+          needsTeamContext: true,
+          needsPersonalization: true
+        }
+      }
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    return response.data;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim() || isLoading) return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: message,
+      timestamp: new Date().toISOString(),
+      author: {
+        name: profile?.full_name || 'You',
+        role: selectedRole,
+        avatar: profile?.avatar_url
+      }
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    const currentMessage = message;
+    setMessage("");
+    setIsLoading(true);
+
+    try {
+      const parsed = parseMessage(currentMessage);
+      
+      // Handle slash commands
+      if (parsed.hasSlashCommand) {
+        const [command, ...args] = currentMessage.slice(1).split(' ');
+        const result = await executeSlashCommand(command, args);
+        
+        const systemMessage: ChatMessage = {
+          id: Date.now().toString() + '_system',
+          type: 'system',
+          content: result.message,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            command: `/${command}`,
+            confidence: result.success ? 100 : 0
+          }
+        };
+        
+        setMessages(prev => [...prev, systemMessage]);
+        return;
+      }
+
+      // Query the Oracle for intelligent response
+      const oracleResponse = await queryOracle(currentMessage);
+      
+      const oracleMessage: ChatMessage = {
+        id: Date.now().toString() + '_oracle',
+        type: 'oracle',
+        content: oracleResponse.answer,
+        timestamp: new Date().toISOString(),
+        author: {
+          name: 'Oracle',
+          role: 'guest' as UserRole,
+          avatar: '🛸'
+        },
+        metadata: {
+          sources: oracleResponse.sources,
+          confidence: oracleResponse.confidence || 95,
+          stage: oracleResponse.detected_stage
+        },
+        sections: {
+          answer: oracleResponse.answer,
+          resources: oracleResponse.resources || [],
+          actions: oracleResponse.next_actions || [],
+          mentions: parsed.mentions
+        }
+      };
+
+      setMessages(prev => [...prev, oracleMessage]);
+
+    } catch (error) {
+      console.error('Oracle error:', error);
+      toast({
+        title: "Oracle Connection Failed",
+        description: "The Oracle is temporarily unavailable. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderMessage = (msg: ChatMessage) => {
+    const isUser = msg.type === 'user';
+    const isSystem = msg.type === 'system';
+    
+    return (
+      <div key={msg.id} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} mb-4`}>
+        <Avatar className="h-8 w-8">
+          {msg.author?.avatar?.startsWith('http') ? (
+            <AvatarImage src={msg.author.avatar} alt={msg.author.name} />
+          ) : (
+            <AvatarFallback className="text-xs">
+              {msg.author?.avatar || msg.author?.name?.charAt(0) || '?'}
+            </AvatarFallback>
+          )}
+        </Avatar>
+        
+        <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-sm font-medium ${getRoleColor(msg.author?.role || 'guest')}`}>
+              {msg.author?.name}
+            </span>
+            {getRoleIcon(msg.author?.role || 'guest')}
+            {msg.metadata?.confidence && (
+              <Badge variant="outline" className="text-xs">
+                {msg.metadata.confidence}% confidence
+              </Badge>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {new Date(msg.timestamp).toLocaleTimeString()}
+            </span>
+          </div>
+          
+          <div className={`rounded-lg p-3 ${
+            isUser 
+              ? 'bg-primary text-primary-foreground ml-8' 
+              : isSystem 
+                ? 'bg-orange-500/10 border border-orange-500/20' 
+                : 'bg-muted/50 mr-8'
+          }`}>
+            <ReactMarkdown
+              components={{
+                h1: ({...props}) => <h3 className="font-semibold text-base mb-2" {...props} />,
+                h2: ({...props}) => <h4 className="font-medium text-sm mb-1" {...props} />,
+                ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-2" {...props} />,
+                ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-2" {...props} />,
+                strong: ({...props}) => <strong className="font-semibold" {...props} />,
+                p: ({...props}) => <p className="mb-2 text-sm leading-relaxed" {...props} />,
+                code: ({...props}) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+            
+            {/* Resources */}
+            {msg.sections?.resources && msg.sections.resources.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Star className="h-4 w-4" />
+                  Recommended Resources
+                </h4>
+                {msg.sections.resources.map((resource, idx) => (
+                  <div key={idx} className="p-2 rounded bg-background/50 border">
+                    <div className="flex items-center gap-2 mb-1">
+                      {resource.type === 'youtube' && <Play className="h-4 w-4 text-red-500" />}
+                      {resource.type === 'article' && <LinkIcon className="h-4 w-4 text-blue-500" />}
+                      <span className="text-sm font-medium">{resource.title}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">{resource.description}</p>
+                    <Button variant="outline" size="sm" className="text-xs" asChild>
+                      <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                        Open Resource
+                      </a>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Command Indicator */}
+            {msg.metadata?.command && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <Hash className="h-3 w-3" />
+                Command: {msg.metadata.command}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-[600px] max-w-4xl mx-auto">
+      <Card className="flex-1 flex flex-col glow-border bg-card/50 backdrop-blur">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/20 ufo-pulse">
+              <Bot className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-glow">PieFi Oracle</h2>
+              <p className="text-sm text-muted-foreground">
+                Your intelligent AI companion for the incubator
+              </p>
+            </div>
+            <Badge className="bg-primary/20 text-primary border-primary/30">
+              {selectedRole} Mode
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        
+        <Separator />
+        
+        <CardContent className="flex-1 flex flex-col p-4">
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              {messages.map(renderMessage)}
+              {isLoading && (
+                <div className="flex items-center gap-3 mb-4">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>🛸</AvatarFallback>
+                  </Avatar>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Oracle is thinking...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+          
+          <div className="mt-4 space-y-3">
+            <Separator />
+            
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/help')}
+                className="text-xs"
+              >
+                <Hash className="h-3 w-3 mr-1" />
+                Commands
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/resources AI development')}
+                className="text-xs"
+              >
+                <Star className="h-3 w-3 mr-1" />
+                Resources
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/find React developer')}
+                className="text-xs"
+              >
+                <Users className="h-3 w-3 mr-1" />
+                Find People
+              </Button>
+            </div>
+            
+            {/* Message Input */}
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <div className="flex-1 relative">
+                <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Ask the Oracle anything or use /commands..."
+                  className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
+                  disabled={isLoading}
+                />
+              </div>
+              <Button 
+                type="submit" 
+                disabled={isLoading || !message.trim()}
+                className="ufo-gradient hover:opacity-90"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </form>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              Type <code>/help</code> for commands • Mention users with <code>@username</code> • 
+              The Oracle knows about your team, project, and progress
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

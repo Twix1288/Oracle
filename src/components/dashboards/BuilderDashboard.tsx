@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { EnhancedOracle } from "../EnhancedOracle";
+import { SuperOracle } from "../SuperOracle";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface BuilderDashboardProps {
@@ -317,10 +317,9 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="oracle">
-          <EnhancedOracle 
+          <SuperOracle 
             selectedRole="builder"
             teamId={teamId}
-            userId={builderId}
           />
         </TabsContent>
 

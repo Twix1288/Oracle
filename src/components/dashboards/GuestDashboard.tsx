@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, Users, TrendingUp, Calendar, Sparkles, MessageSquare } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { EnhancedOracle } from "../EnhancedOracle";
+import { SuperOracle } from "../SuperOracle";
 import type { Team, Update } from "@/types/oracle";
 
 interface GuestDashboardProps {
@@ -237,7 +237,7 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
         </TabsContent>
 
         <TabsContent value="oracle">
-          <EnhancedOracle 
+          <SuperOracle 
             selectedRole="guest"
           />
         </TabsContent>
