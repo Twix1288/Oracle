@@ -40,31 +40,31 @@
 
   .dark {
     /* Professional Dark Theme with Maximum Contrast */
-    --background: 0 0% 0%; /* Pure black background */
+    --background: 220 27% 2%; /* Dark cosmic background */
     --foreground: 0 0% 98%; /* Maximum text contrast */
-    --card: 0 0% 8%; /* Better card contrast */
+    --card: 220 27% 6%; /* Better card contrast */
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 8%;
+    --popover: 220 27% 6%;
     --popover-foreground: 0 0% 98%;
-    --primary: 270 100% 65%; /* Electric Purple (brighter) */
+    --primary: 270 100% 68%; /* Electric Purple (brighter) */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 12%; /* Better secondary contrast */
+    --secondary: 220 27% 12%; /* Better secondary contrast */
     --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 10%; /* Improved muted background */
-    --muted-foreground: 0 0% 85%; /* Much better text contrast */
-    --accent: 350 90% 60%;
-    --accent-foreground: 0 0% 95%;
+    --muted: 220 27% 8%; /* Improved muted background */
+    --muted-foreground: 0 0% 88%; /* Much better text contrast */
+    --accent: 25 95% 65%; /* UFO Orange */
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 20%; /* More visible borders */
-    --input: 0 0% 15%; /* Better input visibility */
-    --ring: 270 100% 65%;
+    --border: 220 27% 18%; /* More visible borders */
+    --input: 220 27% 12%; /* Better input visibility */
+    --ring: 270 100% 68%;
 
     /* Professional Dark Effects */
     --text-glow: 0 0 12px hsl(var(--primary) / 0.4);
     --subtle-glow: 0 0 6px hsl(var(--primary) / 0.3);
-    --card-glow: 0 4px 20px hsl(var(--primary) / 0.1);
-    --hover-glow: 0 8px 30px hsl(var(--primary) / 0.2);
+    --card-glow: 0 4px 20px hsl(var(--primary) / 0.15);
+    --hover-glow: 0 8px 30px hsl(var(--primary) / 0.25);
   }
 }
 
@@ -271,6 +271,36 @@
     color: hsl(var(--muted-foreground));
     font-weight: 500;
     opacity: 1;
+  }
+
+  /* Enhanced UFO Theme */
+  .bg-cosmic {
+    background: linear-gradient(135deg, 
+      hsl(var(--background)) 0%, 
+      hsl(var(--card)) 25%, 
+      hsl(var(--background)) 50%,
+      hsl(var(--card)) 75%,
+      hsl(var(--background)) 100%);
+  }
+
+  .cosmic-text {
+    background: linear-gradient(135deg, 
+      hsl(var(--primary)) 0%, 
+      hsl(var(--accent)) 50%, 
+      hsl(var(--primary)) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+  }
+
+  .ufo-card {
+    background: hsl(var(--card) / 0.9);
+    border: 1px solid hsl(var(--primary) / 0.2);
+    box-shadow: 
+      0 4px 20px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(var(--primary) / 0.1);
+    backdrop-filter: blur(12px);
   }
 }
 

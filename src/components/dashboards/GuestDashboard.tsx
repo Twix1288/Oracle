@@ -63,21 +63,21 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
       <div className="container mx-auto px-6 pb-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="p-3 rounded-full bg-gray-500/20 ufo-pulse">
-          <Eye className="h-6 w-6 text-gray-400" />
+        <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+          <Eye className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-glow">PieFi Incubator</h1>
-          <p className="text-muted-foreground">Public mission overview</p>
+          <h1 className="text-3xl font-bold cosmic-text">PieFi Incubator</h1>
+          <p className="readable-muted">Public mission overview</p>
         </div>
       </div>
 
       {/* Welcome Message */}
-      <Card className="glow-border bg-card/50 backdrop-blur border-primary/30">
+      <Card className="ufo-card">
         <CardContent className="p-6 text-center">
           <Sparkles className="h-12 w-12 text-primary mx-auto mb-4 ufo-pulse" />
-          <h3 className="text-xl font-medium mb-2">Welcome to PieFi</h3>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <h3 className="text-xl font-medium mb-2 high-contrast-text">Welcome to PieFi</h3>
+          <p className="readable-muted max-w-2xl mx-auto">
             PieFi is an innovative incubator program where teams build the future. 
             Explore our active teams, their progress, and the amazing projects taking shape.
           </p>
@@ -86,37 +86,37 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
 
       {/* Public Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glow-border bg-card/50 backdrop-blur">
+        <Card className="ufo-card interactive-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Users className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-sm text-muted-foreground">Active Teams</p>
-                <p className="text-2xl font-bold">{metrics.totalTeams}</p>
+                <p className="text-sm readable-muted">Active Teams</p>
+                <p className="text-2xl font-bold high-contrast-text">{metrics.totalTeams}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="glow-border bg-card/50 backdrop-blur">
+        <Card className="ufo-card interactive-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-5 w-5 text-green-400" />
+              <TrendingUp className="h-5 w-5 text-accent" />
               <div>
-                <p className="text-sm text-muted-foreground">Development Stages</p>
-                <p className="text-2xl font-bold">{metrics.activeStages}</p>
+                <p className="text-sm readable-muted">Development Stages</p>
+                <p className="text-2xl font-bold high-contrast-text">{metrics.activeStages}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="glow-border bg-card/50 backdrop-blur">
+        <Card className="ufo-card interactive-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-blue-400" />
+              <Calendar className="h-5 w-5 text-secondary" />
               <div>
-                <p className="text-sm text-muted-foreground">Weekly Updates</p>
-                <p className="text-2xl font-bold">{metrics.recentUpdates}</p>
+                <p className="text-sm readable-muted">Weekly Updates</p>
+                <p className="text-2xl font-bold high-contrast-text">{metrics.recentUpdates}</p>
               </div>
             </div>
           </CardContent>
@@ -125,16 +125,16 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-card/50 backdrop-blur border-primary/20">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
+        <TabsList className="grid w-full grid-cols-3 ufo-card">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Eye className="h-4 w-4 mr-2" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <MessageSquare className="h-4 w-4 mr-2" />
             Ask Oracle
           </TabsTrigger>
-          <TabsTrigger value="about" className="data-[state=active]:bg-primary/20">
+          <TabsTrigger value="about" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Sparkles className="h-4 w-4 mr-2" />
             About
           </TabsTrigger>

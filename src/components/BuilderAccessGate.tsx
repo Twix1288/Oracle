@@ -200,14 +200,14 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-cosmic cosmic-sparkle">
       <div className="relative">
         {/* Professional Header */}
-        <header className="bg-card border-b">
+        <header className="ufo-card border-b">
           <div className="container mx-auto px-6 py-8">
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center ufo-pulse">
                   <img 
                     src={ufoLogo} 
                     alt="PieFi Logo" 
@@ -215,21 +215,21 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
                   />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-professional">PieFi</h1>
-                  <p className="text-muted-foreground">Santa Cruz Builder Camp</p>
+                  <h1 className="text-3xl font-bold cosmic-text">PieFi</h1>
+                  <p className="readable-muted">Santa Cruz Builder Camp</p>
                 </div>
               </div>
             </div>
             
             <div className="text-center max-w-3xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent text-sm font-medium mb-6">
-                <Sparkles className="w-4 h-4" />
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/20 text-accent text-sm font-medium mb-6 glow-border">
+                <Sparkles className="w-4 h-4 ufo-pulse" />
                 Applications Open Now
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold text-professional mb-4">
+              <h2 className="text-4xl md:text-5xl font-bold cosmic-text mb-4">
                 10 Weeks. 10 Teams. Real Products.
               </h2>
-              <p className="text-lg text-muted-foreground leading-relaxed">
+              <p className="text-lg readable-muted leading-relaxed">
                 A builder camp that turns students and early founders into product creators. 
                 Build something people want with expert mentorship and community support.
               </p>
