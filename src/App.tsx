@@ -26,8 +26,8 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     return <Auth />;
   }
 
-  // Only show onboarding if user hasn't completed it AND doesn't have a role yet
-  if (!profile?.onboarding_completed && (!profile?.role || profile.role === 'guest')) {
+  // Only show onboarding if user hasn't completed it AND is a guest (no assigned role)
+  if (!profile?.onboarding_completed && profile?.role === 'guest') {
     return <DetailedOnboarding onComplete={() => window.location.reload()} />;
   }
 

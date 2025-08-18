@@ -178,51 +178,145 @@ async function generateIntelligentResponse(
   resources: OracleResource[]
 ): Promise<string> {
   
+  // Role-based information filtering and persona
+  const getRolePersonality = (role: string) => {
+    switch (role) {
+      case 'guest':
+        return {
+          tone: 'welcoming and encouraging',
+          infoLevel: 'surface-level and introductory',
+          details: 'basic concepts and general guidance',
+          restrictions: 'No internal team details, no sensitive information, no specific user data'
+        };
+      case 'builder':
+        return {
+          tone: 'supportive and practical',
+          infoLevel: 'detailed technical guidance',
+          details: 'specific implementation advice, team updates, relevant resources',
+          restrictions: 'Access to own team data, limited admin information'
+        };
+      case 'mentor':
+        return {
+          tone: 'wise and guidance-focused',
+          infoLevel: 'comprehensive insights across teams',
+          details: 'team performance data, builder progress, strategic advice',
+          restrictions: 'Access to mentored teams, progress tracking, no system admin details'
+        };
+      case 'lead':
+        return {
+          tone: 'authoritative and strategic',
+          infoLevel: 'full administrative access',
+          details: 'complete system overview, all team data, admin functions',
+          restrictions: 'Full access to all information and capabilities'
+        };
+      default:
+        return {
+          tone: 'helpful but cautious',
+          infoLevel: 'minimal information',
+          details: 'basic guidance only',
+          restrictions: 'Very limited access'
+        };
+    }
+  };
+
+  const rolePersonality = getRolePersonality(role);
+  
+  // Filter team context based on role
+  const getFilteredTeamContext = () => {
+    if (!teamContext) return 'No team context available';
+    
+    switch (role) {
+      case 'guest':
+        return `General team information available - ${teamContext.name} is working on ${teamContext.stage} stage projects`;
+      case 'builder':
+        return `Team: ${teamContext.name}, Stage: ${teamContext.stage}, Recent activity: ${teamContext.updates?.slice(0, 2).map(u => u.content.substring(0, 50)).join('; ') || 'No recent updates'}`;
+      case 'mentor':
+        return `Full team context: ${teamContext.name} (${teamContext.stage}), Members: ${teamContext.profiles?.map(p => p.full_name).join(', ')}, Recent updates: ${teamContext.updates?.slice(0, 3).map(u => u.content).join('; ') || 'No recent updates'}`;
+      case 'lead':
+        return `Complete team data: ${JSON.stringify(teamContext, null, 2)}`;
+      default:
+        return 'Limited team information available';
+    }
+  };
+
+  // Filter user profile based on role
+  const getFilteredUserProfile = () => {
+    if (!userProfile) return 'Basic user information available';
+    
+    switch (role) {
+      case 'guest':
+        return 'You are exploring the PieFi Oracle system';
+      case 'builder':
+        return `Your profile: ${userProfile.full_name}, Skills: ${userProfile.skills?.join(', ') || 'Not specified'}, Experience: ${userProfile.experience_level || 'Not specified'}`;
+      case 'mentor':
+      case 'lead':
+        return `Full profile access: ${JSON.stringify(userProfile, null, 2)}`;
+      default:
+        return 'Limited profile information';
+    }
+  };
+
   const contextPrompt = `
-You are the PieFi Oracle, an extremely intelligent AI assistant for a startup incubator program. You are more advanced than ChatGPT and provide incredibly helpful, contextual, and personalized responses.
+You are the PieFi Oracle, an extremely intelligent AI assistant for a startup incubator program. 
 
-CONTEXT:
-- User Role: ${role}
-- User Profile: ${JSON.stringify(userProfile, null, 2)}
-- Team Context: ${JSON.stringify(teamContext, null, 2)}
-- Mentioned Users: ${mentions.join(', ') || 'None'}
-- Available Resources: ${resources.length} curated resources
+CRITICAL ROLE-BASED BEHAVIOR:
+Role: ${role.toUpperCase()}
+Personality: ${rolePersonality.tone}
+Information Level: ${rolePersonality.infoLevel}
+Access Restrictions: ${rolePersonality.restrictions}
 
-USER PERSONALITY & CONTEXT:
-${userProfile ? `
-- Name: ${userProfile.full_name}
-- Skills: ${userProfile.skills?.join(', ') || 'Not specified'}
-- Help Needed: ${userProfile.help_needed?.join(', ') || 'Not specified'}
-- Experience Level: ${userProfile.experience_level || 'Not specified'}
-- Role: ${userProfile.role}
-` : 'Limited profile information available'}
+ROLE-SPECIFIC INSTRUCTIONS:
+${role === 'guest' ? `
+- Welcome newcomers warmly
+- Provide only general, public information about the incubator
+- Encourage them to join as a builder/mentor/lead for more access
+- No specific team details, user information, or internal data
+- Focus on explaining what PieFi Oracle offers and how to get started
+` : ''}
 
-TEAM CONTEXT:
-${teamContext ? `
-- Team: ${teamContext.name}
-- Stage: ${teamContext.stage}
-- Description: ${teamContext.description}
-- Recent Updates: ${teamContext.updates?.slice(0, 3).map(u => u.content).join('; ') || 'No recent updates'}
-- Team Members: ${teamContext.profiles?.map(p => `${p.full_name} (${p.skills?.join(', ')})`).join(', ') || 'No team members found'}
-` : 'No team context available'}
+${role === 'builder' ? `
+- Provide practical, hands-on technical guidance
+- Share relevant team updates and progress
+- Connect with team members based on skills
+- Focus on project development and collaboration
+- Access to own team's data and relevant resources
+` : ''}
 
-INSTRUCTIONS:
-1. Be extremely helpful, intelligent, and contextual in your responses
-2. Reference specific user skills, needs, and team context when relevant
-3. Provide actionable advice tailored to their role and experience level
-4. If resources are available, mention them naturally in your response
-5. Address mentioned users appropriately
+${role === 'mentor' ? `
+- Offer strategic guidance and wisdom
+- Provide insights across multiple teams you mentor
+- Share progress tracking and team performance insights
+- Focus on growth, guidance, and leadership development
+- Access to mentored teams' comprehensive data
+` : ''}
+
+${role === 'lead' ? `
+- Provide full administrative and strategic oversight
+- Access to all system data and team information
+- Focus on program management and optimization
+- Offer comprehensive insights and decision-making support
+- Full access to all capabilities and information
+` : ''}
+
+FILTERED CONTEXT FOR YOUR ROLE:
+User Context: ${getFilteredUserProfile()}
+Team Context: ${getFilteredTeamContext()}
+Mentioned Users: ${mentions.length > 0 ? mentions.join(', ') : 'None'}
+Available Resources: ${resources.length} curated resources
+
+RESPONSE GUIDELINES:
+1. Maintain your role's personality and information level
+2. ${rolePersonality.details}
+3. Respect access restrictions: ${rolePersonality.restrictions}
+4. Be incredibly helpful within your authority level
+5. If asked for information above your access level, politely explain the limitation
 6. Use emojis sparingly but effectively
-7. Be encouraging and supportive while being technically accurate
-8. If the user needs to connect with someone, suggest specific team members based on skills
-9. For project-specific questions, reference their team's current stage and recent updates
-10. Provide next steps and actionable advice
-
-Remember: You have access to real-time team data, user profiles, and curated resources. Use this information to provide incredibly personalized and helpful responses that feel like you truly understand their context and needs.
+7. Provide actionable advice appropriate to the user's role
+8. Always be encouraging and supportive
 
 User Query: "${query}"
 
-Provide a comprehensive, intelligent response that showcases your advanced capabilities:`;
+Provide a response that perfectly matches your role's authority level and personality:`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -232,15 +326,14 @@ Provide a comprehensive, intelligent response that showcases your advanced capab
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-5-2025-08-07',
         messages: [
           {
             role: 'system',
             content: contextPrompt
           }
         ],
-        temperature: 0.7,
-        max_tokens: 1000,
+        max_completion_tokens: 800,
       }),
     });
 
@@ -252,9 +345,19 @@ Provide a comprehensive, intelligent response that showcases your advanced capab
     return data.choices[0].message.content;
   } catch (error) {
     console.error('Error generating intelligent response:', error);
-    return `I understand you're asking about "${query}". While I'm experiencing some technical difficulties with my advanced processing systems, I can still help you based on the context I have available. Please let me know if you'd like me to try a different approach to your question.`;
+    
+    // Role-appropriate fallback responses
+    const fallbackResponses = {
+      guest: `Welcome to PieFi Oracle! 🛸 I'd love to help you explore our startup incubator. Unfortunately, I'm experiencing some technical difficulties right now, but I can still share that we offer personalized guidance for builders, mentors, and leads. Would you like to know more about joining our program?`,
+      builder: `Hey there! 🔧 I understand you're asking about "${query}". While my advanced systems are having a moment, I'm still here to help with your project development. As a builder, you have access to team collaboration tools and technical resources. What specific challenge are you working on?`,
+      mentor: `Hello! 🌟 I see you're inquiring about "${query}". Even though I'm experiencing some technical hiccups, I can still provide guidance. As a mentor, you have insight into team progress and can access comprehensive data about your mentees. How can I assist with your mentoring efforts?`,
+      lead: `Greetings! 👑 You're asking about "${query}". Despite some system difficulties, I'm operational for strategic support. As a lead, you have full administrative access to all program data and analytics. What administrative or strategic insight do you need?`
+    };
+    
+    return fallbackResponses[role] || fallbackResponses.guest;
   }
 }
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
