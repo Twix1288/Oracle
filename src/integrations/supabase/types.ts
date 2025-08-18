@@ -25,6 +25,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           max_uses: number | null
+          role: Database["public"]["Enums"]["user_role"] | null
           team_id: string | null
           team_name: string | null
           updated_at: string
@@ -39,6 +40,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_uses?: number | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           team_id?: string | null
           team_name?: string | null
           updated_at?: string
@@ -53,6 +55,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_uses?: number | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           team_id?: string | null
           team_name?: string | null
           updated_at?: string
@@ -818,7 +821,6 @@ export type Database = {
           expires_at: string
           id: string
           is_active: boolean
-          member_id: string
           role: Database["public"]["Enums"]["user_role"]
           team_id: string
         }[]
