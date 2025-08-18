@@ -26,14 +26,10 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     return <Auth />;
   }
 
-  if (!profile?.onboarding_completed) {
+  // Only show onboarding if user hasn't completed it AND doesn't have a role yet
+  if (!profile?.onboarding_completed && (!profile?.role || profile.role === 'guest')) {
     return <DetailedOnboarding onComplete={() => window.location.reload()} />;
   }
-
-  // Optional team joining - skip if user doesn't want to join a team yet
-  // if (!profile?.team_id) {
-  //   return <TeamJoinFlow onComplete={() => window.location.reload()} />;
-  // }
 
   return <>{children}</>;
 }

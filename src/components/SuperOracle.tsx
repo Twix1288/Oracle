@@ -151,7 +151,11 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
 
@@ -162,6 +166,26 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Fetch available users for mentions
+  useEffect(() => {
+    const fetchUsers = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .not('full_name', 'is', null);
+      
+      if (data) {
+        setAvailableUsers(data.map(user => ({
+          id: user.id,
+          full_name: user.full_name || 'Unknown',
+          role: user.role || 'guest'
+        })));
+      }
+    };
+    
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     // Add welcome message
@@ -322,9 +346,60 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
     return response.data;
   };
 
+  const handleMentionSelect = (user: { full_name: string; role: string; id: string }) => {
+    const currentCursorPos = inputRef.current?.selectionStart || 0;
+    const beforeCursor = message.substring(0, currentCursorPos);
+    const afterCursor = message.substring(currentCursorPos);
+    
+    // Find the @ symbol before cursor
+    const lastAtIndex = beforeCursor.lastIndexOf('@');
+    if (lastAtIndex >= 0) {
+      const newMessage = beforeCursor.substring(0, lastAtIndex + 1) + user.full_name + ' ' + afterCursor;
+      setMessage(newMessage);
+    }
+    
+    setShowMentions(false);
+    setFilteredUsers([]);
+    inputRef.current?.focus();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setMessage(value);
+    
+    // Check for @ mentions
+    const cursorPos = e.target.selectionStart || 0;
+    const beforeCursor = value.substring(0, cursorPos);
+    const lastAtIndex = beforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex >= 0 && lastAtIndex === cursorPos - 1) {
+      // Just typed @
+      setShowMentions(true);
+      setFilteredUsers(availableUsers);
+    } else if (lastAtIndex >= 0) {
+      const searchTerm = beforeCursor.substring(lastAtIndex + 1);
+      if (searchTerm && !searchTerm.includes(' ')) {
+        const filtered = availableUsers.filter(user => 
+          user.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredUsers(filtered);
+        setShowMentions(filtered.length > 0);
+      } else {
+        setShowMentions(false);
+        setFilteredUsers([]);
+      }
+    } else {
+      setShowMentions(false);
+      setFilteredUsers([]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || isLoading) return;
+
+    setShowMentions(false);
+    setFilteredUsers([]);
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -356,6 +431,11 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
           type: 'system',
           content: result.message,
           timestamp: new Date().toISOString(),
+          author: {
+            name: 'System',
+            role: 'guest' as UserRole,
+            avatar: '⚡'
+          },
           metadata: {
             command: `/${command}`,
             confidence: result.success ? 100 : 0
@@ -409,6 +489,7 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   const renderMessage = (msg: ChatMessage) => {
     const isUser = msg.type === 'user';
     const isSystem = msg.type === 'system';
+    const isOracle = msg.type === 'oracle';
     
     return (
       <div key={msg.id} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} mb-4`}>
@@ -416,19 +497,37 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
           {msg.author?.avatar?.startsWith('http') ? (
             <AvatarImage src={msg.author.avatar} alt={msg.author.name} />
           ) : (
-            <AvatarFallback className="text-xs">
+            <AvatarFallback className={`text-xs ${
+              isOracle ? 'bg-primary/20 text-primary' : 
+              isSystem ? 'bg-orange-500/20 text-orange-500' : 
+              'bg-blue-500/20 text-blue-500'
+            }`}>
               {msg.author?.avatar || msg.author?.name?.charAt(0) || '?'}
             </AvatarFallback>
           )}
         </Avatar>
         
         <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-sm font-medium ${getRoleColor(msg.author?.role || 'guest')}`}>
+          <div className={`flex items-center gap-2 mb-1 ${isUser ? 'justify-end' : ''}`}>
+            <span className={`text-sm font-medium ${
+              isOracle ? 'text-primary' : 
+              isSystem ? 'text-orange-500' : 
+              getRoleColor(msg.author?.role || 'guest')
+            }`}>
               {msg.author?.name}
             </span>
-            {getRoleIcon(msg.author?.role || 'guest')}
-            {msg.metadata?.confidence && (
+            {!isOracle && !isSystem && getRoleIcon(msg.author?.role || 'guest')}
+            {isSystem && msg.metadata?.command && (
+              <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-500 border-orange-500/20">
+                Command Response
+              </Badge>
+            )}
+            {isOracle && (
+              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                Oracle AI
+              </Badge>
+            )}
+            {msg.metadata?.confidence && !isSystem && (
               <Badge variant="outline" className="text-xs">
                 {msg.metadata.confidence}% confidence
               </Badge>
@@ -577,12 +676,35 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
               <div className="flex-1 relative">
                 <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
+                  ref={inputRef}
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Ask the Oracle anything or use /commands..."
+                  onChange={handleInputChange}
+                  placeholder="Ask the Oracle anything, use /commands, or @mention users..."
                   className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
                   disabled={isLoading}
                 />
+                
+                {/* Mentions Dropdown */}
+                {showMentions && filteredUsers.length > 0 && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                    {filteredUsers.slice(0, 5).map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-muted flex items-center gap-2 text-sm"
+                        onClick={() => handleMentionSelect(user)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {getRoleIcon(user.role as UserRole)}
+                          <span className="font-medium">{user.full_name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {user.role}
+                          </Badge>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <Button 
                 type="submit" 
