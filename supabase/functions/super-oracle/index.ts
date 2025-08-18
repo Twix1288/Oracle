@@ -184,9 +184,9 @@ async function generateIntelligentResponse(
       case 'guest':
         return {
           tone: 'welcoming and encouraging',
-          infoLevel: 'surface-level and introductory',
-          details: 'basic concepts and general guidance',
-          restrictions: 'No internal team details, no sensitive information, no specific user data'
+          infoLevel: 'surface-level team activities only',
+          details: 'team projects, stages, and general activities - NO personal information',
+          restrictions: 'No personal data, names, skills, profiles, or individual information - only team activities and project details'
         };
       case 'builder':
         return {
@@ -223,11 +223,19 @@ async function generateIntelligentResponse(
   
   // Filter team context based on role
   const getFilteredTeamContext = () => {
-    if (!teamContext) return 'No team context available';
+    if (!teamContext) return 'No team activity information available';
     
     switch (role) {
       case 'guest':
-        return `General team information available - ${teamContext.name} is working on ${teamContext.stage} stage projects`;
+        // Only show team activities, projects, and stages - NO personal information
+        const guestInfo = {
+          activeTeams: teamContext.name ? 1 : 0,
+          projectStage: teamContext.stage || 'unknown',
+          projectType: teamContext.description ? 'Active project in development' : 'General activity',
+          recentActivity: teamContext.updates?.length > 0 ? 
+            `${teamContext.updates.length} recent project updates` : 'No recent activity'
+        };
+        return `Teams are actively working on projects. Current activity: ${guestInfo.activeTeams} active team in ${guestInfo.projectStage} stage. ${guestInfo.recentActivity}.`;
       case 'builder':
         return `Team: ${teamContext.name}, Stage: ${teamContext.stage}, Recent activity: ${teamContext.updates?.slice(0, 2).map(u => u.content.substring(0, 50)).join('; ') || 'No recent updates'}`;
       case 'mentor':
@@ -241,11 +249,11 @@ async function generateIntelligentResponse(
 
   // Filter user profile based on role
   const getFilteredUserProfile = () => {
-    if (!userProfile) return 'Basic user information available';
+    if (!userProfile) return 'General visitor information';
     
     switch (role) {
       case 'guest':
-        return 'You are exploring the PieFi Oracle system';
+        return 'You are exploring our startup incubator and the projects teams are working on';
       case 'builder':
         return `Your profile: ${userProfile.full_name}, Skills: ${userProfile.skills?.join(', ') || 'Not specified'}, Experience: ${userProfile.experience_level || 'Not specified'}`;
       case 'mentor':
@@ -267,11 +275,12 @@ Access Restrictions: ${rolePersonality.restrictions}
 
 ROLE-SPECIFIC INSTRUCTIONS:
 ${role === 'guest' ? `
-- Welcome newcomers warmly
-- Provide only general, public information about the incubator
-- Encourage them to join as a builder/mentor/lead for more access
-- No specific team details, user information, or internal data
-- Focus on explaining what PieFi Oracle offers and how to get started
+- Welcome newcomers warmly and focus on team activities and projects
+- Share information about what teams are working on, project stages, and general activities
+- NEVER mention specific people's names, skills, profiles, or personal information
+- Focus on project types, development stages, team activities, and general progress
+- Encourage them to join as a builder/mentor/lead for access to team collaboration
+- Discuss the types of projects and innovations happening in the incubator
 ` : ''}
 
 ${role === 'builder' ? `
@@ -300,16 +309,16 @@ ${role === 'lead' ? `
 
 FILTERED CONTEXT FOR YOUR ROLE:
 User Context: ${getFilteredUserProfile()}
-Team Context: ${getFilteredTeamContext()}
-Mentioned Users: ${mentions.length > 0 ? mentions.join(', ') : 'None'}
+Team Activities: ${getFilteredTeamContext()}
+Mentioned Users: ${role === 'guest' ? 'User mentions not available to guests' : (mentions.length > 0 ? mentions.join(', ') : 'None')}
 Available Resources: ${resources.length} curated resources
 
 RESPONSE GUIDELINES:
 1. Maintain your role's personality and information level
 2. ${rolePersonality.details}
-3. Respect access restrictions: ${rolePersonality.restrictions}
+3. CRITICAL: Respect access restrictions: ${rolePersonality.restrictions}
 4. Be incredibly helpful within your authority level
-5. If asked for information above your access level, politely explain the limitation
+5. If asked for personal information as a guest, explain you can only share team activity information
 6. Use emojis sparingly but effectively
 7. Provide actionable advice appropriate to the user's role
 8. Always be encouraging and supportive
@@ -348,7 +357,7 @@ Provide a response that perfectly matches your role's authority level and person
     
     // Role-appropriate fallback responses
     const fallbackResponses = {
-      guest: `Welcome to PieFi Oracle! 🛸 I'd love to help you explore our startup incubator. Unfortunately, I'm experiencing some technical difficulties right now, but I can still share that we offer personalized guidance for builders, mentors, and leads. Would you like to know more about joining our program?`,
+      guest: `Welcome to PieFi Oracle! 🛸 I'd love to help you explore the exciting projects our teams are working on. Unfortunately, I'm experiencing some technical difficulties right now, but I can still share information about team activities, project stages, and what types of innovations are happening in our incubator. What would you like to know about our current projects?`,
       builder: `Hey there! 🔧 I understand you're asking about "${query}". While my advanced systems are having a moment, I'm still here to help with your project development. As a builder, you have access to team collaboration tools and technical resources. What specific challenge are you working on?`,
       mentor: `Hello! 🌟 I see you're inquiring about "${query}". Even though I'm experiencing some technical hiccups, I can still provide guidance. As a mentor, you have insight into team progress and can access comprehensive data about your mentees. How can I assist with your mentoring efforts?`,
       lead: `Greetings! 👑 You're asking about "${query}". Despite some system difficulties, I'm operational for strategic support. As a lead, you have full administrative access to all program data and analytics. What administrative or strategic insight do you need?`
