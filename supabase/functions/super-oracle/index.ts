@@ -68,83 +68,220 @@ async function getTeamContext(teamId: string, supabase: any) {
 async function getUsersWithSkills(skill: string, supabase: any) {
   const { data: users } = await supabase
     .from('profiles')
-    .select('full_name, role, skills, experience_level, help_needed')
+    .select('full_name, role, skills, experience_level, help_needed, team_id, bio')
     .or(`skills.cs.{${skill}},help_needed.cs.{${skill}}`);
 
   return users || [];
 }
 
+async function findRelevantPeople(query: string, userProfile: any, userRole: string, supabase: any) {
+  // Extract potential skills/topics from the query
+  const queryWords = query.toLowerCase().split(' ');
+  const techKeywords = ['react', 'javascript', 'python', 'api', 'backend', 'frontend', 'design', 'ui', 'ux', 'marketing', 'business', 'finance', 'ai', 'ml', 'data'];
+  const foundKeywords = queryWords.filter(word => techKeywords.some(tech => word.includes(tech)));
+  
+  let relevantPeople = [];
+  
+  // If user needs help with specific technologies
+  for (const keyword of foundKeywords) {
+    const people = await getUsersWithSkills(keyword, supabase);
+    relevantPeople.push(...people);
+  }
+  
+  // If user is asking for general help, look at their help_needed array
+  if (query.includes('help') || query.includes('stuck') || query.includes('guidance')) {
+    if (userProfile?.help_needed) {
+      for (const helpTopic of userProfile.help_needed) {
+        const people = await getUsersWithSkills(helpTopic, supabase);
+        relevantPeople.push(...people);
+      }
+    }
+  }
+  
+  // Remove duplicates and filter based on role permissions
+  const uniquePeople = relevantPeople.filter((person, index, self) => 
+    index === self.findIndex(p => p.full_name === person.full_name)
+  );
+  
+  // Filter based on role - guests can't see people
+  if (userRole === 'guest') {
+    return [];
+  }
+  
+  return uniquePeople.slice(0, 5); // Limit to top 5 matches
+}
+
 async function generatePersonalizedResources(query: string, userProfile: any, teamData: any): Promise<OracleResource[]> {
-  // This would ideally connect to real APIs, but for now we'll generate contextual resources
   const skills = userProfile?.skills || [];
   const helpNeeded = userProfile?.help_needed || [];
   const experienceLevel = userProfile?.experience_level || 'beginner';
   const teamStage = teamData?.stage || 'ideation';
+  const userRole = userProfile?.role || 'guest';
   
-  // Simulate intelligent resource curation based on context
   const resources: OracleResource[] = [];
   
-  // If asking about specific technologies
-  if (query.toLowerCase().includes('react')) {
+  // Personalize based on user's specific help needs
+  if (helpNeeded.length > 0) {
+    for (const helpTopic of helpNeeded.slice(0, 2)) {
+      if (query.toLowerCase().includes(helpTopic.toLowerCase())) {
+        resources.push({
+          title: `${helpTopic} Guide for ${experienceLevel}s`,
+          url: `https://learn.${helpTopic.toLowerCase().replace(' ', '')}.com/guide`,
+          type: "tutorial",
+          description: `Tailored ${helpTopic} resources for your experience level`,
+          relevance: 98
+        });
+      }
+    }
+  }
+  
+  // Resources based on user's current skills to build upon
+  if (skills.length > 0) {
+    const primarySkill = skills[0];
+    if (query.toLowerCase().includes(primarySkill.toLowerCase())) {
+      resources.push({
+        title: `Advanced ${primarySkill} Techniques`,
+        url: `https://advanced-${primarySkill.toLowerCase().replace(' ', '')}.dev`,
+        type: "documentation",
+        description: `Building on your ${primarySkill} expertise`,
+        relevance: 95
+      });
+    }
+  }
+  
+  // Stage-specific resources based on team context
+  if (teamStage === 'ideation') {
     resources.push({
-      title: "React Official Documentation",
-      url: "https://react.dev/",
-      type: "documentation",
-      description: "Comprehensive guide to React development",
-      relevance: 95
+      title: "Idea Validation Framework",
+      url: "https://www.ycombinator.com/library/6f-how-to-build-your-seed-deck",
+      type: "article",
+      description: "Validate your startup idea with proven frameworks",
+      relevance: 92
     });
     
-    if (experienceLevel === 'beginner') {
+    if (userRole === 'builder' || userRole === 'lead') {
       resources.push({
-        title: "React Tutorial for Beginners",
-        url: "https://www.youtube.com/watch?v=SqcY0GlETPk",
+        title: "MVP Development Strategy",
+        url: "https://www.youtube.com/watch?v=1hHMwLxN6EM",
         type: "youtube",
-        description: "Step-by-step React tutorial for complete beginners",
+        description: "Build your minimum viable product effectively",
         relevance: 90
       });
     }
   }
   
-  if (query.toLowerCase().includes('api') || query.toLowerCase().includes('backend')) {
+  if (teamStage === 'development') {
     resources.push({
-      title: "RESTful API Design Best Practices",
-      url: "https://blog.restcase.com/restful-api-design-13-best-practices-to-make-your-users-happy/",
-      type: "article",
-      description: "Essential guidelines for designing effective APIs",
-      relevance: 88
-    });
-  }
-  
-  if (teamStage === 'development' && query.toLowerCase().includes('deploy')) {
-    resources.push({
-      title: "Modern Deployment Strategies",
-      url: "https://vercel.com/docs/concepts/deployments",
+      title: "Development Best Practices",
+      url: "https://github.com/google/eng-practices",
       type: "documentation",
-      description: "Learn how to deploy your application effectively",
-      relevance: 92
-    });
-  }
-  
-  // AI/ML resources for relevant queries
-  if (query.toLowerCase().includes('ai') || query.toLowerCase().includes('machine learning')) {
-    resources.push({
-      title: "OpenAI API Integration Guide",
-      url: "https://platform.openai.com/docs",
-      type: "documentation",
-      description: "Complete guide to integrating AI into your application",
+      description: "Engineering practices from industry leaders",
       relevance: 94
     });
     
+    if (query.toLowerCase().includes('deploy') || query.toLowerCase().includes('production')) {
+      resources.push({
+        title: "Production Deployment Guide",
+        url: "https://vercel.com/docs/concepts/deployments",
+        type: "documentation",
+        description: "Deploy your application with confidence",
+        relevance: 96
+      });
+    }
+  }
+  
+  if (teamStage === 'testing') {
     resources.push({
-      title: "Building AI-Powered Apps",
-      url: "https://www.youtube.com/watch?v=example",
+      title: "Comprehensive Testing Strategies",
+      url: "https://testing-library.com/docs/",
+      type: "documentation",
+      description: "Test your application thoroughly",
+      relevance: 93
+    });
+  }
+  
+  if (teamStage === 'launch') {
+    resources.push({
+      title: "Product Launch Checklist",
+      url: "https://blog.hubspot.com/marketing/product-launch-checklist",
+      type: "article",
+      description: "Ensure a successful product launch",
+      relevance: 95
+    });
+    
+    if (userRole === 'lead' || userRole === 'mentor') {
+      resources.push({
+        title: "Go-to-Market Strategy",
+        url: "https://www.youtube.com/watch?v=Dk8cR1syCkU",
+        type: "youtube",
+        description: "Build an effective go-to-market plan",
+        relevance: 92
+      });
+    }
+  }
+  
+  // Technology-specific resources based on user context
+  const techResources = {
+    'react': {
+      title: "React Best Practices 2025",
+      url: "https://react.dev/learn",
+      description: "Modern React development patterns",
+      relevance: 90
+    },
+    'api': {
+      title: "RESTful API Design Guide",
+      url: "https://restfulapi.net/",
+      description: "Design robust and scalable APIs",
+      relevance: 88
+    },
+    'ai': {
+      title: "AI Integration for Startups",
+      url: "https://platform.openai.com/docs",
+      description: "Integrate AI into your product effectively",
+      relevance: 94
+    },
+    'database': {
+      title: "Database Architecture Patterns",
+      url: "https://supabase.com/docs",
+      description: "Scalable database design patterns",
+      relevance: 87
+    }
+  };
+  
+  for (const [tech, resource] of Object.entries(techResources)) {
+    if (query.toLowerCase().includes(tech)) {
+      resources.push({
+        title: resource.title,
+        url: resource.url,
+        type: "documentation",
+        description: resource.description,
+        relevance: resource.relevance
+      });
+    }
+  }
+  
+  // Role-specific resources
+  if (userRole === 'mentor') {
+    resources.push({
+      title: "Effective Mentoring Strategies",
+      url: "https://www.ted.com/talks/carla_harris_how_to_find_the_person_who_can_help_you_get_ahead_at_work",
       type: "youtube",
-      description: "Practical tutorial on creating intelligent applications",
+      description: "Become a more effective mentor and guide",
+      relevance: 85
+    });
+  }
+  
+  if (userRole === 'lead') {
+    resources.push({
+      title: "Startup Leadership Playbook",
+      url: "https://firstround.com/review/",
+      type: "article",
+      description: "Leadership insights from successful startups",
       relevance: 89
     });
   }
   
-  return resources.sort((a, b) => b.relevance - a.relevance).slice(0, 5);
+  return resources.sort((a, b) => b.relevance - a.relevance).slice(0, 6);
 }
 
 async function detectMentions(query: string, supabase: any): Promise<string[]> {
@@ -175,7 +312,8 @@ async function generateIntelligentResponse(
   teamContext: any, 
   userProfile: any,
   mentions: string[],
-  resources: OracleResource[]
+  resources: OracleResource[],
+  relevantPeople: any[]
 ): Promise<string> {
   
   // Role-based information filtering and persona
@@ -265,7 +403,7 @@ async function generateIntelligentResponse(
   };
 
   const contextPrompt = `
-You are the PieFi Oracle, an extremely intelligent AI assistant for a startup incubator program. 
+You are the PieFi Oracle, an extremely intelligent AI assistant for a startup incubator program. You provide deeply personalized, contextual responses based on WHO is asking.
 
 CRITICAL ROLE-BASED BEHAVIOR:
 Role: ${role.toUpperCase()}
@@ -311,17 +449,27 @@ FILTERED CONTEXT FOR YOUR ROLE:
 User Context: ${getFilteredUserProfile()}
 Team Activities: ${getFilteredTeamContext()}
 Mentioned Users: ${role === 'guest' ? 'User mentions not available to guests' : (mentions.length > 0 ? mentions.join(', ') : 'None')}
-Available Resources: ${resources.length} curated resources
+People Who Can Help: ${role === 'guest' ? 'People connections not available to guests' : (relevantPeople.length > 0 ? relevantPeople.map(p => `${p.full_name} (${p.role}) - Skills: ${p.skills?.join(', ') || 'Not specified'}`).join('; ') : 'No specific matches found')}
+Available Resources: ${resources.length} curated resources matching your needs
 
 RESPONSE GUIDELINES:
-1. Maintain your role's personality and information level
-2. ${rolePersonality.details}
-3. CRITICAL: Respect access restrictions: ${rolePersonality.restrictions}
-4. Be incredibly helpful within your authority level
-5. If asked for personal information as a guest, explain you can only share team activity information
-6. Use emojis sparingly but effectively
-7. Provide actionable advice appropriate to the user's role
-8. Always be encouraging and supportive
+1. PERSONALIZE EVERYTHING based on the specific user asking (${userProfile?.full_name || 'user'})
+2. Reference their specific skills: ${userProfile?.skills?.join(', ') || 'none specified'}
+3. Address their specific help needs: ${userProfile?.help_needed?.join(', ') || 'none specified'}
+4. Consider their experience level: ${userProfile?.experience_level || 'not specified'}
+5. Factor in their team's current stage: ${teamContext?.stage || 'no team context'}
+6. SUGGEST SPECIFIC PEOPLE when relevant - if someone needs help, connect them with the right person from the "People Who Can Help" list
+7. Provide resources that match their exact situation and needs
+8. CRITICAL: Respect role restrictions - ${rolePersonality.restrictions}
+9. Use their name and make it feel like you truly know them and their context
+10. Be incredibly helpful within your authority level
+11. If they need help, always try to connect them with relevant people (unless you're responding to a guest)
+12. Make every response feel personally crafted for THIS specific user in THEIR specific situation
+
+PERSONALITY FOR THIS USER:
+- Role: ${role} 
+- Tone: ${rolePersonality.tone}
+- Information Level: ${rolePersonality.infoLevel}
 
 User Query: "${query}"
 
@@ -385,11 +533,17 @@ serve(async (req) => {
 
     console.log(`Super Oracle processing: ${query} for ${role}`);
 
-    // Gather contextual information
+    
+    // Gather contextual information with people suggestions
     let teamContext = null;
+    let relevantPeople = [];
+    
     if (teamId && contextRequest?.needsTeamContext) {
       teamContext = await getTeamContext(teamId, supabase);
     }
+    
+    // Find relevant people who can help
+    relevantPeople = await findRelevantPeople(query, userProfile, role, supabase);
 
     // Detect mentions
     let mentions: string[] = [];
@@ -397,27 +551,29 @@ serve(async (req) => {
       mentions = await detectMentions(query, supabase);
     }
 
-    // Generate personalized resources
+    // Generate highly personalized resources
     let resources: OracleResource[] = [];
     if (contextRequest?.needsResources) {
       resources = await generatePersonalizedResources(query, userProfile, teamContext);
     }
 
-    // Generate intelligent response
+    // Generate intelligent response with people suggestions
     const answer = await generateIntelligentResponse(
       query,
       role,
       teamContext,
       userProfile,
       mentions,
-      resources
+      resources,
+      relevantPeople
     );
 
-    // Calculate confidence based on available context
+    // Calculate confidence based on available context and personalization
     let confidence = 75; // Base confidence
-    if (userProfile) confidence += 10;
+    if (userProfile) confidence += 15; // Higher weight for user context
     if (teamContext) confidence += 10;
     if (resources.length > 0) confidence += 5;
+    if (relevantPeople.length > 0) confidence += 10; // Boost for people connections
 
     // Log interaction for learning
     await supabase.from('oracle_logs').insert({
@@ -432,7 +588,7 @@ serve(async (req) => {
 
     const response: SuperOracleResponse = {
       answer,
-      sources: resources.length,
+      sources: resources.length + relevantPeople.length,
       confidence: Math.min(confidence, 100),
       resources: resources.length > 0 ? resources : undefined,
       mentions: mentions.length > 0 ? mentions : undefined,
@@ -440,7 +596,7 @@ serve(async (req) => {
       next_actions: [], // Could be enhanced with AI-generated next steps
       personalization: userProfile ? {
         skill_match: userProfile.skills?.length || 0,
-        project_relevance: teamContext ? 90 : 50,
+        project_relevance: teamContext ? 95 : 60,
         experience_level: userProfile.experience_level || 'unknown'
       } : undefined
     };
