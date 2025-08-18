@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { KeyRound, Plus, Trash2, Eye, EyeOff, Copy, Check } from "lucide-react";
+import { KeyRound, Plus, Trash2, Eye, EyeOff, Copy, Check, Users2, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/types/oracle";
+import { Separator } from "@/components/ui/separator";
 
 interface AccessCode {
   id: string;
@@ -24,7 +25,9 @@ export const AccessCodeManager = () => {
   const [newCode, setNewCode] = useState({
     role: 'builder' as UserRole,
     code: '',
-    description: '',
+    selectedUserId: '',
+    customUserName: '',
+    useExistingUser: true,
     team_id: undefined as string | undefined,
     mentor_id: undefined as string | undefined
   });
@@ -33,6 +36,19 @@ export const AccessCodeManager = () => {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch all registered users for the dropdown
+  const { data: allUsers } = useQuery({
+    queryKey: ['all-users-for-codes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, onboarding_completed')
+        .order('full_name');
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Fetch teams
   const { data: teams } = useQuery({
@@ -88,7 +104,15 @@ export const AccessCodeManager = () => {
       if (variables?.role === 'mentor' && variables?.team_id && variables?.member_id) {
         assignMentorMutation.mutate({ team_id: variables.team_id, mentor_id: variables.member_id });
       }
-      setNewCode({ role: 'builder', code: '', description: '', team_id: undefined, mentor_id: undefined });
+      setNewCode({ 
+        role: 'builder', 
+        code: '', 
+        selectedUserId: '', 
+        customUserName: '', 
+        useExistingUser: true, 
+        team_id: undefined, 
+        mentor_id: undefined 
+      });
       toast({
         title: 'Access code created',
         description: 'New access code has been generated successfully.',
@@ -157,20 +181,31 @@ export const AccessCodeManager = () => {
   });
 
   const generateRandomCode = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setNewCode(prev => ({ ...prev, code: result }));
   };
 
+  const getDescription = () => {
+    if (newCode.useExistingUser && newCode.selectedUserId) {
+      const user = allUsers?.find(u => u.id === newCode.selectedUserId);
+      return `Access code for ${user?.full_name || user?.email || 'Unknown User'}`;
+    } else if (!newCode.useExistingUser && newCode.customUserName) {
+      return `Access code for ${newCode.customUserName}`;
+    }
+    return '';
+  };
+
   const handleCreateCode = () => {
-    if (newCode.code && newCode.role && newCode.description) {
+    const description = getDescription();
+    if (newCode.code && newCode.role && description) {
       const base: any = {
         role: newCode.role,
         code: newCode.code,
-        description: newCode.description,
+        description: description,
         team_id: (newCode.role === 'builder' || newCode.role === 'mentor') ? newCode.team_id : null,
       };
       if (newCode.role === 'mentor') {
@@ -223,97 +258,189 @@ export const AccessCodeManager = () => {
             Create New Access Code
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Role</label>
-              <Select 
-                value={newCode.role} 
-                onValueChange={(value: UserRole) => setNewCode(prev => ({ ...prev, role: value }))}
-              >
-                <SelectTrigger className="bg-background border-border text-foreground">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="builder">Builder</SelectItem>
-                  <SelectItem value="mentor">Mentor</SelectItem>
-                  <SelectItem value="lead">Lead</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">User Name</label>
-              <Input
-                value={newCode.description}
-                onChange={(e) => setNewCode(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Enter user's full name"
-                className="bg-background border-border text-foreground"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Team</label>
-              <Select 
-                value={newCode.team_id || ""} 
-                onValueChange={(value) => setNewCode(prev => ({ ...prev, team_id: value || undefined }))}
-                disabled={!['builder','mentor'].includes(newCode.role)}
-              >
-                <SelectTrigger className="bg-background border-border text-foreground">
-                  <SelectValue placeholder="Select team" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams?.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {newCode.role === 'mentor' && (
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Mentor</label>
+                <label className="text-sm font-medium text-foreground">Role</label>
                 <Select 
-                  value={newCode.mentor_id || ""} 
-                  onValueChange={(value) => setNewCode(prev => ({ ...prev, mentor_id: value || undefined }))}
+                  value={newCode.role} 
+                  onValueChange={(value: UserRole) => setNewCode(prev => ({ ...prev, role: value }))}
                 >
                   <SelectTrigger className="bg-background border-border text-foreground">
-                    <SelectValue placeholder="Select mentor" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {mentors?.map((m: any) => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    <SelectItem value="builder">Builder</SelectItem>
+                    <SelectItem value="mentor">Mentor</SelectItem>
+                    <SelectItem value="lead">Lead</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Access Code</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newCode.code}
+                    onChange={(e) => setNewCode(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                    placeholder="Auto-generated"
+                    className="bg-background border-border text-foreground font-mono"
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={generateRandomCode}
+                    className="border-border text-foreground hover:bg-muted"
+                  >
+                    Generate
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* User Selection Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Users2 className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-medium">Assign to User</h4>
+              </div>
+              
+              <div className="flex gap-4 mb-4">
+                <Button
+                  type="button"
+                  variant={newCode.useExistingUser ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewCode(prev => ({ ...prev, useExistingUser: true, selectedUserId: '', customUserName: '' }))}
+                  className="flex items-center gap-2"
+                >
+                  <Users2 className="h-4 w-4" />
+                  Existing User
+                </Button>
+                <Button
+                  type="button"
+                  variant={!newCode.useExistingUser ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewCode(prev => ({ ...prev, useExistingUser: false, selectedUserId: '', customUserName: '' }))}
+                  className="flex items-center gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  New User
+                </Button>
+              </div>
+
+              {newCode.useExistingUser ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Select Registered User</label>
+                  <Select 
+                    value={newCode.selectedUserId} 
+                    onValueChange={(value) => setNewCode(prev => ({ ...prev, selectedUserId: value }))}
+                  >
+                    <SelectTrigger className="bg-background border-border text-foreground">
+                      <SelectValue placeholder="Choose from registered users" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allUsers?.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{user.full_name || user.email}</span>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${getRoleColor(user.role)}`}
+                            >
+                              {user.role}
+                            </Badge>
+                            {user.onboarding_completed && (
+                              <Badge variant="outline" className="text-xs bg-green-500/20 text-green-300">
+                                Complete
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {allUsers && allUsers.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No registered users found. Users will appear here after they sign up.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">User Name</label>
+                  <Input
+                    value={newCode.customUserName}
+                    onChange={(e) => setNewCode(prev => ({ ...prev, customUserName: e.target.value }))}
+                    placeholder="Enter full name for new user"
+                    className="bg-background border-border text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground">This will create an access code for a user who hasn't registered yet.</p>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Team and Mentor Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Team</label>
+                <Select 
+                  value={newCode.team_id || ""} 
+                  onValueChange={(value) => setNewCode(prev => ({ ...prev, team_id: value || undefined }))}
+                  disabled={!['builder','mentor'].includes(newCode.role)}
+                >
+                  <SelectTrigger className="bg-background border-border text-foreground">
+                    <SelectValue placeholder="Select team (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams?.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Access Code</label>
-              <div className="flex gap-2">
-                <Input
-                  value={newCode.code}
-                  onChange={(e) => setNewCode(prev => ({ ...prev, code: e.target.value }))}
-                  placeholder="Auto-generated"
-                  className="bg-background border-border text-foreground"
-                  readOnly
-                />
-                <Button 
-                  variant="outline" 
-                  onClick={generateRandomCode}
-                  className="border-border text-foreground hover:bg-muted"
-                >
-                  Generate
-                </Button>
-              </div>
+              {newCode.role === 'mentor' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Mentor</label>
+                  <Select 
+                    value={newCode.mentor_id || ""} 
+                    onValueChange={(value) => setNewCode(prev => ({ ...prev, mentor_id: value || undefined }))}
+                  >
+                    <SelectTrigger className="bg-background border-border text-foreground">
+                      <SelectValue placeholder="Select mentor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mentors?.map((m: any) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Preview */}
+          <div className="p-4 rounded-lg bg-muted/50 border border-border">
+            <p className="text-sm font-medium mb-2">Preview:</p>
+            <p className="text-sm text-muted-foreground">
+              {getDescription() || "Complete the form to see code description"}
+            </p>
           </div>
 
           <Button 
             onClick={handleCreateCode}
-            disabled={!newCode.code || !newCode.role || !newCode.description || (newCode.role === 'mentor' && (!newCode.team_id || !newCode.mentor_id)) || createCodeMutation.isPending}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={
+              !newCode.code || 
+              !newCode.role || 
+              (!newCode.useExistingUser && !newCode.customUserName) ||
+              (newCode.useExistingUser && !newCode.selectedUserId) ||
+              (newCode.role === 'mentor' && (!newCode.team_id || !newCode.mentor_id)) || 
+              createCodeMutation.isPending
+            }
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {createCodeMutation.isPending ? "Creating..." : "Create Access Code"}
           </Button>
@@ -323,13 +450,25 @@ export const AccessCodeManager = () => {
       {/* Existing Codes */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardHeader>
-          <CardTitle>Existing Access Codes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-primary" />
+            Existing Access Codes
+          </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground">
+              Manage and monitor all generated access codes. Codes can be shared with users to grant specific role access.
+            </p>
+          </div>
           {isLoading ? (
             <p className="text-muted-foreground">Loading access codes...</p>
           ) : accessCodes.length === 0 ? (
-            <p className="text-muted-foreground">No access codes created yet</p>
+            <div className="text-center py-6">
+              <KeyRound className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">No access codes created yet</p>
+              <p className="text-sm text-muted-foreground">Create your first access code to get started</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {accessCodes.map((code) => (

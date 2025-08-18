@@ -128,35 +128,76 @@ export const RoleManager = () => {
             <div className="space-y-2">
               <Label>Select User</Label>
               <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-background border-border">
                   <SelectValue placeholder="Choose a user" />
                 </SelectTrigger>
                 <SelectContent>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{user.full_name || user.email}</span>
-                        <Badge className={getRoleColor(user.role)} variant="outline">
-                          {user.role}
-                        </Badge>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{user.full_name || 'Unnamed User'}</span>
+                          <span className="text-xs text-muted-foreground">{user.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Badge className={getRoleColor(user.role)} variant="outline">
+                            {user.role}
+                          </Badge>
+                          {user.onboarding_completed && (
+                            <Badge variant="outline" className="text-xs bg-green-500/20 text-green-300">
+                              ✓
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {users && users.length === 0 && (
+                <p className="text-xs text-muted-foreground">No users found in the system.</p>
+              )}
             </div>
             
             <div className="space-y-2">
               <Label>New Role</Label>
               <Select value={selectedRole} onValueChange={(value: any) => setSelectedRole(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="guest">Guest</SelectItem>
-                  <SelectItem value="builder">Builder</SelectItem>
-                  <SelectItem value="mentor">Mentor</SelectItem>
-                  <SelectItem value="lead">Lead</SelectItem>
+                  <SelectItem value="guest">
+                    <div className="flex items-center gap-2">
+                      <span>Guest</span>
+                      <Badge className={getRoleColor('guest')} variant="outline">
+                        Basic Access
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="builder">
+                    <div className="flex items-center gap-2">
+                      <span>Builder</span>
+                      <Badge className={getRoleColor('builder')} variant="outline">
+                        Team Member
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="mentor">
+                    <div className="flex items-center gap-2">
+                      <span>Mentor</span>
+                      <Badge className={getRoleColor('mentor')} variant="outline">
+                        Guide & Support
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="lead">
+                    <div className="flex items-center gap-2">
+                      <span>Lead</span>
+                      <Badge className={getRoleColor('lead')} variant="outline">
+                        Full Admin
+                      </Badge>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -165,10 +206,10 @@ export const RoleManager = () => {
           <div className="space-y-2">
             <Label>Reason (optional)</Label>
             <Textarea
-              placeholder="Why are you assigning this role?"
+              placeholder="Why are you assigning this role? This will be logged for audit purposes."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="min-h-20"
+              className="min-h-20 bg-background border-border"
             />
           </div>
           
@@ -185,7 +226,10 @@ export const RoleManager = () => {
       {/* Current Users */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardHeader>
-          <CardTitle>Current Users</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            Current Users ({users?.length || 0})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -231,7 +275,10 @@ export const RoleManager = () => {
       {/* Recent Role Changes */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardHeader>
-          <CardTitle>Recent Role Changes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            Recent Role Changes
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {roleAssignments?.length === 0 ? (
