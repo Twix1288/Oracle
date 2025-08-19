@@ -51,6 +51,7 @@ interface ChatMessage {
     mentions?: string[];
     confidence?: number;
     stage?: string;
+    personality?: 'helpful' | 'excited' | 'focused' | 'wise';
   };
   sections?: {
     answer: string;
@@ -175,13 +176,68 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   const [showMentions, setShowMentions] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [oraclePersonality, setOraclePersonality] = useState<'helpful' | 'excited' | 'focused' | 'wise'>('helpful');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
 
+  // Online users simulation (could be enhanced with real-time presence)
+  const [onlineUsers] = useState([
+    { name: 'Alex Chen', role: 'builder', status: 'coding' },
+    { name: 'Sarah Kim', role: 'mentor', status: 'mentoring' },
+    { name: 'Mike Johnson', role: 'lead', status: 'reviewing' }
+  ]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const getOracleAvatar = (personality: typeof oraclePersonality) => {
+    switch (personality) {
+      case 'excited': return '🤩';
+      case 'focused': return '🔍';
+      case 'wise': return '🧙‍♂️';
+      default: return '🛸';
+    }
+  };
+
+  // Send mention notifications
+  const sendMentionNotifications = async (mentions: string[], messageContent: string) => {
+    if (mentions.length === 0) return;
+
+    try {
+      for (const mentionedName of mentions) {
+        // Find the user by name
+        const { data: mentionedUser } = await supabase
+          .from('profiles')
+          .select('id, full_name, role')
+          .ilike('full_name', `%${mentionedName}%`)
+          .single();
+
+        if (mentionedUser && mentionedUser.id !== profile?.id) {
+          // Send notification message
+          await supabase
+            .from('messages')
+            .insert({
+              sender_id: profile?.id,
+              sender_role: selectedRole,
+              receiver_id: mentionedUser.id,
+              receiver_role: mentionedUser.role,
+              content: `🎯 **You were mentioned!**\n\n**From:** ${profile?.full_name || 'Someone'}\n**Message:** "${messageContent}"\n\n*Click to view the full conversation*`,
+              team_id: teamId
+            });
+
+          toast({
+            title: "Mention Sent! 🎯",
+            description: `${mentionedUser.full_name} has been notified`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending mention notifications:', error);
+    }
   };
 
   useEffect(() => {
@@ -221,7 +277,8 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         avatar: '🛸'
       },
       metadata: {
-        confidence: 100
+        confidence: 100,
+        personality: 'helpful'
       }
     };
     setMessages([welcomeMessage]);
@@ -766,12 +823,17 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
 
     setMessages(prev => [...prev, userMessage]);
     const currentMessage = message;
+    const parsed = parseMessage(currentMessage);
     setMessage("");
     setIsLoading(true);
+    setIsTyping(true);
+
+    // Send mention notifications for all messages
+    if (parsed.mentions.length > 0) {
+      await sendMentionNotifications(parsed.mentions, currentMessage);
+    }
 
     try {
-      const parsed = parseMessage(currentMessage);
-      
       // Handle slash commands
       if (parsed.hasSlashCommand) {
         const [command, ...args] = currentMessage.slice(1).split(' ');
@@ -794,8 +856,23 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         };
         
         setMessages(prev => [...prev, systemMessage]);
+        setIsTyping(false);
         return;
       }
+
+      // Change Oracle personality based on message content
+      if (currentMessage.includes('help') || currentMessage.includes('stuck')) {
+        setOraclePersonality('helpful');
+      } else if (currentMessage.includes('amazing') || currentMessage.includes('great') || currentMessage.includes('awesome')) {
+        setOraclePersonality('excited');
+      } else if (currentMessage.includes('analyze') || currentMessage.includes('data')) {
+        setOraclePersonality('focused');
+      } else {
+        setOraclePersonality('wise');
+      }
+
+      // Add typing delay for more human feel
+      await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
 
       // Query the Oracle for intelligent response
       const oracleResponse = await queryOracle(currentMessage);
@@ -808,12 +885,13 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         author: {
           name: 'Oracle',
           role: 'guest' as UserRole,
-          avatar: '🛸'
+          avatar: getOracleAvatar(oraclePersonality)
         },
         metadata: {
           sources: oracleResponse.sources,
           confidence: oracleResponse.confidence || 95,
-          stage: oracleResponse.detected_stage
+          stage: oracleResponse.detected_stage,
+          personality: oraclePersonality
         },
         sections: {
           answer: oracleResponse.answer,
@@ -825,6 +903,14 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
 
       setMessages(prev => [...prev, oracleMessage]);
 
+      // Show achievement notifications
+      if (oracleResponse.confidence > 95) {
+        toast({
+          title: "🎯 Perfect Match!",
+          description: "The Oracle found exactly what you need!",
+        });
+      }
+
     } catch (error) {
       console.error('Oracle error:', error);
       toast({
@@ -834,6 +920,7 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
       });
     } finally {
       setIsLoading(false);
+      setIsTyping(false);
     }
   };
 
@@ -948,89 +1035,129 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   };
 
   return (
-    <div className="flex flex-col h-[600px] max-w-4xl mx-auto">
-      <Card className="flex-1 flex flex-col glow-border bg-card/50 backdrop-blur">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-primary/20 ufo-pulse">
-              <Bot className="h-6 w-6 text-primary" />
+    <div className="flex flex-col h-[700px] max-w-5xl mx-auto">
+      {/* Enhanced Header */}
+      <Card className="glow-border bg-card/50 backdrop-blur mb-4">
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+              <Bot className="h-6 w-6 text-primary animate-pulse" />
             </div>
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-glow">PieFi Oracle</h2>
-              <p className="text-sm text-muted-foreground">
-                Your intelligent AI companion for the incubator
-              </p>
+              <CardTitle className="text-xl text-glow flex items-center gap-2">
+                🛸 PieFi Super Oracle
+                <Badge className="bg-primary/20 text-primary border-primary/30 pulse">
+                  {selectedRole} Mode
+                </Badge>
+                {isLoading && (
+                  <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20 animate-pulse">
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    Thinking...
+                  </Badge>
+                )}
+              </CardTitle>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>💬 {messages.length} messages</span>
+                <span>🟢 {onlineUsers.length} online</span>
+                <span>🎯 Mentions enabled</span>
+                <span className="flex items-center gap-1">
+                  <Heart className="h-3 w-3 text-red-400" />
+                  Oracle feeling {oraclePersonality}
+                </span>
+              </div>
             </div>
-            <Badge className="bg-primary/20 text-primary border-primary/30">
-              {selectedRole} Mode
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        
-        <Separator />
-        
-        <CardContent className="flex-1 flex flex-col p-4">
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-4">
-              {messages.map(renderMessage)}
-              {isLoading && (
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>🛸</AvatarFallback>
-                  </Avatar>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Oracle is thinking...</span>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
-          
-          <div className="mt-4 space-y-3">
-            <Separator />
-            
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-2">
-              <Button 
-                variant="outline" 
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
                 size="sm"
-                onClick={() => setMessage('/help')}
-                className="text-xs"
+                onClick={() => setShowCommands(!showCommands)}
+                className="border-primary/30 hover:bg-primary/10"
               >
-                <Hash className="h-3 w-3 mr-1" />
+                <Hash className="h-4 w-4 mr-2" />
                 Commands
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
-                onClick={() => setMessage('/resources AI development')}
-                className="text-xs"
+                className="border-green-500/30 hover:bg-green-500/10 text-green-400"
+                title="Oracle Status: Online & Ready"
               >
-                <Star className="h-3 w-3 mr-1" />
-                Resources
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/find React developer')}
-                className="text-xs"
-              >
-                <Users className="h-3 w-3 mr-1" />
-                Find People
+                <Sparkles className="h-4 w-4" />
               </Button>
             </div>
-            
-            {/* Message Input */}
-            <form onSubmit={handleSubmit} className="flex gap-2">
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Commands Panel */}
+      {showCommands && (
+        <Card className="glow-border bg-card/50 backdrop-blur mb-4">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {SLASH_COMMANDS.filter(cmd => cmd.roleRequired.includes(selectedRole)).map((cmd) => (
+                <Button
+                  key={cmd.command}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMessage(cmd.usage)}
+                  className="h-auto p-3 text-left flex flex-col items-start border-primary/20 hover:bg-primary/10"
+                >
+                  <div className="font-medium text-primary">{cmd.command}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{cmd.description}</div>
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Chat Messages */}
+      <ScrollArea className="flex-1 mb-4">
+        <div className="space-y-4 p-4">
+          {messages.map(renderMessage)}
+          
+          {/* Typing Indicator */}
+          {isTyping && (
+            <div className="flex gap-3 mb-4">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary/20 text-primary animate-pulse">
+                  🛸
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-primary">Oracle</span>
+                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 animate-pulse">
+                    Connecting to the cosmic wisdom...
+                  </Badge>
+                </div>
+                <div className="rounded-lg p-3 bg-muted/50 mr-8">
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+
+      {/* Enhanced Input */}
+      <Card className="glow-border bg-card/50 backdrop-blur">
+        <CardContent className="p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex gap-3">
               <div className="flex-1 relative">
-                <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary/60" />
                 <Input
                   ref={inputRef}
                   value={message}
                   onChange={handleInputChange}
-                  placeholder="Ask the Oracle anything, use /commands, or @mention users..."
+                  placeholder="Ask the Oracle, use /commands, or @mention users..."
                   className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
                   disabled={isLoading}
                 />
@@ -1057,24 +1184,74 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
                   </div>
                 )}
               </div>
+              
+            <Button 
+              type="submit" 
+              disabled={isLoading || !message.trim()}
+              className="ufo-gradient hover:opacity-90 min-w-[120px] relative overflow-hidden"
+            >
+              {isLoading ? (
+                <div className="flex items-center">
+                  <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                  Transmitting...
+                </div>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send to Oracle
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+                </>
+              )}
+            </Button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-2">
               <Button 
-                type="submit" 
-                disabled={isLoading || !message.trim()}
-                className="ufo-gradient hover:opacity-90"
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/help')}
+                className="text-xs border-primary/30 hover:bg-primary/10"
               >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
+                <Hash className="h-3 w-3 mr-1" />
+                Help
               </Button>
-            </form>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/find React developer')}
+                className="text-xs border-blue-500/30 hover:bg-blue-500/10"
+              >
+                <Users className="h-3 w-3 mr-1" />
+                Find People
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/resources AI development')}
+                className="text-xs border-green-500/30 hover:bg-green-500/10"
+              >
+                <Star className="h-3 w-3 mr-1" />
+                Resources
+              </Button>
+              {selectedRole !== 'guest' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setMessage('/update Finished implementing the new feature')}
+                  className="text-xs border-purple-500/30 hover:bg-purple-500/10"
+                >
+                  <Zap className="h-3 w-3 mr-1" />
+                  Quick Update
+                </Button>
+              )}
+            </div>
             
             <p className="text-xs text-muted-foreground text-center">
-              Type <code>/help</code> for commands • Mention users with <code>@username</code> • 
-              The Oracle knows about your team, project, and progress
+              💡 <strong>Pro tip:</strong> Use <code>/help</code> for commands • <code>@username</code> to mention • 
+              The Oracle remembers your context and gets smarter with each interaction!
             </p>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
