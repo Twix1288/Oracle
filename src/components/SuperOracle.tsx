@@ -78,6 +78,13 @@ interface SlashCommand {
 
 const SLASH_COMMANDS: SlashCommand[] = [
   {
+    command: '/help',
+    description: 'Show all available commands',
+    usage: '/help',
+    roleRequired: ['builder', 'mentor', 'lead', 'guest'],
+    category: 'oracle'
+  },
+  {
     command: '/status',
     description: 'Check team or user status',
     usage: '/status [@user | @team]',
@@ -125,6 +132,20 @@ const SLASH_COMMANDS: SlashCommand[] = [
     usage: '/broadcast your announcement',
     roleRequired: ['lead'],
     category: 'admin'
+  },
+  {
+    command: '/connect',
+    description: 'Find people to help with specific challenges',
+    usage: '/connect [challenge or skill needed]',
+    roleRequired: ['builder', 'mentor', 'lead'],
+    category: 'user'
+  },
+  {
+    command: '/progress',
+    description: 'View team progress and milestones',
+    usage: '/progress [team_name]',
+    roleRequired: ['builder', 'mentor', 'lead'],
+    category: 'team'
   }
 ];
 
@@ -238,11 +259,33 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
       switch (command) {
         case 'help':
           const availableCommands = SLASH_COMMANDS.filter(c => c.roleRequired.includes(selectedRole));
+          const categorizedCommands = availableCommands.reduce((acc, cmd) => {
+            if (!acc[cmd.category]) acc[cmd.category] = [];
+            acc[cmd.category].push(cmd);
+            return acc;
+          }, {} as Record<string, SlashCommand[]>);
+          
+          let helpMessage = `**🛸 Oracle Command Center - ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Commands**\n\n`;
+          
+          Object.entries(categorizedCommands).forEach(([category, commands]) => {
+            const categoryEmoji = {
+              'oracle': '🔮',
+              'team': '👥',
+              'user': '🧑',
+              'admin': '⚡'
+            }[category] || '📋';
+            
+            helpMessage += `**${categoryEmoji} ${category.charAt(0).toUpperCase() + category.slice(1)} Commands:**\n`;
+            commands.forEach(cmd => {
+              helpMessage += `• \`${cmd.command}\` - ${cmd.description}\n  *Usage:* ${cmd.usage}\n\n`;
+            });
+          });
+          
+          helpMessage += `**💡 Pro Tips:**\n• Use @username to mention team members\n• Ask natural language questions\n• The Oracle remembers your context and role\n• Try asking "Who can help me with [skill]?"`;
+          
           return {
             success: true,
-            message: `**Available Commands:**\n\n${availableCommands.map(c => 
-              `\`${c.command}\` - ${c.description}\n*Usage:* ${c.usage}`
-            ).join('\n\n')}`
+            message: helpMessage
           };
 
         case 'status':
@@ -265,20 +308,88 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
           const skill = args.join(' ');
           const { data: profiles } = await supabase
             .from('profiles')
-            .select('full_name, role, skills')
-            .contains('skills', [skill]);
+            .select('full_name, role, skills, help_needed, experience_level')
+            .or(`skills.cs.{${skill}},help_needed.cs.{${skill}},experience_level.ilike.%${skill}%`);
           
           if (profiles && profiles.length > 0) {
             return {
               success: true,
-              message: `**Found ${profiles.length} people with "${skill}" skills:**\n\n${profiles.map(p => 
-                `• **${p.full_name}** (${p.role}) - ${p.skills?.join(', ')}`
-              ).join('\n')}`
+              message: `**🔍 Found ${profiles.length} people related to "${skill}":**\n\n${profiles.map(p => 
+                `• **${p.full_name}** (${p.role})\n  💪 Skills: ${p.skills?.join(', ') || 'None listed'}\n  🤝 Can help with: ${p.help_needed?.join(', ') || 'Not specified'}\n  📊 Experience: ${p.experience_level || 'Not specified'}`
+              ).join('\n\n')}\n\n💡 *Tip: Use @username to message them directly!*`
             };
           } else {
             return {
               success: true,
-              message: `No team members found with "${skill}" skills.`
+              message: `❌ No team members found related to "${skill}". Try different keywords or ask the Oracle for alternative approaches.`
+            };
+          }
+
+        case 'connect':
+          const challenge = args.join(' ');
+          const { data: helpProfiles } = await supabase
+            .from('profiles')
+            .select('full_name, role, skills, bio, experience_level')
+            .not('skills', 'is', null);
+          
+          if (helpProfiles && helpProfiles.length > 0) {
+            const relevantPeople = helpProfiles.filter(p => 
+              p.skills?.some(skill => 
+                challenge.toLowerCase().includes(skill.toLowerCase()) ||
+                skill.toLowerCase().includes(challenge.toLowerCase())
+              ) || 
+              p.bio?.toLowerCase().includes(challenge.toLowerCase())
+            ).slice(0, 3);
+            
+            if (relevantPeople.length > 0) {
+              return {
+                success: true,
+                message: `**🤝 People who can help with "${challenge}":**\n\n${relevantPeople.map(p => 
+                  `• **@${p.full_name}** (${p.role})\n  💪 Relevant skills: ${p.skills?.filter(s => 
+                    challenge.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(challenge.toLowerCase())
+                  ).join(', ')}\n  📝 Bio: ${p.bio || 'No bio available'}`
+                ).join('\n\n')}\n\n🚀 *Reach out to them using @mentions or /message command!*`
+              };
+            }
+          }
+          
+          return {
+            success: true,
+            message: `🤔 No direct matches found for "${challenge}". Try asking the Oracle: "Who has experience with [specific technology/skill]?" or use broader terms.`
+          };
+
+        case 'progress':
+          const teamName = args.join(' ');
+          let teamQuery = supabase
+            .from('teams')
+            .select(`
+              name, stage, description,
+              team_status(current_status, last_update),
+              updates(content, created_at, type)
+            `);
+          
+          if (teamName) {
+            teamQuery = teamQuery.ilike('name', `%${teamName}%`);
+          } else if (teamId) {
+            teamQuery = teamQuery.eq('id', teamId);
+          }
+          
+          const { data: teamData } = await teamQuery;
+          
+          if (teamData && teamData.length > 0) {
+            const team = teamData[0];
+            const recentUpdates = team.updates?.slice(0, 3) || [];
+            
+            return {
+              success: true,
+              message: `**📊 Progress Report: ${team.name}**\n\n🎯 **Stage:** ${team.stage}\n📝 **Current Status:** ${team.team_status?.[0]?.current_status || 'No status set'}\n🕐 **Last Update:** ${team.team_status?.[0]?.last_update ? new Date(team.team_status[0].last_update).toLocaleDateString() : 'Never'}\n\n**📋 Recent Updates:**\n${recentUpdates.map(u => 
+                `• ${u.content} (${new Date(u.created_at).toLocaleDateString()})`
+              ).join('\n') || 'No recent updates'}\n\n💡 *Use /update to log new progress!*`
+            };
+          } else {
+            return {
+              success: true,
+              message: `❌ No team found${teamName ? ` matching "${teamName}"` : ''}. Make sure you're part of a team or specify the correct team name.`
             };
           }
 
