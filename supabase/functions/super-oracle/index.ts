@@ -267,26 +267,67 @@ async function generatePersonalizedResources(query: string, userProfile: any, te
     }));
 }
 
-async function detectMentions(query: string, supabase: any): Promise<string[]> {
+async function detectMentions(query: string, supabase: any): Promise<any[]> {
   const mentionPattern = /@(\w+)/g;
-  const mentions = [];
+  const mentionedUsers = [];
   let match;
   
   while ((match = mentionPattern.exec(query)) !== null) {
     const username = match[1];
-    // Try to find user by name
+    // Try to find user by name and fetch their full profile
     const { data: user } = await supabase
       .from('profiles')
-      .select('full_name, id')
-      .ilike('full_name', `%${username}%`)
+      .select(`
+        id, full_name, role, skills, help_needed, bio, 
+        experience_level, team_id, project_vision,
+        availability, linkedin_url, github_url, portfolio_url
+      `)
+      .or(`full_name.ilike.%${username}%, full_name.ilike.${username}%`)
       .single();
     
     if (user) {
-      mentions.push(user.full_name);
+      // Also get their team information if they have one
+      let teamInfo = null;
+      if (user.team_id) {
+        const { data: team } = await supabase
+          .from('teams')
+          .select('name, stage, description')
+          .eq('id', user.team_id)
+          .single();
+        teamInfo = team;
+      }
+      
+      // Get their recent activity/updates
+      const { data: recentUpdates } = await supabase
+        .from('updates')
+        .select('content, created_at, type')
+        .eq('created_by', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      mentionedUsers.push({
+        id: user.id,
+        full_name: user.full_name,
+        role: user.role,
+        skills: user.skills || [],
+        help_needed: user.help_needed || [],
+        bio: user.bio || '',
+        experience_level: user.experience_level || '',
+        team: teamInfo,
+        project_vision: user.project_vision || '',
+        availability: user.availability || '',
+        social_links: {
+          linkedin: user.linkedin_url,
+          github: user.github_url,
+          portfolio: user.portfolio_url
+        },
+        recent_activity: recentUpdates || [],
+        mention_text: match[0] // The original @username text
+      });
     }
   }
   
-  return mentions;
+  return mentionedUsers;
 }
 
 async function generateIntelligentResponse(
@@ -294,7 +335,7 @@ async function generateIntelligentResponse(
   role: string, 
   teamContext: any, 
   userProfile: any,
-  mentions: string[],
+  mentionedUsers: any[],
   resources: OracleResource[],
   relevantPeople: any[]
 ): Promise<string> {
@@ -340,7 +381,41 @@ async function generateIntelligentResponse(
     }
   };
 
-  const rolePersonality = getRolePersonality(role);
+  // Generate detailed mentioned user context
+  const getMentionedUserContext = () => {
+    if (mentionedUsers.length === 0) return 'No users mentioned';
+    
+    switch (role) {
+      case 'guest':
+        return 'User mentions not available to guests';
+      case 'builder':
+      case 'mentor':
+      case 'lead':
+        return mentionedUsers.map(user => {
+          const teamContext = user.team ? ` (Team: ${user.team.name} - ${user.team.stage} stage)` : ' (No team)';
+          const skillsText = user.skills.length > 0 ? `Skills: ${user.skills.join(', ')}` : 'No skills listed';
+          const helpText = user.help_needed.length > 0 ? `Can help with: ${user.help_needed.join(', ')}` : 'No help areas specified';
+          const activityText = user.recent_activity.length > 0 ? 
+            `Recent activity: ${user.recent_activity[0].content.substring(0, 100)}...` : 
+            'No recent activity';
+          
+          return `
+**${user.mention_text} → ${user.full_name}** (${user.role})${teamContext}
+• ${skillsText}
+• ${helpText}
+• Experience Level: ${user.experience_level || 'Not specified'}
+• Bio: ${user.bio || 'No bio available'}
+• ${activityText}
+${user.project_vision ? `• Project Vision: ${user.project_vision}` : ''}
+${user.availability ? `• Availability: ${user.availability}` : ''}
+${user.social_links.linkedin ? `• LinkedIn: ${user.social_links.linkedin}` : ''}
+${user.social_links.github ? `• GitHub: ${user.social_links.github}` : ''}
+${user.social_links.portfolio ? `• Portfolio: ${user.social_links.portfolio}` : ''}`;
+        }).join('\n\n');
+      default:
+        return 'Limited mention information available';
+    }
+  };
   
   // Filter team context based on role
   const getFilteredTeamContext = () => {
@@ -431,7 +506,7 @@ ${role === 'lead' ? `
 FILTERED CONTEXT FOR YOUR ROLE:
 User Context: ${getFilteredUserProfile()}
 Team Activities: ${getFilteredTeamContext()}
-Mentioned Users: ${role === 'guest' ? 'User mentions not available to guests' : (mentions.length > 0 ? mentions.join(', ') : 'None')}
+Mentioned Users: ${getMentionedUserContext()}
 People Who Can Help: ${role === 'guest' ? 'People connections not available to guests' : (relevantPeople.length > 0 ? relevantPeople.map(p => `${p.full_name} (${p.role}) - Skills: ${p.skills?.join(', ') || 'Not specified'}`).join('; ') : 'No specific matches found')}
 Available Resources: ${resources.length} curated resources matching your needs
 
@@ -441,13 +516,15 @@ RESPONSE GUIDELINES:
 3. Address their specific help needs: ${userProfile?.help_needed?.join(', ') || 'none specified'}
 4. Consider their experience level: ${userProfile?.experience_level || 'not specified'}
 5. Factor in their team's current stage: ${teamContext?.stage || 'no team context'}
-6. SUGGEST SPECIFIC PEOPLE when relevant - if someone needs help, connect them with the right person from the "People Who Can Help" list
-7. Provide resources that match their exact situation and needs
-8. CRITICAL: Respect role restrictions - ${rolePersonality.restrictions}
-9. Use their name and make it feel like you truly know them and their context
-10. Be incredibly helpful within your authority level
-11. If they need help, always try to connect them with relevant people (unless you're responding to a guest)
-12. Make every response feel personally crafted for THIS specific user in THEIR specific situation
+6. **MENTIONED USERS CONTEXT**: ${mentionedUsers.length > 0 ? `Use detailed info about mentioned users to provide rich insights. When users are mentioned, incorporate their skills, experience, recent activity, and team context into your response.` : 'No users mentioned in this query.'}
+7. SUGGEST SPECIFIC PEOPLE when relevant - if someone needs help, connect them with the right person from the "People Who Can Help" list
+8. Provide resources that match their exact situation and needs
+9. CRITICAL: Respect role restrictions - ${rolePersonality.restrictions}
+10. Use their name and make it feel like you truly know them and their context
+11. Be incredibly helpful within your authority level
+12. If they need help, always try to connect them with relevant people (unless you're responding to a guest)
+13. Make every response feel personally crafted for THIS specific user in THEIR specific situation
+14. **MENTION INTELLIGENCE**: When users mention others (@username), use their full profile data to provide insights about collaboration potential, skill matches, project synergy, and specific ways they can work together
 
 PERSONALITY FOR THIS USER:
 - Role: ${role} 
@@ -528,10 +605,10 @@ serve(async (req) => {
     // Find relevant people who can help
     relevantPeople = await findRelevantPeople(query, userProfile, role, supabase);
 
-    // Detect mentions
-    let mentions: string[] = [];
+    // Detect mentions with full user profiles
+    let mentionedUsers: any[] = [];
     if (contextRequest?.needsMentions) {
-      mentions = await detectMentions(query, supabase);
+      mentionedUsers = await detectMentions(query, supabase);
     }
 
     // Generate highly personalized resources
@@ -544,13 +621,13 @@ serve(async (req) => {
       );
     }
 
-    // Generate intelligent response with people suggestions
+    // Generate intelligent response with mentioned user profiles
     const answer = await generateIntelligentResponse(
       query,
       role,
       teamContext,
       userProfile,
-      mentions,
+      mentionedUsers,
       resources,
       relevantPeople
     );
@@ -561,6 +638,7 @@ serve(async (req) => {
     if (teamContext) confidence += 10;
     if (resources.length > 0) confidence += 5;
     if (relevantPeople.length > 0) confidence += 10; // Boost for people connections
+    if (mentionedUsers.length > 0) confidence += 15; // Higher boost for mentioned users with full context
 
     // Log interaction for learning
     await supabase.from('oracle_logs').insert({
@@ -575,10 +653,10 @@ serve(async (req) => {
 
     const response: SuperOracleResponse = {
       answer,
-      sources: resources.length + relevantPeople.length,
+      sources: resources.length + relevantPeople.length + mentionedUsers.length,
       confidence: Math.min(confidence, 100),
       resources: resources.length > 0 ? resources : undefined,
-      mentions: mentions.length > 0 ? mentions : undefined,
+      mentions: mentionedUsers.length > 0 ? mentionedUsers.map(u => u.full_name) : undefined,
       detected_stage: teamContext?.stage,
       next_actions: [], // Could be enhanced with AI-generated next steps
       personalization: userProfile ? {

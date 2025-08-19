@@ -683,7 +683,7 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         userProfile: profile,
         contextRequest: {
           needsResources: true,
-          needsMentions: true,
+          needsMentions: true, // Always request mentions for enhanced responses
           needsTeamContext: true,
           needsPersonalization: true
         }
