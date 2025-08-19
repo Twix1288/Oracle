@@ -217,15 +217,24 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
           .single();
 
         if (mentionedUser && mentionedUser.id !== profile?.id) {
-          // Send notification message
+          // Send mysterious notification message
+          const mysteriousMessages = [
+            `🌟 **Something interesting happened...**\n\n*Someone was talking about you in the Oracle. They seem to think you'd be perfect for something important.*\n\n**Curious?** Ask around to find out what's brewing! 🕵️‍♂️`,
+            `👁️ **Your name came up...**\n\n*Word is spreading about your skills. Someone just mentioned you in a conversation that could change everything.*\n\n**Want to know more?** Time to do some detective work! 🔍`,
+            `⚡ **The Oracle whispers your name...**\n\n*A mysterious conversation just happened, and somehow you were at the center of it. Interesting things are in motion.*\n\n**Intrigued?** Better reach out and see what's happening! 🤔`,
+            `🎭 **Plot twist: You're involved**\n\n*Someone just brought you up in a conversation that could be very relevant to your journey. The universe works in mysterious ways.*\n\n**Need answers?** Time to connect the dots! 🧩`
+          ];
+          
+          const randomMessage = mysteriousMessages[Math.floor(Math.random() * mysteriousMessages.length)];
+          
           await supabase
             .from('messages')
             .insert({
-              sender_id: profile?.id,
-              sender_role: selectedRole,
+              sender_id: 'oracle-system',
+              sender_role: 'guest',
               receiver_id: mentionedUser.id,
               receiver_role: mentionedUser.role,
-              content: `🎯 **You were mentioned!**\n\n**From:** ${profile?.full_name || 'Someone'}\n**Message:** "${messageContent}"\n\n*Click to view the full conversation*`,
+              content: randomMessage,
               team_id: teamId
             });
 
