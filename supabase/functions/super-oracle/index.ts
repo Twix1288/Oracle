@@ -24,6 +24,7 @@ interface SuperOracleRequest {
     needsMentions: boolean;
     needsTeamContext: boolean;
     needsPersonalization: boolean;
+    resourceTopic?: string;
   };
 }
 
@@ -119,169 +120,151 @@ async function generatePersonalizedResources(query: string, userProfile: any, te
   const userRole = userProfile?.role || 'guest';
   
   const resources: OracleResource[] = [];
+  const queryLower = query.toLowerCase();
   
-  // Personalize based on user's specific help needs
-  if (helpNeeded.length > 0) {
-    for (const helpTopic of helpNeeded.slice(0, 2)) {
-      if (query.toLowerCase().includes(helpTopic.toLowerCase())) {
-        resources.push({
-          title: `${helpTopic} Guide for ${experienceLevel}s`,
-          url: `https://learn.${helpTopic.toLowerCase().replace(' ', '')}.com/guide`,
-          type: "tutorial",
-          description: `Tailored ${helpTopic} resources for your experience level`,
-          relevance: 98
-        });
-      }
-    }
-  }
-  
-  // Resources based on user's current skills to build upon
-  if (skills.length > 0) {
-    const primarySkill = skills[0];
-    if (query.toLowerCase().includes(primarySkill.toLowerCase())) {
-      resources.push({
-        title: `Advanced ${primarySkill} Techniques`,
-        url: `https://advanced-${primarySkill.toLowerCase().replace(' ', '')}.dev`,
-        type: "documentation",
-        description: `Building on your ${primarySkill} expertise`,
-        relevance: 95
-      });
-    }
-  }
-  
-  // Stage-specific resources based on team context
-  if (teamStage === 'ideation') {
-    resources.push({
-      title: "Idea Validation Framework",
-      url: "https://www.ycombinator.com/library/6f-how-to-build-your-seed-deck",
-      type: "article",
-      description: "Validate your startup idea with proven frameworks",
-      relevance: 92
-    });
-    
-    if (userRole === 'builder' || userRole === 'lead') {
-      resources.push({
-        title: "MVP Development Strategy",
-        url: "https://www.youtube.com/watch?v=1hHMwLxN6EM",
-        type: "youtube",
-        description: "Build your minimum viable product effectively",
-        relevance: 90
-      });
-    }
-  }
-  
-  if (teamStage === 'development') {
-    resources.push({
-      title: "Development Best Practices",
-      url: "https://github.com/google/eng-practices",
-      type: "documentation",
-      description: "Engineering practices from industry leaders",
-      relevance: 94
-    });
-    
-    if (query.toLowerCase().includes('deploy') || query.toLowerCase().includes('production')) {
-      resources.push({
-        title: "Production Deployment Guide",
-        url: "https://vercel.com/docs/concepts/deployments",
-        type: "documentation",
-        description: "Deploy your application with confidence",
-        relevance: 96
-      });
-    }
-  }
-  
-  if (teamStage === 'testing') {
-    resources.push({
-      title: "Comprehensive Testing Strategies",
-      url: "https://testing-library.com/docs/",
-      type: "documentation",
-      description: "Test your application thoroughly",
-      relevance: 93
-    });
-  }
-  
-  if (teamStage === 'launch') {
-    resources.push({
-      title: "Product Launch Checklist",
-      url: "https://blog.hubspot.com/marketing/product-launch-checklist",
-      type: "article",
-      description: "Ensure a successful product launch",
-      relevance: 95
-    });
-    
-    if (userRole === 'lead' || userRole === 'mentor') {
-      resources.push({
-        title: "Go-to-Market Strategy",
-        url: "https://www.youtube.com/watch?v=Dk8cR1syCkU",
-        type: "youtube",
-        description: "Build an effective go-to-market plan",
-        relevance: 92
-      });
-    }
-  }
-  
-  // Technology-specific resources based on user context
+  // Enhanced technology-specific resources with real, working URLs
   const techResources = {
-    'react': {
-      title: "React Best Practices 2025",
-      url: "https://react.dev/learn",
-      description: "Modern React development patterns",
-      relevance: 90
-    },
-    'api': {
-      title: "RESTful API Design Guide",
-      url: "https://restfulapi.net/",
-      description: "Design robust and scalable APIs",
-      relevance: 88
-    },
-    'ai': {
-      title: "AI Integration for Startups",
-      url: "https://platform.openai.com/docs",
-      description: "Integrate AI into your product effectively",
-      relevance: 94
-    },
-    'database': {
-      title: "Database Architecture Patterns",
-      url: "https://supabase.com/docs",
-      description: "Scalable database design patterns",
-      relevance: 87
-    }
+    'react': [
+      { title: 'React Official Documentation', url: 'https://react.dev', type: 'documentation', description: 'Official React documentation with modern hooks and patterns', relevance: 95 },
+      { title: 'React Hooks Complete Guide', url: 'https://www.youtube.com/watch?v=TNhaISOUy6Q', type: 'youtube', description: 'Complete guide to React hooks for modern development', relevance: 92 },
+      { title: 'React Best Practices 2025', url: 'https://kentcdodds.com/blog/application-state-management-with-react', type: 'article', description: 'Modern React patterns and best practices', relevance: 90 }
+    ],
+    'javascript': [
+      { title: 'Modern JavaScript Guide', url: 'https://javascript.info', type: 'tutorial', description: 'Complete modern JavaScript tutorial from basics to advanced', relevance: 94 },
+      { title: 'JavaScript ES6+ Features', url: 'https://www.youtube.com/watch?v=WZQc7RUAg18', type: 'youtube', description: 'Modern JavaScript features every developer should know', relevance: 90 },
+      { title: 'You Don\'t Know JS', url: 'https://github.com/getify/You-Dont-Know-JS', type: 'documentation', description: 'Deep dive into JavaScript fundamentals', relevance: 88 }
+    ],
+    'python': [
+      { title: 'Python Official Tutorial', url: 'https://docs.python.org/3/tutorial/', type: 'tutorial', description: 'Official Python 3 tutorial from basics to advanced', relevance: 95 },
+      { title: 'Python for Data Science', url: 'https://www.youtube.com/watch?v=LHBE6Q9XlzI', type: 'youtube', description: 'Complete Python data science course', relevance: 90 },
+      { title: 'Real Python Guides', url: 'https://realpython.com', type: 'article', description: 'High-quality Python tutorials and guides', relevance: 93 }
+    ],
+    'node': [
+      { title: 'Node.js Official Docs', url: 'https://nodejs.org/en/docs/', type: 'documentation', description: 'Comprehensive Node.js documentation and API reference', relevance: 94 },
+      { title: 'Node.js Complete Course', url: 'https://www.youtube.com/watch?v=TlB_eWDSMt4', type: 'youtube', description: 'Complete Node.js development course', relevance: 91 },
+      { title: 'Express.js Guide', url: 'https://expressjs.com/en/guide/routing.html', type: 'tutorial', description: 'Express.js framework complete guide', relevance: 89 }
+    ],
+    'ai': [
+      { title: 'OpenAI API Documentation', url: 'https://platform.openai.com/docs', type: 'documentation', description: 'Complete guide to OpenAI API integration', relevance: 96 },
+      { title: 'AI for Developers Course', url: 'https://www.deeplearning.ai/courses/', type: 'tutorial', description: 'AI and machine learning for developers', relevance: 94 },
+      { title: 'Prompt Engineering Guide', url: 'https://www.promptingguide.ai/', type: 'article', description: 'Best practices for AI prompt engineering', relevance: 92 }
+    ],
+    'design': [
+      { title: 'Figma Design Tutorial', url: 'https://help.figma.com/hc/en-us', type: 'tutorial', description: 'Complete guide to Figma design tools', relevance: 93 },
+      { title: 'UI/UX Design Principles', url: 'https://www.youtube.com/watch?v=_K06LoVjFSg', type: 'youtube', description: 'Fundamental UI/UX design principles', relevance: 91 },
+      { title: 'Design Systems Guide', url: 'https://designsystemsrepo.com/', type: 'article', description: 'Collection of design system examples and patterns', relevance: 89 }
+    ],
+    'api': [
+      { title: 'REST API Design Guide', url: 'https://restfulapi.net/', type: 'documentation', description: 'Complete guide to RESTful API design', relevance: 92 },
+      { title: 'API Development Tutorial', url: 'https://www.youtube.com/watch?v=pKd0Rpw7O48', type: 'youtube', description: 'Building robust APIs from scratch', relevance: 90 },
+      { title: 'GraphQL vs REST', url: 'https://blog.apollographql.com/graphql-vs-rest-5d425123e34b', type: 'article', description: 'When to use GraphQL vs REST APIs', relevance: 87 }
+    ],
+    'business': [
+      { title: 'Lean Canvas Template', url: 'https://leanstack.com/lean-canvas', type: 'tool', description: 'Create your business model with Lean Canvas', relevance: 95 },
+      { title: 'Customer Development Guide', url: 'https://www.youtube.com/watch?v=f_LNNnNfpp4', type: 'youtube', description: 'Steve Blank on customer development process', relevance: 93 },
+      { title: 'Startup Pitch Deck Guide', url: 'https://www.sequoiacap.com/article/writing-a-business-plan/', type: 'article', description: 'Sequoia Capital guide to pitch decks', relevance: 91 }
+    ]
   };
   
-  for (const [tech, resource] of Object.entries(techResources)) {
-    if (query.toLowerCase().includes(tech)) {
-      resources.push({
-        title: resource.title,
-        url: resource.url,
-        type: "documentation",
-        description: resource.description,
-        relevance: resource.relevance
-      });
+  // Stage-specific resources
+  const stageResources = {
+    'ideation': [
+      { title: 'Idea Validation Framework', url: 'https://www.youtube.com/watch?v=6z-TNwqED8g', type: 'youtube', description: 'How to validate your startup idea effectively', relevance: 96 },
+      { title: 'Market Research Guide', url: 'https://blog.hubspot.com/marketing/market-research-buyers-journey-guide', type: 'article', description: 'Complete guide to market research for startups', relevance: 94 },
+      { title: 'Problem-Solution Fit', url: 'https://leanstack.com/problem-solution-fit/', type: 'tutorial', description: 'Achieving problem-solution fit for your startup', relevance: 92 }
+    ],
+    'development': [
+      { title: 'Agile Development Guide', url: 'https://agilemanifesto.org/', type: 'article', description: 'Principles of agile software development', relevance: 93 },
+      { title: 'MVP Development Strategy', url: 'https://www.youtube.com/watch?v=0P7nCmln7PM', type: 'youtube', description: 'Building your minimum viable product effectively', relevance: 95 },
+      { title: 'Git Best Practices', url: 'https://www.atlassian.com/git/tutorials/comparing-workflows', type: 'tutorial', description: 'Git workflows for development teams', relevance: 89 }
+    ],
+    'testing': [
+      { title: 'User Testing Guide', url: 'https://www.usertesting.com/resources', type: 'article', description: 'How to conduct effective user testing sessions', relevance: 94 },
+      { title: 'A/B Testing Framework', url: 'https://www.optimizely.com/optimization-glossary/ab-testing/', type: 'tutorial', description: 'Complete guide to A/B testing methodology', relevance: 92 },
+      { title: 'QA Testing Strategies', url: 'https://www.youtube.com/watch?v=VYXp1iTgNgc', type: 'youtube', description: 'Quality assurance testing best practices', relevance: 88 }
+    ],
+    'launch': [
+      { title: 'Product Launch Checklist', url: 'https://producthabits.com/product-launch-checklist/', type: 'article', description: 'Comprehensive product launch checklist and timeline', relevance: 96 },
+      { title: 'Go-to-Market Strategy', url: 'https://blog.hubspot.com/marketing/go-to-market-strategy', type: 'article', description: 'Building your go-to-market strategy', relevance: 94 },
+      { title: 'Product Hunt Launch Guide', url: 'https://blog.producthunt.com/how-to-launch-on-product-hunt-7c1843e06399', type: 'tutorial', description: 'Complete guide to launching on Product Hunt', relevance: 90 }
+    ],
+    'growth': [
+      { title: 'Growth Hacking Guide', url: 'https://blog.hubspot.com/marketing/growth-hacking', type: 'article', description: 'Growth hacking strategies for startups', relevance: 93 },
+      { title: 'Customer Acquisition', url: 'https://www.youtube.com/watch?v=BPK_qzeH_yk', type: 'youtube', description: 'Effective customer acquisition strategies', relevance: 91 },
+      { title: 'Scaling Your Startup', url: 'https://firstround.com/review/', type: 'article', description: 'Lessons on scaling from successful startups', relevance: 89 }
+    ]
+  };
+  
+  // Find relevant technology resources
+  for (const [tech, techResourceList] of Object.entries(techResources)) {
+    if (queryLower.includes(tech) || skills.some(skill => skill.toLowerCase().includes(tech))) {
+      resources.push(...techResourceList.map(r => ({ ...r, type: r.type as any })));
     }
+  }
+  
+  // Add stage-specific resources based on team context
+  if (teamStage && stageResources[teamStage as keyof typeof stageResources]) {
+    const stageResourceList = stageResources[teamStage as keyof typeof stageResources];
+    resources.push(...stageResourceList.map(r => ({ ...r, type: r.type as any })));
+  }
+  
+  // Add experience-level appropriate resources
+  if (experienceLevel === 'beginner') {
+    resources.push({
+      title: 'Programming Foundations Course',
+      url: 'https://www.freecodecamp.org/',
+      type: 'tutorial',
+      description: 'Free comprehensive programming courses for beginners',
+      relevance: 85
+    });
+  } else if (experienceLevel === 'advanced') {
+    resources.push({
+      title: 'Advanced Software Architecture',
+      url: 'https://www.oreilly.com/library/view/clean-architecture-a/9780134494272/',
+      type: 'documentation',
+      description: 'Advanced software architecture patterns and principles',
+      relevance: 88
+    });
   }
   
   // Role-specific resources
-  if (userRole === 'mentor') {
-    resources.push({
-      title: "Effective Mentoring Strategies",
-      url: "https://www.ted.com/talks/carla_harris_how_to_find_the_person_who_can_help_you_get_ahead_at_work",
-      type: "youtube",
-      description: "Become a more effective mentor and guide",
-      relevance: 85
-    });
+  const roleSpecificResources = {
+    'builder': [
+      { title: 'Technical Skills Roadmap', url: 'https://roadmap.sh/', type: 'tutorial', description: 'Learning paths for developers and builders', relevance: 87 },
+      { title: 'Code Quality Guide', url: 'https://github.com/ryanmcdermott/clean-code-javascript', type: 'article', description: 'Clean code principles for better development', relevance: 85 }
+    ],
+    'mentor': [
+      { title: 'Mentoring Best Practices', url: 'https://www.themusejobs.com/advice/mentoring-best-practices', type: 'article', description: 'How to be an effective mentor in tech', relevance: 90 },
+      { title: 'Coaching Techniques for Mentors', url: 'https://www.youtube.com/watch?v=oHDq1PcokdI', type: 'youtube', description: 'Effective coaching techniques for technical mentors', relevance: 88 }
+    ],
+    'lead': [
+      { title: 'Startup Leadership Playbook', url: 'https://firstround.com/review/', type: 'article', description: 'Leadership insights from successful startup founders', relevance: 92 },
+      { title: 'Team Building for Startups', url: 'https://www.atlassian.com/team-playbook', type: 'tutorial', description: 'Building and managing effective startup teams', relevance: 89 }
+    ]
+  };
+  
+  if (roleSpecificResources[userRole as keyof typeof roleSpecificResources]) {
+    const roleResources = roleSpecificResources[userRole as keyof typeof roleSpecificResources];
+    resources.push(...roleResources.map(r => ({ ...r, type: r.type as any })));
   }
   
-  if (userRole === 'lead') {
-    resources.push({
-      title: "Startup Leadership Playbook",
-      url: "https://firstround.com/review/",
-      type: "article",
-      description: "Leadership insights from successful startups",
-      relevance: 89
-    });
+  // If no specific resources found, add general startup resources
+  if (resources.length === 0) {
+    resources.push(
+      { title: 'Y Combinator Startup School', url: 'https://www.startupschool.org/', type: 'tutorial', description: 'Free online course for entrepreneurs and builders', relevance: 85 },
+      { title: 'Indie Hackers Community', url: 'https://www.indiehackers.com/', type: 'article', description: 'Community of independent entrepreneurs and makers', relevance: 82 },
+      { title: 'Hacker News', url: 'https://news.ycombinator.com/', type: 'article', description: 'Tech and startup news from the community', relevance: 78 }
+    );
   }
   
-  return resources.sort((a, b) => b.relevance - a.relevance).slice(0, 6);
+  // Sort by relevance and return top resources
+  return resources
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, 8) // Return top 8 resources
+    .map(resource => ({
+      ...resource,
+      relevance: resource.relevance / 100 // Convert to 0-1 scale
+    }));
 }
 
 async function detectMentions(query: string, supabase: any): Promise<string[]> {
@@ -553,8 +536,12 @@ serve(async (req) => {
 
     // Generate highly personalized resources
     let resources: OracleResource[] = [];
-    if (contextRequest?.needsResources) {
-      resources = await generatePersonalizedResources(query, userProfile, teamContext);
+    if (contextRequest?.needsResources || contextRequest?.resourceTopic) {
+      resources = await generatePersonalizedResources(
+        contextRequest?.resourceTopic || query, 
+        userProfile, 
+        teamContext
+      );
     }
 
     // Generate intelligent response with people suggestions

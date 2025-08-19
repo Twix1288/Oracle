@@ -393,6 +393,34 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
             };
           }
 
+        case 'resources':
+          const topic = args.join(' ');
+          // Generate contextual resources through Oracle
+          const resourceResponse = await supabase.functions.invoke('super-oracle', {
+            body: {
+              query: `Generate curated resources for: ${topic}`,
+              role: selectedRole,
+              teamId,
+              userId: profile?.id,
+              contextRequest: { needsResources: true, resourceTopic: topic }
+            }
+          });
+          
+          if (resourceResponse.data?.resources) {
+            const resources = resourceResponse.data.resources;
+            return {
+              success: true,
+              message: `**📚 Curated Resources for "${topic}":**\n\n${resources.map((r: any, idx: number) => 
+                `${idx + 1}. **${r.title}** (${r.type})\n   ${r.description}\n   🔗 ${r.url}\n   ⭐ Relevance: ${Math.round(r.relevance * 100)}%`
+              ).join('\n\n')}\n\n💡 *These resources are personalized based on your role and project context.*`
+            };
+          } else {
+            return {
+              success: true,
+              message: `🔍 No specific resources found for "${topic}". Try more specific terms or ask the Oracle for guidance.`
+            };
+          }
+
         case 'update':
           if (teamId) {
             const updateContent = args.join(' ');
@@ -406,18 +434,230 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
               });
             
             if (!error) {
+              // Also update team status
+              await supabase
+                .from('team_status')
+                .upsert({
+                  team_id: teamId,
+                  current_status: updateContent.substring(0, 200),
+                  last_update: new Date().toISOString()
+                });
+              
               return {
                 success: true,
-                message: `✅ Update logged: "${updateContent}"`
+                message: `✅ **Update Logged Successfully!**\n\n📝 **Content:** "${updateContent}"\n🕐 **Timestamp:** ${new Date().toLocaleString()}\n📊 **Status Updated:** Team dashboard refreshed\n\n💡 *Your team members and mentors can now see this update.*`
+              };
+            } else {
+              return {
+                success: false,
+                message: `❌ Failed to log update: ${error.message}`
               };
             }
+          } else {
+            return {
+              success: false,
+              message: `❌ No team assigned. You need to be part of a team to log updates.`
+            };
           }
-          break;
+
+        case 'message':
+          const targetMatch = args[0]?.startsWith('@') ? args[0].slice(1) : args[0];
+          const messageContent = args.slice(1).join(' ');
+          
+          if (!targetMatch || !messageContent) {
+            return {
+              success: false,
+              message: `❌ Invalid message format. Use: /message @username your message content`
+            };
+          }
+          
+          // Find the target user
+          const { data: targetUser } = await supabase
+            .from('profiles')
+            .select('id, full_name, role')
+            .ilike('full_name', `%${targetMatch}%`)
+            .single();
+          
+          if (targetUser) {
+            const { error } = await supabase
+              .from('messages')
+              .insert({
+                sender_id: profile?.id,
+                sender_role: selectedRole,
+                receiver_id: targetUser.id,
+                receiver_role: targetUser.role,
+                content: messageContent,
+                team_id: teamId
+              });
+            
+            if (!error) {
+              return {
+                success: true,
+                message: `✅ **Message Sent Successfully!**\n\n👤 **To:** ${targetUser.full_name} (${targetUser.role})\n💬 **Content:** "${messageContent}"\n📧 **Delivery:** Message delivered to their inbox\n\n💡 *They will see this message in their Oracle or messaging center.*`
+              };
+            } else {
+              return {
+                success: false,
+                message: `❌ Failed to send message: ${error.message}`
+              };
+            }
+          } else {
+            return {
+              success: false,
+              message: `❌ User "${targetMatch}" not found. Try using their exact name or check spelling.`
+            };
+          }
+
+        case 'analyze':
+          if (selectedRole === 'mentor' || selectedRole === 'lead') {
+            const target = args.join(' ') || 'overall';
+            
+            if (target === 'overall') {
+              // Get overall program analytics
+              const { data: allTeams } = await supabase
+                .from('teams')
+                .select(`
+                  name, stage, created_at,
+                  team_status(current_status, last_update),
+                  updates(created_at, type)
+                `);
+              
+              if (allTeams) {
+                const totalTeams = allTeams.length;
+                const stageDistribution = allTeams.reduce((acc, team) => {
+                  acc[team.stage] = (acc[team.stage] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>);
+                
+                const activeTeams = allTeams.filter(team => 
+                  team.team_status?.[0]?.last_update && 
+                  new Date(team.team_status[0].last_update) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                ).length;
+                
+                const avgUpdatesPerTeam = allTeams.reduce((acc, team) => acc + (team.updates?.length || 0), 0) / totalTeams;
+                
+                return {
+                  success: true,
+                  message: `**📊 Overall Program Analysis**\n\n🏢 **Program Overview:**\n• Total Teams: ${totalTeams}\n• Active Teams (last 7 days): ${activeTeams}\n• Activity Rate: ${Math.round((activeTeams/totalTeams)*100)}%\n\n🎯 **Stage Distribution:**\n${Object.entries(stageDistribution).map(([stage, count]) => 
+                    `• ${stage.charAt(0).toUpperCase() + stage.slice(1)}: ${count} teams (${Math.round((count/totalTeams)*100)}%)`
+                  ).join('\n')}\n\n📈 **Engagement Metrics:**\n• Average Updates per Team: ${avgUpdatesPerTeam.toFixed(1)}\n• Teams needing attention: ${totalTeams - activeTeams}\n\n💡 *Use /analyze @teamname for specific team insights.*`
+                };
+              }
+            } else {
+              // Analyze specific team
+              const { data: teamAnalysis } = await supabase
+                .from('teams')
+                .select(`
+                  name, stage, created_at, description,
+                  team_status(current_status, last_update, pending_actions),
+                  updates(content, created_at, type, created_by),
+                  profiles!profiles_team_id_fkey(full_name, role, skills, last_login:updated_at)
+                `)
+                .ilike('name', `%${target}%`)
+                .single();
+              
+              if (teamAnalysis) {
+                const daysSinceLastUpdate = teamAnalysis.team_status?.[0]?.last_update 
+                  ? Math.floor((Date.now() - new Date(teamAnalysis.team_status[0].last_update).getTime()) / (1000 * 60 * 60 * 24))
+                  : 999;
+                
+                const recentUpdates = teamAnalysis.updates?.filter(u => 
+                  new Date(u.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                ).length || 0;
+                
+                const teamMembers = teamAnalysis.profiles?.length || 0;
+                
+                let healthScore = 100;
+                if (daysSinceLastUpdate > 7) healthScore -= 30;
+                if (recentUpdates < 3) healthScore -= 20;
+                if (teamMembers < 2) healthScore -= 25;
+                
+                const healthStatus = healthScore >= 80 ? '🟢 Excellent' : 
+                                   healthScore >= 60 ? '🟡 Good' : 
+                                   healthScore >= 40 ? '🟠 Needs Attention' : '🔴 Critical';
+                
+                return {
+                  success: true,
+                  message: `**📊 Team Analysis: ${teamAnalysis.name}**\n\n🎯 **Team Health Score:** ${healthScore}/100 ${healthStatus}\n\n📈 **Key Metrics:**\n• Stage: ${teamAnalysis.stage}\n• Team Size: ${teamMembers} members\n• Days Since Last Update: ${daysSinceLastUpdate}\n• Weekly Updates: ${recentUpdates}\n\n👥 **Team Composition:**\n${teamAnalysis.profiles?.map(p => 
+                    `• ${p.full_name} (${p.role}) - ${p.skills?.slice(0,2).join(', ') || 'No skills listed'}`
+                  ).join('\n') || 'No members found'}\n\n🚨 **Recommendations:**\n${daysSinceLastUpdate > 7 ? '• Encourage regular updates\n' : ''}${recentUpdates < 3 ? '• Increase communication frequency\n' : ''}${teamMembers < 2 ? '• Consider team expansion\n' : ''}${healthScore >= 80 ? '• Team is performing excellently!' : ''}`
+                };
+              } else {
+                return {
+                  success: false,
+                  message: `❌ Team "${target}" not found. Use /analyze overall for program-wide analysis.`
+                };
+              }
+            }
+          } else {
+            return {
+              success: false,
+              message: `❌ Analysis command requires mentor or lead privileges.`
+            };
+          }
+
+        case 'broadcast':
+          if (selectedRole === 'lead') {
+            const announcement = args.join(' ');
+            if (!announcement) {
+              return {
+                success: false,
+                message: `❌ Please provide an announcement message. Usage: /broadcast your message`
+              };
+            }
+            
+            // Get all team members
+            const { data: allProfiles } = await supabase
+              .from('profiles')
+              .select('id, role, team_id');
+            
+            if (allProfiles) {
+              const broadcasts = allProfiles.map(profile => ({
+                sender_id: profile?.id,
+                sender_role: selectedRole,
+                receiver_id: profile.id,
+                receiver_role: profile.role,
+                content: `📢 **PROGRAM ANNOUNCEMENT**\n\n${announcement}\n\n*From Program Leadership*`,
+                team_id: profile.team_id
+              }));
+              
+              const { error } = await supabase
+                .from('messages')
+                .insert(broadcasts);
+              
+              if (!error) {
+                // Also log as a system update
+                await supabase
+                  .from('updates')
+                  .insert({
+                    team_id: teamId || '00000000-0000-0000-0000-000000000000',
+                    content: `BROADCAST: ${announcement}`,
+                    type: 'milestone' as any,
+                    created_by: profile?.id
+                  });
+                
+                return {
+                  success: true,
+                  message: `✅ **Broadcast Sent Successfully!**\n\n📢 **Announcement:** "${announcement}"\n👥 **Recipients:** ${allProfiles.length} program participants\n📧 **Delivery:** All participants notified\n📝 **Logged:** Announcement recorded in system\n\n💡 *All team members will see this announcement in their Oracle and messaging systems.*`
+                };
+              } else {
+                return {
+                  success: false,
+                  message: `❌ Failed to send broadcast: ${error.message}`
+                };
+              }
+            }
+          } else {
+            return {
+              success: false,
+              message: `❌ Broadcast command requires lead privileges.`
+            };
+          }
 
         default:
           return {
             success: false,
-            message: `Command /${command} not implemented yet.`
+            message: `❌ **Command Not Found**\n\nUnknown command: \`/${command}\`\n\n💡 Use \`/help\` to see all available commands for your role (${selectedRole}).`
           };
       }
     } catch (error) {
