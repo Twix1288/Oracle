@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Users, KeyRound, UserPlus, BarChart3 } from 'lucide-react';
+import { Crown, Users, KeyRound, UserPlus, BarChart3, Code } from 'lucide-react';
 import { UserManagementDashboard } from './UserManagementDashboard';
 import { AccessCodeSimplified } from './AccessCodeSimplified';
+import { BuildCodeManager } from './BuildCodeManager';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export const LeadDashboardEnhanced = () => {
   const [activeTab, setActiveTab] = useState('users');
 
-  // Get quick stats
+  // Get quick stats and teams
   const { data: stats } = useQuery({
     queryKey: ['lead-dashboard-stats'],
     queryFn: async () => {
@@ -31,6 +32,19 @@ export const LeadDashboardEnhanced = () => {
         totalTeams: teams.length,
         activeTeams: teams.filter(t => ['development', 'testing', 'launch'].includes(t.stage)).length
       };
+    }
+  });
+
+  // Get teams data for BuildCodeManager
+  const { data: teams } = useQuery({
+    queryKey: ['teams'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('id, name, description')
+        .order('name');
+      if (error) throw error;
+      return data || [];
     }
   });
 
@@ -73,13 +87,13 @@ export const LeadDashboardEnhanced = () => {
 
       {/* Management Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger 
             value="users" 
             className="data-[state=active]:bg-primary/20 flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
-            User Management
+            Users
             {stats?.pendingUsers && stats.pendingUsers > 0 && (
               <Badge variant="outline" className="bg-yellow-500/20 text-yellow-300 text-xs">
                 {stats.pendingUsers}
@@ -87,11 +101,18 @@ export const LeadDashboardEnhanced = () => {
             )}
           </TabsTrigger>
           <TabsTrigger 
+            value="codes" 
+            className="data-[state=active]:bg-primary/20 flex items-center gap-2"
+          >
+            <Code className="h-4 w-4" />
+            Build Codes
+          </TabsTrigger>
+          <TabsTrigger 
             value="invites" 
             className="data-[state=active]:bg-primary/20 flex items-center gap-2"
           >
             <KeyRound className="h-4 w-4" />
-            Team Invitations
+            Invitations
           </TabsTrigger>
           <TabsTrigger 
             value="analytics" 
@@ -104,6 +125,10 @@ export const LeadDashboardEnhanced = () => {
 
         <TabsContent value="users" className="space-y-0">
           <UserManagementDashboard />
+        </TabsContent>
+
+        <TabsContent value="codes" className="space-y-0">
+          <BuildCodeManager teams={teams || []} />
         </TabsContent>
 
         <TabsContent value="invites" className="space-y-0">
