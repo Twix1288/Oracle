@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Users, KeyRound, UserPlus, BarChart3, Code } from 'lucide-react';
+import { Crown, Users, KeyRound, UserPlus, BarChart3, Code, Bot } from 'lucide-react';
 import { UserManagementDashboard } from './UserManagementDashboard';
 import { AccessCodeSimplified } from './AccessCodeSimplified';
 import { BuildCodeManager } from './BuildCodeManager';
+import { DiscordBotManagement } from './DiscordBotManagement';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -87,7 +88,7 @@ export const LeadDashboardEnhanced = () => {
 
       {/* Management Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger 
             value="users" 
             className="data-[state=active]:bg-primary/20 flex items-center gap-2"
@@ -115,6 +116,13 @@ export const LeadDashboardEnhanced = () => {
             Invitations
           </TabsTrigger>
           <TabsTrigger 
+            value="discord" 
+            className="data-[state=active]:bg-primary/20 flex items-center gap-2"
+          >
+            <Bot className="h-4 w-4" />
+            Discord Bot
+          </TabsTrigger>
+          <TabsTrigger 
             value="analytics" 
             className="data-[state=active]:bg-primary/20 flex items-center gap-2"
           >
@@ -133,6 +141,10 @@ export const LeadDashboardEnhanced = () => {
 
         <TabsContent value="invites" className="space-y-0">
           <AccessCodeSimplified />
+        </TabsContent>
+
+        <TabsContent value="discord" className="space-y-0">
+          <DiscordBotManagement />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
