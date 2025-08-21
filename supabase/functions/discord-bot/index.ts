@@ -165,9 +165,10 @@ serve(async (req) => {
                         `Name: ${profile.full_name || 'Not set'}\n` +
                         `Role: ${profile.role}\n` +
                         `Team: ${profile.team_id ? 'Assigned' : 'None'}\n` +
-                        `Skills: ${profile.skills?.join(', ') || 'None listed'}`;
+                        `Skills: ${profile.skills?.join(', ') || 'None listed'}\n` +
+                        `\nUse the web app to update your profile: https://dijskfbokusyxkcfwkrc.lovable.app`;
             } else {
-              response = 'Profile not found. Creating a new profile for you!';
+              response = 'Profile not found. Creating a new profile for you!\nVisit https://dijskfbokusyxkcfwkrc.lovable.app to complete your profile.';
             }
             break;
             
@@ -206,7 +207,7 @@ serve(async (req) => {
               .from('profiles')
               .select('team_id')
               .eq('discord_id', interaction.user.id)
-              .single();
+              .maybeSingle();
               
             if (!userProfile?.team_id) {
               response = 'You need to be assigned to a team to submit updates.';
@@ -238,7 +239,7 @@ serve(async (req) => {
               .from('profiles')
               .select('role')
               .eq('discord_id', interaction.user.id)
-              .single();
+              .maybeSingle();
               
             // Call the RAG query function
             const { data: oracleResponse, error: oracleError } = await supabase.functions.invoke('rag-query', {
