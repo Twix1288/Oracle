@@ -153,120 +153,6 @@ serve(async (req) => {
         let response = '';
         
         switch (commandName) {
-          case 'profile':
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('discord_id', interaction.user.id)
-              .maybeSingle();
-            
-            if (profile) {
-              // Check if user has completed onboarding
-              if (profile.onboarding_completed) {
-                response = `**Your Profile:**\n` +
-                          `Name: ${profile.full_name || 'Not set'}\n` +
-                          `Role: ${profile.role}\n` +
-                          `Team: ${profile.team_id ? 'Assigned' : 'None'}\n` +
-                          `Skills: ${profile.skills?.join(', ') || 'None listed'}\n` +
-                          `Status: ✅ **Onboarding Complete**`;
-              } else {
-                response = `**Your Profile (Incomplete):**\n` +
-                          `Name: ${profile.full_name || 'Not set'}\n` +
-                          `Role: ${profile.role} (Discord only)\n` +
-                          `Status: ⚠️ **Onboarding Required**\n\n` +
-                          `🔗 Complete your profile: https://dijskfbokusyxkcfwkrc.lovable.app\n` +
-                          `Access full features by signing up on the website!`;
-              }
-            } else {
-              response = 'Profile not found. Creating a basic Discord profile for you!\n\n' +
-                        '🔗 **Sign up on the website for full access:**\n' +
-                        'https://dijskfbokusyxkcfwkrc.lovable.app\n\n' +
-                        'After signing up, link your Discord account in your profile settings.';
-            }
-            break;
-            
-          case 'teams':
-            // Only for verified website users
-            const { data: verifiedUser } = await supabase
-              .from('profiles')
-              .select('onboarding_completed')
-              .eq('discord_id', interaction.user.id)
-              .maybeSingle();
-              
-            if (!verifiedUser?.onboarding_completed) {
-              response = `🔒 **Premium Feature: Verified Teams**\n\n` +
-                        `This command shows verified teams with:\n` +
-                        `• Mentor assignments\n` +
-                        `• Progress tracking\n` +
-                        `• Launch support\n\n` +
-                        `🎯 **Get Access:**\n` +
-                        `1. Sign up: https://dijskfbokusyxkcfwkrc.lovable.app\n` +
-                        `2. Complete onboarding\n` +
-                        `3. Use \`/link\` to connect your Discord\n\n` +
-                        `*For now, try \`/team create [name]\` for Discord-only teams!*`;
-              break;
-            }
-            
-            const { data: teams } = await supabase
-              .from('teams')
-              .select('id, name, description, stage')
-              .limit(10);
-            
-            if (teams && teams.length > 0) {
-              response = '✅ **Verified PieFi Teams:**\n' + 
-                        teams.map(team => `• **${team.name}** (${team.stage})\n  ${team.description || 'Building something awesome'}`).join('\n\n') +
-                        '\n\n*These teams have mentor support and progress tracking!*';
-            } else {
-              response = 'No verified teams found. Contact your mentor for team assignment.';
-            }
-            break;
-            
-          case 'update':
-            // Only for verified website users with teams
-            const { data: updateUserProfile } = await supabase
-              .from('profiles')
-              .select('team_id, onboarding_completed')
-              .eq('discord_id', interaction.user.id)
-              .maybeSingle();
-              
-            if (!updateUserProfile?.onboarding_completed) {
-              response = `🔒 **Premium Feature: Progress Updates**\n\n` +
-                        `Track your startup progress across Discord + website!\n\n` +
-                        `🚀 **Get Access:**\n` +
-                        `1. Sign up: https://dijskfbokusyxkcfwkrc.lovable.app\n` +
-                        `2. Join or create a team\n` +
-                        `3. Use \`/link\` to connect Discord\n\n` +
-                        `*For now, share updates manually in your team channel!*`;
-              break;
-            }
-            
-            if (!updateUserProfile?.team_id) {
-              response = 'You need to be assigned to a verified team to submit progress updates.\n' +
-                        'Contact your mentor or use the website to join a team.';
-              break;
-            }
-            
-            const content = interaction.data?.options?.find(opt => opt.name === 'message')?.value;
-            if (!content) {
-              response = 'Please provide an update message.';
-              break;
-            }
-            
-            // Submit update to verified team
-            await supabase
-              .from('updates')
-              .insert({
-                team_id: updateUserProfile.team_id,
-                type: 'progress',
-                content: content,
-                created_by: profileId
-              });
-              
-            response = '✅ **Progress Update Submitted!**\n' +
-                      'Your update has been synced across Discord and the PieFi website.\n' +
-                      'Team mentors and leads can now see your progress! 🎉';
-            break;
-            
           case 'oracle':
             const query = interaction.data?.options?.find(opt => opt.name === 'question')?.value;
             if (!query) {
@@ -277,7 +163,7 @@ serve(async (req) => {
             // Get user role (if linked to website)
             const { data: userRole } = await supabase
               .from('profiles')
-              .select('role, onboarding_completed')
+              .select('role, onboarding_completed, full_name')
               .eq('discord_id', interaction.user.id)
               .maybeSingle();
                
@@ -295,90 +181,133 @@ serve(async (req) => {
               const isLinkedUser = userRole && userRole.onboarding_completed;
               response = `🔮 **Oracle Response:**\n${oracleResponse.answer}\n\n` +
                         (isLinkedUser 
-                          ? `✨ *Personalized for your PieFi profile*`
-                          : `💡 *Want personalized advice based on your project? Sign up at https://dijskfbokusyxkcfwkrc.lovable.app*`
+                          ? `✨ *Personalized for ${userRole.full_name}*`
+                          : `💡 *Want personalized advice? Link your account with \`/link\`*`
                         );
             }
             break;
             
           case 'resources':
-            response = `📚 **Startup Resource Kit**\n\n` +
-                      `**🎯 Getting Started:**\n` +
+            response = `📚 **PieFi Startup Resource Kit**\n\n` +
+                      `**🎯 Essential Guides:**\n` +
                       `• Lean Canvas Template - Plan your business model\n` +
-                      `• MVP Planning Guide - Build your first version\n` +
-                      `• Market Validation Checklist - Test your idea\n\n` +
-                      `**💡 Key Resources:**\n` +
+                      `• MVP Development Guide - Build your first version\n` +
+                      `• Market Validation Framework - Test your ideas\n` +
+                      `• Fundraising Playbook - Secure investment\n\n` +
+                      `**💼 Tools & Templates:**\n` +
                       `• Customer Interview Scripts\n` +
-                      `• Pricing Strategy Frameworks\n` +
-                      `• Launch Timeline Templates\n\n` +
-                      `**🚀 Advanced Tools (Website Members):**\n` +
+                      `• Pitch Deck Template (Series A Ready)\n` +
+                      `• Financial Planning Spreadsheet\n` +
+                      `• User Research Templates\n\n` +
+                      `**🚀 Ready for more?**\n` +
+                      `Use \`/link\` to connect your PieFi account for:\n` +
                       `• Personalized mentor matching\n` +
-                      `• Team progress tracking\n` +
-                      `• Exclusive founder workshops\n\n` +
-                      `🔓 *Unlock advanced resources: https://dijskfbokusyxkcfwkrc.lovable.app*`;
-            break;
-            
-          case 'team':
-            const action = interaction.data?.options?.find(opt => opt.name === 'action')?.value;
-            const teamName = interaction.data?.options?.find(opt => opt.name === 'name')?.value;
-            
-            if (action === 'create' && teamName) {
-              // Create temporary Discord team
-              response = `🎉 **Discord Team Created!**\n\n` +
-                        `**Team**: ${teamName}\n` +
-                        `**Founder**: ${interaction.user.username}\n` +
-                        `**Status**: Discord-Only (Temporary)\n\n` +
-                        `**What you can do:**\n` +
-                        `• Share ideas and updates in this channel\n` +
-                        `• Invite other Discord members\n` +
-                        `• Use \`/oracle\` for team advice\n\n` +
-                        `**🚀 Want persistent team tracking?**\n` +
-                        `Sign up at https://dijskfbokusyxkcfwkrc.lovable.app to:\n` +
-                        `• Track progress across Discord + website\n` +
-                        `• Get matched with mentors\n` +
-                        `• Access team analytics & milestones`;
-            } else {
-              response = `**Team Commands:**\n` +
-                        `• \`/team create [name]\` - Start a new team project\n` +
-                        `• \`/team join [code]\` - Join an existing team (requires website account)\n\n` +
-                        `*Note: Discord teams are temporary. Sign up on PieFi for permanent team tracking!*`;
-            }
-            break;
-            
-          case 'help':
-            response = `**🚀 PieFi Discord Bot - Your Startup Companion**\n\n` +
-                      `**📚 Free Commands (No Account Needed):**\n` +
-                      `• \`/oracle\` - Ask startup questions & get AI guidance\n` +
-                      `• \`/resources\` - Get startup guides & tools\n` +
-                      `• \`/team create [name]\` - Start a team project (Discord-only)\n` +
-                      `• \`/profile\` - View your status\n` +
-                      `• \`/help\` - Show this help\n\n` +
-                      `**⭐ Premium Commands (Website Account Required):**\n` +
-                      `• \`/update\` - Track progress across Discord + website\n` +
-                      `• \`/teams\` - Join verified teams with mentorship\n` +
-                      `• \`/link\` - Connect your PieFi website account\n\n` +
-                      `🔗 **Unlock Full Features**: Sign up at https://dijskfbokusyxkcfwkrc.lovable.app`;
+                      `• Team collaboration tools\n` +
+                      `• Advanced workshops & courses`;
             break;
             
           case 'link':
             // Generate a unique linking code
             const linkCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             
-            // Store the linking request (expires in 10 minutes)
+            // Store the linking request (expires in 15 minutes)
             await supabase
               .from('discord_link_requests')
               .insert({
                 discord_id: interaction.user.id,
                 discord_username: interaction.user.username,
                 link_code: linkCode,
-                expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+                expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
               });
             
-            response = `🔗 **Link Your Account**\n\n` +
-                      `1. Sign up/login at: https://dijskfbokusyxkcfwkrc.lovable.app\n` +
-                      `2. Go to your profile settings\n` +
-                      `3. Enter this code: \`${linkCode}\`\n\n` +
-                      `⏰ Code expires in 10 minutes`;
+            response = `🔗 **Link Your PieFi Account**\n\n` +
+                      `**Step 1:** Sign up at https://dijskfbokusyxkcfwkrc.lovable.app\n` +
+                      `**Step 2:** Complete your profile onboarding\n` +
+                      `**Step 3:** Enter this code: \`${linkCode}\`\n\n` +
+                      `⏰ Code expires in 15 minutes\n\n` +
+                      `**Why link your account?**\n` +
+                      `• Get personalized Oracle responses\n` +
+                      `• Connect with mentors using \`/mentor\`\n` +
+                      `• Access premium resources & tools`;
+            break;
+            
+          case 'mentor':
+            // Check if user is linked and onboarded
+            const { data: builderProfile } = await supabase
+              .from('profiles')
+              .select('id, role, onboarding_completed, full_name, skills, help_needed')
+              .eq('discord_id', interaction.user.id)
+              .maybeSingle();
+              
+            if (!builderProfile?.onboarding_completed) {
+              response = `🔒 **Mentor Connection Requires Account**\n\n` +
+                        `To connect with mentors, you need to:\n` +
+                        `1. Use \`/link\` to connect your PieFi account\n` +
+                        `2. Complete your profile with skills & goals\n` +
+                        `3. Then use \`/mentor @username\` to connect\n\n` +
+                        `💡 *Mentors can only help builders with complete profiles*`;
+              break;
+            }
+            
+            // Get mentor username from command
+            const mentorMention = interaction.data?.options?.find(opt => opt.name === 'mentor')?.value;
+            const message = interaction.data?.options?.find(opt => opt.name === 'message')?.value;
+            
+            if (!mentorMention || !message) {
+              response = `**Usage:** \`/mentor @username Your message to the mentor\`\n\n` +
+                        `**Example:**\n` +
+                        `\`/mentor @sarah_mentor I need help with user acquisition strategies for my SaaS product\`\n\n` +
+                        `💡 *Be specific about what help you need*`;
+              break;
+            }
+            
+            // Extract mentor Discord ID from mention
+            const mentorDiscordId = mentorMention.replace(/[<@!>]/g, '');
+            
+            // Find mentor profile
+            const { data: mentorProfile } = await supabase
+              .from('profiles')
+              .select('id, discord_id, full_name, role, skills')
+              .eq('discord_id', mentorDiscordId)
+              .eq('role', 'mentor')
+              .maybeSingle();
+              
+            if (!mentorProfile) {
+              response = `❌ **Mentor Not Found**\n\n` +
+                        `The user you mentioned is not a registered mentor.\n` +
+                        `Make sure they:\n` +
+                        `• Have linked their PieFi account\n` +
+                        `• Are assigned the mentor role\n\n` +
+                        `💡 *Ask them to complete their mentor onboarding*`;
+              break;
+            }
+            
+            // Create mentor request with verification questions
+            const verificationQuestions = [
+              "What specific challenge are you facing?",
+              "What have you already tried?", 
+              "What outcome are you hoping for?",
+              "What's your timeline for this?"
+            ];
+            
+            // Store the mentor request
+            await supabase.from('mentor_requests').insert({
+              builder_id: builderProfile.id,
+              mentor_id: mentorProfile.id,
+              initial_message: message,
+              verification_responses: [],
+              status: 'pending_verification'
+            });
+            
+            response = `🎯 **Mentor Request Started!**\n\n` +
+                      `Connecting you with **${mentorProfile.full_name}**\n` +
+                      `Mentor specialties: ${mentorProfile.skills?.join(', ') || 'General mentoring'}\n\n` +
+                      `**Before sending your request, please answer:**\n` +
+                      `1. ${verificationQuestions[0]}\n` +
+                      `2. ${verificationQuestions[1]}\n` +
+                      `3. ${verificationQuestions[2]}\n` +
+                      `4. ${verificationQuestions[3]}\n\n` +
+                      `*Reply with your answers to send a high-quality request*`;
             break;
             
           default:
