@@ -1098,23 +1098,61 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         </CardHeader>
       </Card>
 
-      {/* Commands Panel */}
+      {/* Enhanced Commands Panel */}
       {showCommands && (
-        <Card className="glow-border bg-card/50 backdrop-blur mb-4">
+        <Card className="glow-border bg-card/50 backdrop-blur mb-4 animate-fade-in">
           <CardContent className="p-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-primary mb-2">
+                Available Commands for {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {SLASH_COMMANDS.filter(cmd => cmd.roleRequired.includes(selectedRole)).length} commands available • Click to use
+              </p>
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {SLASH_COMMANDS.filter(cmd => cmd.roleRequired.includes(selectedRole)).map((cmd) => (
-                <Button
-                  key={cmd.command}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setMessage(cmd.usage)}
-                  className="h-auto p-3 text-left flex flex-col items-start border-primary/20 hover:bg-primary/10"
-                >
-                  <div className="font-medium text-primary">{cmd.command}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{cmd.description}</div>
-                </Button>
-              ))}
+              {SLASH_COMMANDS.filter(cmd => cmd.roleRequired.includes(selectedRole)).map((cmd) => {
+                const categoryColors = {
+                  'oracle': 'border-purple-500/30 hover:bg-purple-500/10 hover:shadow-purple-500/20',
+                  'team': 'border-blue-500/30 hover:bg-blue-500/10 hover:shadow-blue-500/20',
+                  'user': 'border-green-500/30 hover:bg-green-500/10 hover:shadow-green-500/20',
+                  'admin': 'border-red-500/30 hover:bg-red-500/10 hover:shadow-red-500/20'
+                };
+                
+                return (
+                  <Button
+                    key={cmd.command}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setMessage(cmd.usage);
+                      setShowCommands(false);
+                    }}
+                    className={`h-auto p-3 text-left flex flex-col items-start transition-all duration-300 hover:scale-105 hover:shadow-lg ${categoryColors[cmd.category]}`}
+                  >
+                    <div className="font-medium text-primary flex items-center gap-2">
+                      {cmd.category === 'oracle' && '🔮'}
+                      {cmd.category === 'team' && '👥'}
+                      {cmd.category === 'user' && '🧑'}
+                      {cmd.category === 'admin' && '⚡'}
+                      {cmd.command}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{cmd.description}</div>
+                    <div className="text-xs text-primary/60 mt-1 font-mono">{cmd.usage}</div>
+                  </Button>
+                );
+              })}
+            </div>
+            
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border/50">
+              <p className="text-xs text-muted-foreground">
+                💡 <strong>Permission System:</strong> Commands are filtered based on your role. 
+                {selectedRole === 'guest' && ' Request role assignment from a lead to access more commands.'}
+                {selectedRole === 'builder' && ' You have access to team collaboration and resource commands.'}
+                {selectedRole === 'mentor' && ' You have access to mentoring and analysis commands.'}
+                {selectedRole === 'lead' && ' You have access to all administrative commands.'}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1155,19 +1193,23 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         </div>
       </ScrollArea>
 
-      {/* Enhanced Input */}
-      <Card className="glow-border bg-card/50 backdrop-blur">
+      {/* Enhanced Dynamic Input */}
+      <Card className="glow-border bg-card/50 backdrop-blur hover:shadow-xl hover:shadow-primary/10 transition-all duration-500">
         <CardContent className="p-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex gap-3">
               <div className="flex-1 relative">
-                <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary/60" />
+                <MessageSquare className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 transition-all duration-300 ${
+                  message ? 'text-primary' : 'text-primary/60'
+                } ${isLoading ? 'animate-pulse' : ''}`} />
                 <Input
                   ref={inputRef}
                   value={message}
                   onChange={handleInputChange}
-                  placeholder="Ask the Oracle, use /commands, or @mention users..."
-                  className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
+                  placeholder={`Ask the Oracle, use /commands, or @mention users... (${selectedRole} permissions active)`}
+                  className={`pl-10 bg-background/50 border-primary/20 focus:border-primary/50 transition-all duration-300 ${
+                    message ? 'shadow-lg shadow-primary/10' : ''
+                  } ${isLoading ? 'animate-pulse' : ''}`}
                   disabled={isLoading}
                 />
                 
@@ -1214,44 +1256,105 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
             </Button>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - Role-Based */}
             <div className="flex flex-wrap gap-2">
+              {/* Help - Available to all roles */}
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setMessage('/help')}
-                className="text-xs border-primary/30 hover:bg-primary/10"
+                className="text-xs border-primary/30 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300"
               >
                 <Hash className="h-3 w-3 mr-1" />
                 Help
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/find React developer')}
-                className="text-xs border-blue-500/30 hover:bg-blue-500/10"
-              >
-                <Users className="h-3 w-3 mr-1" />
-                Find People
-              </Button>
+              
+              {/* Find People - Available to builder, mentor, lead */}
+              {(['builder', 'mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setMessage('/find React developer')}
+                  className="text-xs border-blue-500/30 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 transition-all duration-300"
+                >
+                  <Users className="h-3 w-3 mr-1" />
+                  Find People
+                </Button>
+              )}
+              
+              {/* Resources - Available to all roles */}
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setMessage('/resources AI development')}
-                className="text-xs border-green-500/30 hover:bg-green-500/10"
+                className="text-xs border-green-500/30 hover:bg-green-500/10 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
               >
                 <Star className="h-3 w-3 mr-1" />
                 Resources
               </Button>
-              {selectedRole !== 'guest' && (
+              
+              {/* Quick Update - Available to builder, mentor, lead */}
+              {(['builder', 'mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => setMessage('/update Finished implementing the new feature')}
-                  className="text-xs border-purple-500/30 hover:bg-purple-500/10"
+                  className="text-xs border-purple-500/30 hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300"
                 >
                   <Zap className="h-3 w-3 mr-1" />
                   Quick Update
+                </Button>
+              )}
+              
+              {/* Connect - Available to builder, mentor, lead */}
+              {(['builder', 'mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setMessage('/connect Need help with React hooks')}
+                  className="text-xs border-cyan-500/30 hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-300"
+                >
+                  <LinkIcon className="h-3 w-3 mr-1" />
+                  Connect
+                </Button>
+              )}
+              
+              {/* Message - Available to mentor, lead */}
+              {(['mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setMessage('/message @')}
+                  className="text-xs border-orange-500/30 hover:bg-orange-500/10 hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300"
+                >
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  Message
+                </Button>
+              )}
+              
+              {/* Analyze - Available to mentor, lead */}
+              {(['mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setMessage('/analyze overall')}
+                  className="text-xs border-red-500/30 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300"
+                >
+                  <Play className="h-3 w-3 mr-1" />
+                  Analyze
+                </Button>
+              )}
+              
+              {/* Broadcast - Available to lead only */}
+              {selectedRole === 'lead' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setMessage('/broadcast Important announcement: ')}
+                  className="text-xs border-yellow-500/30 hover:bg-yellow-500/10 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300"
+                >
+                  <Crown className="h-3 w-3 mr-1" />
+                  Broadcast
                 </Button>
               )}
             </div>
