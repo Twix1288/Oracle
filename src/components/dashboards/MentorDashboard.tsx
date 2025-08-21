@@ -58,7 +58,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         onExit={onExit}
       />
       <div className="container mx-auto px-6 pb-6 space-y-6">
-      {/* Header */}
+        {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-full bg-green-500/20 ufo-pulse">
           <User className="h-6 w-6 text-green-400" />
