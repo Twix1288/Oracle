@@ -70,6 +70,57 @@ export type Database = {
           },
         ]
       }
+      bot_commands_log: {
+        Row: {
+          command_data: Json | null
+          command_name: string
+          created_at: string
+          error_message: string | null
+          guild_id: string | null
+          id: string
+          response_time_ms: number | null
+          success: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          command_data?: Json | null
+          command_name: string
+          created_at?: string
+          error_message?: string | null
+          guild_id?: string | null
+          id?: string
+          response_time_ms?: number | null
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          command_data?: Json | null
+          command_name?: string
+          created_at?: string
+          error_message?: string | null
+          guild_id?: string | null
+          id?: string
+          response_time_ms?: number | null
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_commands_log_guild_id_fkey"
+            columns: ["guild_id"]
+            isOneToOne: false
+            referencedRelation: "discord_guilds"
+            referencedColumns: ["guild_id"]
+          },
+          {
+            foreignKeyName: "bot_commands_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       builder_assignments: {
         Row: {
           access_code: string
@@ -170,6 +221,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      discord_guilds: {
+        Row: {
+          created_at: string
+          guild_id: string
+          guild_name: string
+          id: string
+          is_active: boolean | null
+          setup_completed: boolean | null
+          system_channel_id: string | null
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          guild_id: string
+          guild_name: string
+          id?: string
+          is_active?: boolean | null
+          setup_completed?: boolean | null
+          system_channel_id?: string | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          guild_id?: string
+          guild_name?: string
+          id?: string
+          is_active?: boolean | null
+          setup_completed?: boolean | null
+          system_channel_id?: string | null
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
       }
       documents: {
         Row: {
@@ -467,6 +554,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          discord_id: string | null
           email: string
           experience_level: string | null
           full_name: string | null
@@ -489,6 +577,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          discord_id?: string | null
           email: string
           experience_level?: string | null
           full_name?: string | null
@@ -511,6 +600,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          discord_id?: string | null
           email?: string
           experience_level?: string | null
           full_name?: string | null
@@ -626,6 +716,9 @@ export type Database = {
           assigned_mentor_id: string | null
           created_at: string
           description: string | null
+          discord_category_id: string | null
+          discord_general_channel_id: string | null
+          discord_progress_channel_id: string | null
           id: string
           name: string
           stage: Database["public"]["Enums"]["team_stage"] | null
@@ -636,6 +729,9 @@ export type Database = {
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
+          discord_category_id?: string | null
+          discord_general_channel_id?: string | null
+          discord_progress_channel_id?: string | null
           id?: string
           name: string
           stage?: Database["public"]["Enums"]["team_stage"] | null
@@ -646,6 +742,9 @@ export type Database = {
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
+          discord_category_id?: string | null
+          discord_general_channel_id?: string | null
+          discord_progress_channel_id?: string | null
           id?: string
           name?: string
           stage?: Database["public"]["Enums"]["team_stage"] | null
@@ -715,6 +814,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      find_or_create_discord_profile: {
+        Args: { p_discord_id: string; p_discord_username?: string }
+        Returns: string
       }
       generate_team_access_code: {
         Args: {
