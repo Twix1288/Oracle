@@ -96,13 +96,13 @@ function Index() {
   if (!selectedRole) {
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">
-        {/* Header with auth controls */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className="container mx-auto px-4 py-4">
+        {/* Simplified Header */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/20">
+          <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <svg width="32" height="32" viewBox="0 0 100 100" fill="currentColor" className="text-primary">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 ufo-glow">
+                  <svg width="28" height="28" viewBox="0 0 100 100" fill="currentColor" className="text-primary">
                     <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
                     <ellipse cx="50" cy="45" rx="25" ry="20"/>
                     <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
@@ -111,33 +111,29 @@ function Index() {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-xl font-semibold text-foreground">PieFi Oracle Gateway</h1>
-                  <p className="text-sm text-muted-foreground">Select your role to access the dashboard</p>
+                  <h1 className="text-lg font-semibold cosmic-text">PieFi Oracle</h1>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {user ? (
                   <>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => setShowLinkSection(!showLinkSection)}
-                      className="bg-background hover:bg-muted/50 border-border"
+                      className="text-xs h-8 px-3 hover:bg-primary/10"
                     >
-                      <Link className="w-4 h-4 mr-2" />
+                      <Link className="w-3 h-3 mr-1" />
                       Link Discord
                     </Button>
-                    <Badge variant="secondary" className="px-3 py-1">
-                      {profile?.full_name || user.email}
-                    </Badge>
                     <Button
-                      variant="destructive"
+                      variant="ghost"
                       size="sm"
                       onClick={signOut}
-                      className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/20"
+                      className="text-xs h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     >
-                      <LogOut className="w-4 h-4 mr-2" />
+                      <LogOut className="w-3 h-3 mr-1" />
                       Sign Out
                     </Button>
                   </>
@@ -146,56 +142,67 @@ function Index() {
                     variant="default"
                     size="sm"
                     onClick={() => window.location.href = '/auth'}
-                    className="ufo-gradient hover:opacity-90"
+                    className="ufo-gradient hover:opacity-90 text-xs h-8 px-4"
                   >
                     Sign In
                   </Button>
                 )}
               </div>
             </div>
-
-            {/* Discord Link Section */}
-            {showLinkSection && user && (
-              <div className="mt-4 p-4 bg-card/50 backdrop-blur rounded-lg border border-border">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Link className="w-5 h-5" />
-                      Link Discord Account
-                    </CardTitle>
-                    <CardDescription>
-                      Enter your 6-digit link code from the Discord bot to connect your accounts
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-3">
-                      <Input
-                        placeholder="Enter 6-digit code"
-                        value={linkCode}
-                        onChange={(e) => setLinkCode(e.target.value)}
-                        maxLength={6}
-                        className="font-mono text-center tracking-wider"
-                      />
-                      <Button
-                        onClick={handleDiscordLink}
-                        disabled={linkLoading || !linkCode.trim()}
-                        className="ufo-gradient hover:opacity-90"
-                      >
-                        {linkLoading ? "Linking..." : "Link Account"}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Get your link code by using the <code>/link</code> command in Discord
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Role Selection */}
+        {/* Discord Link Section - Compact */}
+        {showLinkSection && user && (
+          <div className="container mx-auto px-4 py-4">
+            <Card className="max-w-md mx-auto bg-card/50 backdrop-blur border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Link className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Discord Link Code</span>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="6-digit code"
+                    value={linkCode}
+                    onChange={(e) => setLinkCode(e.target.value)}
+                    maxLength={6}
+                    className="font-mono text-center text-sm h-8"
+                  />
+                  <Button
+                    onClick={handleDiscordLink}
+                    disabled={linkLoading || !linkCode.trim()}
+                    size="sm"
+                    className="ufo-gradient hover:opacity-90 h-8 px-3 text-xs"
+                  >
+                    {linkLoading ? "..." : "Link"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Use <code className="bg-muted px-1 py-0.5 rounded text-xs">/link</code> in Discord
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Main Gateway Content */}
         <div className="container mx-auto px-4 py-8">
+          <div className="text-center mb-8 space-y-4">
+            <div className="inline-block p-4 rounded-full bg-primary/10 ufo-glow mb-4">
+              <svg width="48" height="48" viewBox="0 0 100 100" fill="currentColor" className="text-primary ufo-pulse">
+                <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
+                <ellipse cx="50" cy="45" rx="25" ry="20"/>
+                <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
+                <circle cx="50" cy="38" r="4" fill="white"/>
+                <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold cosmic-text">Welcome to PieFi Oracle</h2>
+            <p className="text-muted-foreground max-w-md mx-auto text-sm">
+              Your AI-powered guidance system for building extraordinary products
+            </p>
+          </div>
           <AccessGate onRoleSelected={handleRoleSelected} />
         </div>
       </div>

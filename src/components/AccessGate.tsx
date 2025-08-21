@@ -1,14 +1,11 @@
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Rocket, User, Shield, Eye, Lock, Sparkles, LogOut } from "lucide-react";
+import { Rocket, User, Shield, Eye, Lock } from "lucide-react";
 import type { UserRole } from "@/types/oracle";
 
 interface AccessGateProps {
@@ -24,7 +21,7 @@ const roleInfo = {
     needsCode: true
   },
   mentor: {
-    label: "Mentor",
+    label: "Mentor", 
     description: "Guide and advisor to teams",
     icon: User,
     color: "bg-green-500/20 text-green-300 border-green-500/30",
@@ -32,7 +29,7 @@ const roleInfo = {
   },
   lead: {
     label: "Lead",
-    description: "Incubator program leader",
+    description: "Incubator program leader", 
     icon: Shield,
     color: "bg-purple-500/20 text-purple-300 border-purple-500/30",
     needsCode: true
@@ -51,8 +48,6 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [showCodeDialog, setShowCodeDialog] = useState(false);
-  const { signOut } = useAuth();
-
 
   const handleRoleClick = (role: UserRole) => {
     setSelectedRole(role);
@@ -89,106 +84,66 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background relative overflow-hidden">
-      {/* Cosmic background effects */}
-      <div className="absolute inset-0 cosmic-sparkle opacity-20" />
-      <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-xl ufo-pulse" />
-      <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl ufo-float" />
-
-      <div className="relative z-10 container mx-auto px-4 py-8 lg:py-12">
-        {/* Header */}
-        <div className="text-center mb-12 lg:mb-16 relative">
-          {/* Logout Button */}
-          <div className="absolute top-0 right-4 md:right-8">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={signOut}
-              className="glass-button hover:bg-destructive/20 hover:text-destructive group"
-            >
-              <LogOut className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
-              Logout
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 rounded-full bg-primary/10 ufo-glow">
-              <Sparkles className="w-8 h-8 text-primary" />
-            </div>
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-glow">
-              PieFi Oracle
-            </h1>
-          </div>
-          <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-            Your AI-powered incubator assistant. Select your role to access personalized insights and tools.
-          </p>
-        </div>
-
-        {/* Role Selection Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-12 lg:mb-16">
-          {Object.entries(roleInfo).map(([role, info]) => (
-            <Card 
-              key={role}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] lg:hover:scale-105 glow-border group ${
-                selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
-              }`}
-              onClick={() => handleRoleClick(role as UserRole)}
-            >
-              <CardHeader className="text-center pb-3">
-                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
-                  <info.icon className="w-6 h-6" />
-                </div>
-                <CardTitle className="text-lg font-semibold">{info.label}</CardTitle>
-                <CardDescription className="text-sm leading-relaxed">{info.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex flex-col gap-2">
-                  <Badge 
-                    variant={info.needsCode ? "destructive" : "secondary"} 
-                    className="self-center text-xs font-medium"
-                  >
-                    {info.needsCode ? (
-                      <>
-                        <Lock className="w-3 h-3 mr-1" />
-                        Access Code Required
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-3 h-3 mr-1" />
-                        Open Access
-                      </>
-                    )}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-        </div>
+    <div className="max-w-4xl mx-auto">
+      {/* Role Selection Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Object.entries(roleInfo).map(([role, info]) => (
+          <Card 
+            key={role}
+            className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] glow-border group bg-card/50 backdrop-blur border-border/50 hover:border-primary/30 ${
+              selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
+            }`}
+            onClick={() => handleRoleClick(role as UserRole)}
+          >
+            <CardHeader className="text-center pb-3">
+              <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
+                <info.icon className="w-6 h-6" />
+              </div>
+              <CardTitle className="text-lg font-semibold cosmic-text">{info.label}</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground px-2">
+                {info.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 text-center">
+              {info.needsCode && (
+                <Badge variant="outline" className="text-xs border-primary/30 text-primary/80">
+                  <Lock className="w-3 h-3 mr-1" />
+                  Access Code Required
+                </Badge>
+              )}
+              {!info.needsCode && (
+                <Badge variant="secondary" className="text-xs">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Open Access
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Access Code Dialog */}
       <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              Enter Access Code
-            </DialogTitle>
-            <DialogDescription>
-              Please enter your access code to continue as <strong>{selectedRole && roleInfo[selectedRole]?.label}</strong>
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-md mx-auto bg-card/95 backdrop-blur border-primary/20">
           <div className="space-y-4">
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/20 flex items-center justify-center mb-3">
+                <Lock className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold cosmic-text">Access Code Required</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Enter your {selectedRole} access code to continue
+              </p>
+            </div>
             <div>
-              <Label htmlFor="access-code" className="text-sm font-medium">Access Code</Label>
               <Input
                 id="access-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter your access code"
-                className="mt-2 font-mono"
+                placeholder="Enter access code"
+                className="text-center font-mono tracking-wider"
                 autoFocus
+                onKeyPress={(e) => e.key === 'Enter' && handleCodeSubmit()}
               />
             </div>
             {error && (
@@ -197,10 +152,22 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
               </div>
             )}
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setShowCodeDialog(false)} className="px-6">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowCodeDialog(false);
+                  setCode("");
+                  setError("");
+                }} 
+                className="px-6"
+              >
                 Cancel
               </Button>
-              <Button onClick={handleCodeSubmit} disabled={!code.trim()} className="px-6">
+              <Button 
+                onClick={handleCodeSubmit} 
+                disabled={!code.trim()} 
+                className="px-6 ufo-gradient hover:opacity-90"
+              >
                 Continue
               </Button>
             </div>
