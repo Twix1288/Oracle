@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,7 @@ const corsHeaders = {
 };
 
 const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -44,6 +46,57 @@ interface DiscordInteraction {
   channel_id: string;
 }
 
+async function verifyDiscordRequest(request: Request): Promise<boolean> {
+  if (!DISCORD_PUBLIC_KEY) {
+    console.error('Discord public key not configured');
+    return false;
+  }
+
+  const signature = request.headers.get('X-Signature-Ed25519');
+  const timestamp = request.headers.get('X-Signature-Timestamp');
+  
+  if (!signature || !timestamp) {
+    console.log('Missing signature or timestamp');
+    return false;
+  }
+
+  try {
+    const body = await request.text();
+    const message = timestamp + body;
+    
+    // Import the public key
+    const publicKeyBytes = new Uint8Array(
+      DISCORD_PUBLIC_KEY.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
+    );
+    
+    const signatureBytes = new Uint8Array(
+      signature.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
+    );
+    
+    const publicKey = await crypto.subtle.importKey(
+      'raw',
+      publicKeyBytes,
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      false,
+      ['verify']
+    );
+    
+    const messageBytes = new TextEncoder().encode(message);
+    
+    const isValid = await crypto.subtle.verify(
+      'Ed25519',
+      publicKey,
+      signatureBytes,
+      messageBytes
+    );
+    
+    return isValid;
+  } catch (error) {
+    console.error('Verification error:', error);
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,11 +105,13 @@ serve(async (req) => {
   try {
     console.log('Discord bot request received');
     
-    const signature = req.headers.get('X-Signature-Ed25519');
-    const timestamp = req.headers.get('X-Signature-Timestamp');
+    // Clone the request for verification
+    const requestClone = req.clone();
     
-    if (!signature || !timestamp) {
-      console.log('Missing signature or timestamp');
+    // Verify the Discord request signature
+    const isValidRequest = await verifyDiscordRequest(requestClone);
+    if (!isValidRequest) {
+      console.log('Invalid Discord signature');
       return new Response('Unauthorized', { status: 401 });
     }
 
