@@ -271,6 +271,27 @@ serve(async (req) => {
             }
             break;
             
+          case 'link':
+            // Generate a unique linking code
+            const linkCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            
+            // Store the linking request (expires in 10 minutes)
+            await supabase
+              .from('discord_link_requests')
+              .insert({
+                discord_id: interaction.user.id,
+                discord_username: interaction.user.username,
+                link_code: linkCode,
+                expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+              });
+            
+            response = `🔗 **Link Your Account**\n\n` +
+                      `1. Sign up/login at: https://dijskfbokusyxkcfwkrc.lovable.app\n` +
+                      `2. Go to your profile settings\n` +
+                      `3. Enter this code: \`${linkCode}\`\n\n` +
+                      `⏰ Code expires in 10 minutes`;
+            break;
+            
           default:
             response = 'Unknown command. Use `/help` to see available commands.';
         }

@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Rocket, MessageSquare, Target, Calendar, Plus, TrendingUp } from "lucide-react";
+import { Rocket, MessageSquare, Target, Calendar, Plus, TrendingUp, Bot } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
 import { SuperOracle } from "../SuperOracle";
+import { DiscordLinkManager } from "../DiscordLinkManager";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface BuilderDashboardProps {
@@ -190,7 +191,7 @@ export const BuilderDashboard = ({
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-6 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Target className="h-4 w-4 mr-2" />
             Overview
@@ -210,6 +211,10 @@ export const BuilderDashboard = ({
           <TabsTrigger value="team" className="data-[state=active]:bg-primary/20">
             <Rocket className="h-4 w-4 mr-2" />
             Team
+          </TabsTrigger>
+          <TabsTrigger value="discord" className="data-[state=active]:bg-primary/20">
+            <Bot className="h-4 w-4 mr-2" />
+            Discord
           </TabsTrigger>
         </TabsList>
 
@@ -346,6 +351,12 @@ export const BuilderDashboard = ({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="discord">
+          <div className="max-w-md mx-auto">
+            <DiscordLinkManager />
+          </div>
         </TabsContent>
       </Tabs>
       </div>

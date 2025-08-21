@@ -258,6 +258,39 @@ export type Database = {
         }
         Relationships: []
       }
+      discord_link_requests: {
+        Row: {
+          created_at: string
+          discord_id: string
+          discord_username: string
+          expires_at: string
+          id: string
+          link_code: string
+          linked_user_id: string | null
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          discord_id: string
+          discord_username: string
+          expires_at: string
+          id?: string
+          link_code: string
+          linked_user_id?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          discord_id?: string
+          discord_username?: string
+          expires_at?: string
+          id?: string
+          link_code?: string
+          linked_user_id?: string | null
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           content: string
@@ -901,6 +934,10 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
+      }
+      link_discord_account: {
+        Args: { p_link_code: string }
+        Returns: Json
       }
       sparsevec_out: {
         Args: { "": unknown }

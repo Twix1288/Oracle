@@ -7,6 +7,7 @@ import { UserManagementDashboard } from './UserManagementDashboard';
 import { AccessCodeSimplified } from './AccessCodeSimplified';
 import { BuildCodeManager } from './BuildCodeManager';
 import { DiscordBotManagement } from './DiscordBotManagement';
+import { DiscordLinkManager } from './DiscordLinkManager';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -143,8 +144,11 @@ export const LeadDashboardEnhanced = () => {
           <AccessCodeSimplified />
         </TabsContent>
 
-        <TabsContent value="discord" className="space-y-0">
-          <DiscordBotManagement />
+        <TabsContent value="discord" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <DiscordLinkManager />
+            <DiscordBotManagement />
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
