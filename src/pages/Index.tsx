@@ -1,68 +1,27 @@
-import { useState } from "react";
-import { BuilderAccessGate } from "@/components/BuilderAccessGate";
-import { RoleSelector } from "@/components/RoleSelector";
-import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
-import { BuilderDashboard } from "@/components/dashboards/BuilderDashboard";
+import { useAuth } from "@/hooks/useAuth";
+import { LeadDashboardEnhanced } from "@/components/LeadDashboardEnhanced";
 import { EnhancedBuilderDashboard } from "@/components/EnhancedBuilderDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
-import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
+import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { useOracle } from "@/hooks/useOracle";
-import type { UserRole, Team } from "@/types/oracle";
+import { Loader2 } from "lucide-react";
 
 function Index() {
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [builderInfo, setBuilderInfo] = useState<{
-    name: string;
-    teamId: string;
-    team: Team;
-  } | null>(null);
+  const { profile, loading } = useAuth();
   
   const { 
     teams, 
     members, 
     updates, 
     teamStatuses,
-    isLoading, 
+    isLoading: oracleLoading, 
     submitUpdate, 
-    createTeam, 
     queryRAG, 
     ragResponse, 
     ragLoading
-  } = useOracle(selectedRole);
+  } = useOracle(profile?.role || 'guest');
 
-  const handleRoleSelect = (role: UserRole) => {
-    setSelectedRole(role);
-    // Reset builder info when switching roles
-    if (role !== 'builder') {
-      setBuilderInfo(null);
-    }
-  };
-
-  const handleBuilderAuthenticated = (builderName: string, teamId: string, teamInfo: Team) => {
-    setSelectedRole('builder');
-    setBuilderInfo({
-      name: builderName,
-      teamId: teamId,
-      team: teamInfo
-    });
-  };
-
-  const handleLeaveTeam = () => {
-    setBuilderInfo(null);
-    setSelectedRole(null);
-  };
-
-  // Show enhanced builder access gate for builders
-  if (!selectedRole || (selectedRole === 'builder' && !builderInfo)) {
-    return (
-      <BuilderAccessGate 
-        onBuilderAuthenticated={handleBuilderAuthenticated}
-        onRoleSelected={handleRoleSelect} 
-      />
-    );
-  }
-
-  if (isLoading) {
+  if (loading || oracleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
         <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
@@ -75,63 +34,20 @@ function Index() {
               <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
             </svg>
           </div>
-          <h2 className="text-3xl font-semibold cosmic-text">Connecting to Oracle...</h2>
-          <p className="text-muted-foreground text-lg high-contrast-text">Establishing quantum link to the knowledge base</p>
+          <h2 className="text-3xl font-semibold cosmic-text">Initializing PieFi Oracle...</h2>
+          <p className="text-muted-foreground text-lg high-contrast-text">Connecting to your personalized dashboard</p>
+          <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
         </div>
       </div>
     );
   }
 
-  const handleQueryRAG = (query: string, role: UserRole) => {
-    queryRAG({ query, role });
-  };
-
+  // Render dashboard based on user's role
   const renderDashboard = () => {
-    switch (selectedRole) {
-      case 'guest':
-        return (
-          <GuestDashboard 
-            teams={teams || []}
-            updates={updates || []}
-            onExit={() => setSelectedRole(null)}
-          />
-        );
-      case 'builder':
-        return builderInfo ? (
-          <EnhancedBuilderDashboard
-            team={builderInfo.team}
-            builderName={builderInfo.name}
-            members={members || []}
-            updates={updates || []}
-            teamStatuses={teamStatuses}
-            onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
-              submitUpdate({ teamId, content, type, createdBy })
-            }
-            onQueryRAG={(params: { query: string; role: UserRole }) => 
-              queryRAG(params)
-            }
-            ragResponse={ragResponse}
-            ragLoading={ragLoading}
-            onLeaveTeam={handleLeaveTeam}
-          />
-        ) : (
-          <BuilderDashboard
-            teams={teams || []}
-            members={members || []}
-            updates={updates || []}
-            teamStatuses={teamStatuses}
-            selectedRole={selectedRole}
-            builderId="current-builder"
-            teamId={teams?.[0]?.id}
-            onSubmitUpdate={(update: any) => 
-              submitUpdate(update)
-            }
-            onQueryRAG={(query: string, role: UserRole) => 
-              queryRAG({ query, role })
-            }
-            onExit={() => setSelectedRole(null)}
-          />
-        );
+    switch (profile?.role) {
+      case 'lead':
+        return <LeadDashboardEnhanced />;
+        
       case 'mentor':
         return (
           <MentorDashboard 
@@ -139,24 +55,46 @@ function Index() {
             members={members || []}
             updates={updates || []}
             teamStatuses={teamStatuses}
-            selectedRole={selectedRole}
-            mentorId="current-mentor"
-            onExit={() => setSelectedRole(null)}
+            selectedRole="mentor"
+            mentorId={profile.id}
+            onExit={() => {}}
           />
         );
-      case 'lead':
-        return (
-          <LeadDashboard 
-            teams={teams || []}
-            members={members || []}
-            updates={updates || []}
-            teamStatuses={teamStatuses}
-            selectedRole={selectedRole}
-            onExit={() => setSelectedRole(null)}
-          />
-        );
+        
+      case 'builder':
+        // If builder has a team, show enhanced dashboard
+        if (profile.team_id && teams?.find(t => t.id === profile.team_id)) {
+          const team = teams.find(t => t.id === profile.team_id)!;
+          return (
+            <EnhancedBuilderDashboard
+              team={team}
+              builderName={profile.full_name || 'Builder'}
+              members={members || []}
+              updates={updates || []}
+              teamStatuses={teamStatuses}
+              onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
+                submitUpdate({ teamId, content, type, createdBy })
+              }
+              onQueryRAG={(params: { query: string; role: any }) => 
+                queryRAG(params)
+              }
+              ragResponse={ragResponse}
+              ragLoading={ragLoading}
+              onLeaveTeam={() => {}}
+            />
+          );
+        }
+        // Fall through to guest dashboard if no team
+        
+      case 'guest':
       default:
-        return <BuilderAccessGate onBuilderAuthenticated={handleBuilderAuthenticated} onRoleSelected={handleRoleSelect} />;
+        return (
+          <GuestDashboard 
+            teams={teams || []}
+            updates={updates || []}
+            onExit={() => {}}
+          />
+        );
     }
   };
 
