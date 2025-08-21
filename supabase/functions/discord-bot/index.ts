@@ -158,17 +158,30 @@ serve(async (req) => {
               .from('profiles')
               .select('*')
               .eq('discord_id', interaction.user.id)
-              .single();
+              .maybeSingle();
             
             if (profile) {
-              response = `**Your Profile:**\n` +
-                        `Name: ${profile.full_name || 'Not set'}\n` +
-                        `Role: ${profile.role}\n` +
-                        `Team: ${profile.team_id ? 'Assigned' : 'None'}\n` +
-                        `Skills: ${profile.skills?.join(', ') || 'None listed'}\n` +
-                        `\nUse the web app to update your profile: https://dijskfbokusyxkcfwkrc.lovable.app`;
+              // Check if user has completed onboarding
+              if (profile.onboarding_completed) {
+                response = `**Your Profile:**\n` +
+                          `Name: ${profile.full_name || 'Not set'}\n` +
+                          `Role: ${profile.role}\n` +
+                          `Team: ${profile.team_id ? 'Assigned' : 'None'}\n` +
+                          `Skills: ${profile.skills?.join(', ') || 'None listed'}\n` +
+                          `Status: ✅ **Onboarding Complete**`;
+              } else {
+                response = `**Your Profile (Incomplete):**\n` +
+                          `Name: ${profile.full_name || 'Not set'}\n` +
+                          `Role: ${profile.role} (Discord only)\n` +
+                          `Status: ⚠️ **Onboarding Required**\n\n` +
+                          `🔗 Complete your profile: https://dijskfbokusyxkcfwkrc.lovable.app\n` +
+                          `Access full features by signing up on the website!`;
+              }
             } else {
-              response = 'Profile not found. Creating a new profile for you!\nVisit https://dijskfbokusyxkcfwkrc.lovable.app to complete your profile.';
+              response = 'Profile not found. Creating a basic Discord profile for you!\n\n' +
+                        '🔗 **Sign up on the website for full access:**\n' +
+                        'https://dijskfbokusyxkcfwkrc.lovable.app\n\n' +
+                        'After signing up, link your Discord account in your profile settings.';
             }
             break;
             
@@ -192,7 +205,9 @@ serve(async (req) => {
                       `• \`/teams\` - List active teams\n` +
                       `• \`/update\` - Submit a progress update\n` +
                       `• \`/oracle\` - Ask the Oracle a question\n` +
-                      `• \`/help\` - Show this help message`;
+                      `• \`/link\` - Link your Discord to website account\n` +
+                      `• \`/help\` - Show this help message\n\n` +
+                      `🔗 **Full Features**: Sign up at https://dijskfbokusyxkcfwkrc.lovable.app`;
             break;
             
           case 'update':
