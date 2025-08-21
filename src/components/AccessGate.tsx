@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Rocket, User, Shield, Eye, Lock, Sparkles } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Rocket, User, Shield, Eye, Lock, Sparkles, LogOut } from "lucide-react";
 import type { UserRole } from "@/types/oracle";
 
 interface AccessGateProps {
@@ -50,6 +51,7 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [showCodeDialog, setShowCodeDialog] = useState(false);
+  const { signOut } = useAuth();
 
 
   const handleRoleClick = (role: UserRole) => {
@@ -95,7 +97,20 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
 
       <div className="relative z-10 container mx-auto px-4 py-8 lg:py-12">
         {/* Header */}
-        <div className="text-center mb-12 lg:mb-16">
+        <div className="text-center mb-12 lg:mb-16 relative">
+          {/* Logout Button */}
+          <div className="absolute top-0 right-4 md:right-8">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={signOut}
+              className="glass-button hover:bg-destructive/20 hover:text-destructive group"
+            >
+              <LogOut className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
+              Logout
+            </Button>
+          </div>
+
           <div className="flex items-center justify-center gap-3 mb-6">
             <div className="p-3 rounded-full bg-primary/10 ufo-glow">
               <Sparkles className="w-8 h-8 text-primary" />

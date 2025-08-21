@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Rocket, User, Shield, Eye, Lock, Sparkles, AlertTriangle, Users, Building2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Rocket, User, Shield, Eye, Lock, Sparkles, AlertTriangle, Users, Building2, LogOut } from "lucide-react";
 import type { UserRole, Team } from "@/types/oracle";
 
 interface BuilderAccessGateProps {
@@ -58,6 +59,7 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [validatedAccess, setValidatedAccess] = useState<{ team: Team; description?: string } | null>(null);
   const [validatedCode, setValidatedCode] = useState<string | null>(null);
+  const { signOut } = useAuth();
   
   const queryClient = useQueryClient();
 
@@ -204,7 +206,20 @@ export const BuilderAccessGate = ({ onBuilderAuthenticated, onRoleSelected }: Bu
       <div className="relative">
         {/* Professional Header */}
         <header className="ufo-card border-b">
-          <div className="container mx-auto px-6 py-8">
+          <div className="container mx-auto px-6 py-8 relative">
+            {/* Logout Button */}
+            <div className="absolute top-4 right-4 md:right-6">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={signOut}
+                className="glass-button hover:bg-destructive/20 hover:text-destructive group"
+              >
+                <LogOut className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-200" />
+                Logout
+              </Button>
+            </div>
+
             <div className="flex items-center justify-center mb-8">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center ufo-pulse">
