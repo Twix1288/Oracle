@@ -150,32 +150,61 @@ serve(async (req) => {
           p_discord_username: interaction.user.username
         });
 
-        // Check if user is new or unlinked to show welcome message
+        // Check if this is the user's first time using the bot
+        const { data: existingLogs } = await supabase
+          .from('bot_commands_log')
+          .select('id')
+          .eq('user_id', profileId)
+          .limit(1);
+
+        const isFirstTime = !existingLogs || existingLogs.length === 0;
+
+        // Check user profile for linking status
         const { data: userProfile } = await supabase
           .from('profiles')
           .select('discord_id, onboarding_completed, full_name, role')
           .eq('discord_id', interaction.user.id)
           .maybeSingle();
 
-        const isNewOrUnlinked = !userProfile || (!userProfile.onboarding_completed && userProfile.role === 'guest');
+        const isLinked = userProfile && userProfile.onboarding_completed;
 
         let response = '';
         
-        // Send welcome message for new/unlinked users
-        if (isNewOrUnlinked && commandName !== 'link') {
-          const welcomeMessage = `👋 **Welcome to PieFi, ${interaction.user.username}!**\n\n` +
-                                `I'm your AI startup assistant. I can help you with:\n` +
-                                `• 🔮 \`/oracle\` - Get AI-powered startup advice\n` +
-                                `• 📚 \`/resources\` - Access startup guides & templates\n` +
-                                `• 🤝 \`/mentor\` - Connect with experienced mentors\n\n` +
-                                `**🔗 Link Your Account for More:**\n` +
-                                `Use \`/link\` to connect your PieFi account and unlock:\n` +
-                                `• ✨ Personalized Oracle responses based on your project\n` +
-                                `• 🎯 Mentor matching for your specific needs\n` +
-                                `• 📊 Team collaboration & progress tracking\n` +
-                                `• 🏆 Premium workshops & courses\n\n` +
-                                `*I'll process your ${commandName} command below...*\n\n---\n\n`;
-          response = welcomeMessage;
+        // Send comprehensive intro message for first-time users
+        if (isFirstTime) {
+          const introMessage = `🚀 **Welcome to PieFi, ${interaction.user.username}!**\n\n` +
+                              `I'm your AI-powered startup assistant, here to help you build and grow your venture. Here's what I can do:\n\n` +
+                              `**🔮 Oracle AI Assistant** (\`/oracle question\`)\n` +
+                              `Get instant, AI-powered advice on startup challenges:\n` +
+                              `• Business strategy & planning\n` +
+                              `• Product development guidance\n` +
+                              `• Market validation tips\n` +
+                              `• Fundraising strategies\n\n` +
+                              `**📚 Startup Resources** (\`/resources\`)\n` +
+                              `Access essential startup tools & templates:\n` +
+                              `• Lean Canvas templates\n` +
+                              `• MVP development guides\n` +
+                              `• Pitch deck templates\n` +
+                              `• Financial planning tools\n\n` +
+                              `**🤝 Mentor Connection** (\`/mentor @username message\`)\n` +
+                              `Connect with experienced mentors for personalized guidance\n\n` +
+                              `**🔗 Link Your PieFi Account** (\`/link\`)\n` +
+                              `Connect your Discord to unlock premium features:\n` +
+                              `• ✨ **Personalized Oracle responses** based on your specific project\n` +
+                              `• 🎯 **Smart mentor matching** for your industry & stage\n` +
+                              `• 📊 **Team collaboration tools** & progress tracking\n` +
+                              `• 🏆 **Exclusive workshops** & advanced courses\n` +
+                              `• 💼 **Investor connections** & pitch opportunities\n\n` +
+                              `**Getting Started:**\n` +
+                              `1. Try \`/oracle How do I validate my startup idea?\`\n` +
+                              `2. Use \`/link\` to connect your PieFi account\n` +
+                              `3. Complete your profile for personalized help\n\n` +
+                              `*Processing your ${commandName} command below...*\n\n${'━'.repeat(50)}\n\n`;
+          response = introMessage;
+        } else if (!isLinked && commandName !== 'link') {
+          // Show shorter reminder for returning unlinked users
+          const reminderMessage = `💡 **Hey ${interaction.user.username}!** Link your PieFi account with \`/link\` for personalized advice and mentor connections.\n\n`;
+          response = reminderMessage;
         }
         
         switch (commandName) {
