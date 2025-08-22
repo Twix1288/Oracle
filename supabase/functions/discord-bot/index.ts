@@ -150,7 +150,33 @@ serve(async (req) => {
           p_discord_username: interaction.user.username
         });
 
+        // Check if user is new or unlinked to show welcome message
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('discord_id, onboarding_completed, full_name, role')
+          .eq('discord_id', interaction.user.id)
+          .maybeSingle();
+
+        const isNewOrUnlinked = !userProfile || (!userProfile.onboarding_completed && userProfile.role === 'guest');
+
         let response = '';
+        
+        // Send welcome message for new/unlinked users
+        if (isNewOrUnlinked && commandName !== 'link') {
+          const welcomeMessage = `👋 **Welcome to PieFi, ${interaction.user.username}!**\n\n` +
+                                `I'm your AI startup assistant. I can help you with:\n` +
+                                `• 🔮 \`/oracle\` - Get AI-powered startup advice\n` +
+                                `• 📚 \`/resources\` - Access startup guides & templates\n` +
+                                `• 🤝 \`/mentor\` - Connect with experienced mentors\n\n` +
+                                `**🔗 Link Your Account for More:**\n` +
+                                `Use \`/link\` to connect your PieFi account and unlock:\n` +
+                                `• ✨ Personalized Oracle responses based on your project\n` +
+                                `• 🎯 Mentor matching for your specific needs\n` +
+                                `• 📊 Team collaboration & progress tracking\n` +
+                                `• 🏆 Premium workshops & courses\n\n` +
+                                `*I'll process your ${commandName} command below...*\n\n---\n\n`;
+          response = welcomeMessage;
+        }
         
         switch (commandName) {
           case 'oracle':
@@ -176,19 +202,19 @@ serve(async (req) => {
             });
             
             if (oracleError) {
-              response = 'Sorry, the Oracle is unavailable right now. Please try again later.';
+              response += 'Sorry, the Oracle is unavailable right now. Please try again later.';
             } else {
               const isLinkedUser = userRole && userRole.onboarding_completed;
-              response = `🔮 **Oracle Response:**\n${oracleResponse.answer}\n\n` +
-                        (isLinkedUser 
-                          ? `✨ *Personalized for ${userRole.full_name}*`
-                          : `💡 *Want personalized advice? Link your account with \`/link\`*`
-                        );
+              response += `🔮 **Oracle Response:**\n${oracleResponse.answer}\n\n` +
+                         (isLinkedUser 
+                           ? `✨ *Personalized for ${userRole.full_name}*`
+                           : `💡 *Want personalized advice? Link your account with \`/link\`*`
+                         );
             }
             break;
             
           case 'resources':
-            response = `📚 **PieFi Startup Resource Kit**\n\n` +
+            response += `📚 **PieFi Startup Resource Kit**\n\n` +
                       `**🎯 Essential Guides:**\n` +
                       `• Lean Canvas Template - Plan your business model\n` +
                       `• MVP Development Guide - Build your first version\n` +
@@ -240,7 +266,7 @@ serve(async (req) => {
               .maybeSingle();
               
             if (!builderProfile?.onboarding_completed) {
-              response = `🔒 **Mentor Connection Requires Account**\n\n` +
+              response += `🔒 **Mentor Connection Requires Account**\n\n` +
                         `To connect with mentors, you need to:\n` +
                         `1. Use \`/link\` to connect your PieFi account\n` +
                         `2. Complete your profile with skills & goals\n` +
@@ -254,7 +280,7 @@ serve(async (req) => {
             const message = interaction.data?.options?.find(opt => opt.name === 'message')?.value;
             
             if (!mentorMention || !message) {
-              response = `**Usage:** \`/mentor @username Your message to the mentor\`\n\n` +
+              response += `**Usage:** \`/mentor @username Your message to the mentor\`\n\n` +
                         `**Example:**\n` +
                         `\`/mentor @sarah_mentor I need help with user acquisition strategies for my SaaS product\`\n\n` +
                         `💡 *Be specific about what help you need*`;
@@ -273,7 +299,7 @@ serve(async (req) => {
               .maybeSingle();
               
             if (!mentorProfile) {
-              response = `❌ **Mentor Not Found**\n\n` +
+              response += `❌ **Mentor Not Found**\n\n` +
                         `The user you mentioned is not a registered mentor.\n` +
                         `Make sure they:\n` +
                         `• Have linked their PieFi account\n` +
@@ -299,7 +325,7 @@ serve(async (req) => {
               status: 'pending_verification'
             });
             
-            response = `🎯 **Mentor Request Started!**\n\n` +
+            response += `🎯 **Mentor Request Started!**\n\n` +
                       `Connecting you with **${mentorProfile.full_name}**\n` +
                       `Mentor specialties: ${mentorProfile.skills?.join(', ') || 'General mentoring'}\n\n` +
                       `**Before sending your request, please answer:**\n` +
