@@ -490,6 +490,60 @@ export type Database = {
           },
         ]
       }
+      mentor_requests: {
+        Row: {
+          builder_id: string
+          created_at: string
+          id: string
+          initial_message: string
+          mentor_id: string
+          mentor_response: string | null
+          responded_at: string | null
+          status: string
+          updated_at: string
+          verification_responses: string[] | null
+        }
+        Insert: {
+          builder_id: string
+          created_at?: string
+          id?: string
+          initial_message: string
+          mentor_id: string
+          mentor_response?: string | null
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+          verification_responses?: string[] | null
+        }
+        Update: {
+          builder_id?: string
+          created_at?: string
+          id?: string
+          initial_message?: string
+          mentor_id?: string
+          mentor_response?: string | null
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+          verification_responses?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_requests_builder_id_fkey"
+            columns: ["builder_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_requests_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -937,6 +991,10 @@ export type Database = {
       }
       link_discord_account: {
         Args: { p_link_code: string }
+        Returns: Json
+      }
+      notify_mentor_request: {
+        Args: { p_request_id: string }
         Returns: Json
       }
       sparsevec_out: {
