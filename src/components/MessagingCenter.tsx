@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import type { UserRole } from "@/types/oracle";
 
 interface Message {
@@ -31,12 +32,6 @@ interface Message {
   created_at: string;
 }
 
-interface MessagingCenterProps {
-  userRole: UserRole;
-  accessCode: string; // Using access code as user ID for clarity
-  teamId?: string;
-}
-
 const roleColors = {
   builder: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   mentor: 'bg-green-500/10 text-green-400 border-green-500/20',
@@ -44,7 +39,8 @@ const roleColors = {
   guest: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
 };
 
-export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCenterProps) => {
+export const MessagingCenter = () => {
+  const { profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("inbox");
@@ -59,78 +55,82 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
   });
 
   useEffect(() => {
-    fetchMessages();
-    
-    // Subscribe to real-time message updates
-    const channel = supabase
-      .channel('message-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
-        (payload) => {
-          const newMsg = payload.new as Message;
-          if (shouldReceiveMessage(newMsg)) {
-            setMessages(prev => [newMsg, ...prev]);
-            
-            // Show toast for new messages
-            if (newMsg.sender_id !== accessCode) {
-              toast({
-                title: "New Message",
-                description: `From ${newMsg.sender_role}: ${newMsg.content.slice(0, 50)}...`,
-              });
+    if (profile?.id) {
+      fetchMessages();
+      
+      // Subscribe to real-time message updates
+      const channel = supabase
+        .channel('message-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          (payload) => {
+            const newMsg = payload.new as Message;
+            if (shouldReceiveMessage(newMsg)) {
+              setMessages(prev => [newMsg, ...prev]);
+              
+              // Show toast for new messages
+              if (newMsg.sender_id !== profile.id) {
+                toast({
+                  title: "New Message",
+                  description: `From ${newMsg.sender_role}: ${newMsg.content.slice(0, 50)}...`,
+                });
+              }
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [accessCode, userRole, teamId]);
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [profile?.id, profile?.role, profile?.team_id]);
 
   const shouldReceiveMessage = (message: Message) => {
     // Check if this user should receive the message based on role and team
     return (
-      message.receiver_id === accessCode ||
-      message.receiver_role === userRole ||
-      (message.team_id === teamId && !message.receiver_id) // Team broadcasts
+      message.receiver_id === profile?.id ||
+      message.receiver_role === profile?.role ||
+      (message.team_id === profile?.team_id && !message.receiver_id) // Team broadcasts
     );
   };
 
   const fetchMessages = async () => {
+    if (!profile?.id) return;
+    
     try {
       // Fetch messages where user is sender or receiver
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .or(`sender_id.eq.${accessCode},receiver_id.eq.${accessCode},and(receiver_id.is.null,receiver_role.eq.${userRole})`)
+        .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id},and(receiver_id.is.null,receiver_role.eq.${profile.role})`)
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) throw error;
       setMessages(data || []);
     } catch (error) {
-      // Silent error handling in production
+      console.error('Error fetching messages:', error);
     }
   };
 
   const sendMessage = async () => {
-    if (!newMessage.content.trim()) return;
+    if (!newMessage.content.trim() || !profile?.id) return;
     
     setIsLoading(true);
     try {
       const messageData = {
-        sender_id: accessCode, // Using access code as sender ID
-        sender_role: userRole,
+        sender_id: profile.id,
+        sender_role: profile.role,
         content: newMessage.content,
         receiver_role: newMessage.receiverRole,
         ...(newMessage.isBroadcast ? {} : { receiver_id: newMessage.receiverId }),
-        ...(teamId && { team_id: teamId })
+        ...(profile.team_id && { team_id: profile.team_id })
       };
 
       const { error } = await supabase
@@ -186,24 +186,24 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
   };
 
   const canSendMessages = () => {
-    return userRole === 'mentor' || userRole === 'lead';
+    return profile?.role === 'mentor' || profile?.role === 'lead';
   };
 
   const canBroadcast = () => {
-    return userRole === 'mentor' || userRole === 'lead';
+    return profile?.role === 'mentor' || profile?.role === 'lead';
   };
 
   const receivedMessages = messages.filter(msg => 
-    msg.receiver_id === accessCode || 
-    msg.receiver_role === userRole ||
-    (msg.team_id === teamId && !msg.receiver_id)
+    msg.receiver_id === profile?.id || 
+    msg.receiver_role === profile?.role ||
+    (msg.team_id === profile?.team_id && !msg.receiver_id)
   );
 
-  const sentMessages = messages.filter(msg => msg.sender_id === accessCode);
+  const sentMessages = messages.filter(msg => msg.sender_id === profile?.id);
 
   const renderMessage = (message: Message) => (
     <Card key={message.id} className={`glow-border ${
-      !message.read_at && message.sender_id !== accessCode 
+      !message.read_at && message.sender_id !== profile?.id 
         ? 'bg-primary/5 border-primary/30' 
         : 'bg-card/50'
     }`}>
@@ -211,12 +211,12 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full bg-primary/20">
-              {message.sender_id === accessCode ? <Send className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
+              {message.sender_id === profile?.id ? <Send className="h-4 w-4 text-primary" /> : <User className="h-4 w-4 text-primary" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium">
-                  {message.sender_id === accessCode ? 'You' : `${message.sender_id}`}
+                  {message.sender_id === profile?.id ? 'You' : `User ${message.sender_id.slice(0, 8)}`}
                 </span>
                 <Badge className={roleColors[message.sender_role]}>
                   {message.sender_role}
@@ -238,7 +238,7 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
             </div>
           </div>
           
-          {!message.read_at && message.sender_id !== accessCode && (
+          {!message.read_at && message.sender_id !== profile?.id && (
             <Button
               variant="ghost"
               size="sm"
@@ -253,7 +253,7 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
 
         <p className="text-sm leading-relaxed">{message.content}</p>
 
-        {message.read_at && message.sender_id === accessCode && (
+        {message.read_at && message.sender_id === profile?.id && (
           <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
             <Eye className="h-3 w-3" />
             Read {new Date(message.read_at).toLocaleString()}
@@ -262,6 +262,18 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
       </CardContent>
     </Card>
   );
+
+  if (!profile) {
+    return (
+      <Card className="glow-border bg-card/50">
+        <CardContent className="p-8 text-center">
+          <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Authentication Required</h3>
+          <p className="text-muted-foreground">Please sign in to access messaging.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -274,7 +286,7 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
           <p className="text-muted-foreground">Connect with mentors, leads, and team members</p>
         </div>
         <Badge className="bg-primary/20 text-primary border-primary/30">
-          {userRole} Access
+          {profile.role} Access
         </Badge>
       </div>
 
@@ -352,9 +364,9 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
 
                   {!newMessage.isBroadcast && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Recipient Access Code</label>
+                      <label className="text-sm font-medium">Recipient ID (Optional)</label>
                       <Input
-                        placeholder="Access code of recipient"
+                        placeholder="Specific user ID"
                         value={newMessage.receiverId}
                         onChange={(e) => setNewMessage({ ...newMessage, receiverId: e.target.value })}
                         className="bg-background/50 border-border focus:border-primary/50"

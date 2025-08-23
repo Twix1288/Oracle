@@ -149,7 +149,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         </TabsContent>
 
         <TabsContent value="messages">
-          <MessagingCenter userRole="mentor" accessCode={mentorId || 'unknown'} />
+          <MessagingCenter />
         </TabsContent>
 
         <TabsContent value="requests">

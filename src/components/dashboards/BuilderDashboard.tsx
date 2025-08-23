@@ -329,7 +329,7 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="messages">
-          <MessagingCenter userRole="builder" accessCode={builderId} teamId={teamId} />
+          <MessagingCenter />
         </TabsContent>
 
         <TabsContent value="team">
