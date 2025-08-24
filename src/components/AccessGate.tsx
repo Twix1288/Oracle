@@ -63,14 +63,27 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   const handleCodeSubmit = async () => {
     if (!selectedRole || !code) return;
 
-    // For demo purposes, accept any code that's at least 3 characters
-    if (code.trim().length >= 3) {
-      onRoleSelected(selectedRole);
-      setShowCodeDialog(false);
-      setCode("");
-      setError("");
-    } else {
-      setError("Please enter a valid access code (3+ characters)");
+    try {
+      // Validate access code with database
+      const { data, error } = await supabase.rpc('validate_access_code', {
+        p_code: code.trim(),
+        p_role: selectedRole
+      });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Valid code found
+        onRoleSelected(selectedRole);
+        setShowCodeDialog(false);
+        setCode("");
+        setError("");
+      } else {
+        setError("Invalid access code. Please check your code and try again.");
+      }
+    } catch (error) {
+      console.error('Access code validation error:', error);
+      setError("Failed to validate access code. Please try again.");
     }
   };
 
@@ -125,6 +138,10 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
               <p className="text-sm text-muted-foreground mt-1">
                 Enter your {selectedRole} access code to continue
               </p>
+              <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">
+                <p>Master codes available:</p>
+                <p>• <code className="bg-background px-1 rounded">PIEFI-{selectedRole.toUpperCase()}-{selectedRole === 'lead' ? 'MASTER' : selectedRole === 'mentor' ? 'GUIDE' : 'CREATE'}-2025</code></p>
+              </div>
             </div>
             <div>
               <Input
