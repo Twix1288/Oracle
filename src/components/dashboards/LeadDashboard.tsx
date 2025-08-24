@@ -5,6 +5,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { SuperOracle } from "@/components/SuperOracle";
 import { TeamDashboard } from "@/components/TeamDashboard";
 import { MessagingCenter } from "@/components/MessagingCenter";
+import { MasterAccessCodes } from "@/components/MasterAccessCodes";
 import { LeadDashboardEnhanced } from "@/components/LeadDashboardEnhanced";
 import { DiscordBotManagement } from "@/components/DiscordBotManagement";
 import { OracleAnalytics } from "@/components/OracleAnalytics";
@@ -49,7 +50,7 @@ export const LeadDashboard = ({
 
       <div className="container mx-auto px-6 pb-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-card/50 backdrop-blur">
+          <TabsList className="grid w-full grid-cols-7 bg-card/50 backdrop-blur">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Overview</span>
@@ -65,6 +66,10 @@ export const LeadDashboard = ({
             <TabsTrigger value="oracle" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Oracle</span>
+            </TabsTrigger>
+            <TabsTrigger value="master-codes" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Master Codes</span>
             </TabsTrigger>
             <TabsTrigger value="management" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -154,6 +159,10 @@ export const LeadDashboard = ({
 
           <TabsContent value="oracle" className="space-y-6">
             <SuperOracle selectedRole={selectedRole} />
+          </TabsContent>
+
+          <TabsContent value="master-codes" className="space-y-6">
+            <MasterAccessCodes />
           </TabsContent>
 
           <TabsContent value="management" className="space-y-6">

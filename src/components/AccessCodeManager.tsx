@@ -207,6 +207,7 @@ export const AccessCodeManager = () => {
         code: newCode.code,
         description: description,
         team_id: (newCode.role === 'builder' || newCode.role === 'mentor') ? newCode.team_id : null,
+        generated_by: 'lead-dashboard'
       };
       if (newCode.role === 'mentor') {
         base.member_id = newCode.mentor_id;
