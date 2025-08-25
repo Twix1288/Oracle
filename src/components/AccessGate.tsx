@@ -140,7 +140,7 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
               </p>
               <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">
                 <p>Master codes available:</p>
-                <p>• <code className="bg-background px-1 rounded">PIEFI-{selectedRole.toUpperCase()}-{selectedRole === 'lead' ? 'MASTER' : selectedRole === 'mentor' ? 'GUIDE' : 'CREATE'}-2025</code></p>
+                <p>• <code className="bg-background px-1 rounded">PIEFI-{selectedRole?.toUpperCase()}-{selectedRole === 'lead' ? 'MASTER' : selectedRole === 'mentor' ? 'GUIDE' : 'CREATE'}-2025</code></p>
               </div>
             </div>
             <div>
