@@ -23,6 +23,9 @@ function Index() {
   const [linkLoading, setLinkLoading] = useState(false);
   const [showLinkSection, setShowLinkSection] = useState(false);
 
+  // Get Oracle data for dashboards - must be called before any conditional returns
+  const oracleData = useOracle(selectedRole || 'guest');
+
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!loading && !user) {
@@ -212,8 +215,6 @@ function Index() {
     );
   }
 
-  // Get Oracle data for dashboards
-  const oracleData = useOracle(selectedRole as UserRole);
 
   // Render role-specific dashboard
   const renderDashboard = () => {
