@@ -73,6 +73,47 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
       if (error) throw error;
 
       if (data && data.length > 0) {
+        const accessCodeData = data[0];
+        
+        // If this is a team-specific code, assign user to that team
+        if (accessCodeData.team_id) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+              team_id: accessCodeData.team_id,
+              role: selectedRole 
+            })
+            .eq('id', (await supabase.auth.getUser()).data.user?.id);
+          
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+          }
+        } else {
+          // Master code - just update role
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ role: selectedRole })
+            .eq('id', (await supabase.auth.getUser()).data.user?.id);
+          
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+          }
+        }
+
+        // Increment usage count
+        const { data: codeData } = await supabase
+          .from('access_codes')
+          .select('current_uses')
+          .eq('id', accessCodeData.id)
+          .single();
+        
+        await supabase
+          .from('access_codes')
+          .update({ 
+            current_uses: (codeData?.current_uses || 0) + 1 
+          })
+          .eq('id', accessCodeData.id);
+
         // Valid code found
         onRoleSelected(selectedRole);
         setShowCodeDialog(false);
@@ -139,8 +180,22 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
                 Enter your {selectedRole} access code to continue
               </p>
               <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">
-                <p>Master codes available:</p>
-                <p>• <code className="bg-background px-1 rounded">PIEFI-{selectedRole?.toUpperCase()}-{selectedRole === 'lead' ? 'MASTER' : selectedRole === 'mentor' ? 'GUIDE' : 'CREATE'}-2025</code></p>
+                <p>Access codes available:</p>
+                {selectedRole === 'lead' && (
+                  <p>• <code className="bg-background px-1 rounded">PIEFI-LEAD-MASTER-2025</code> (Master)</p>
+                )}
+                {selectedRole === 'mentor' && (
+                  <>
+                    <p>• <code className="bg-background px-1 rounded">PIEFI-MENTOR-GUIDE-2025</code> (Master)</p>
+                    <p>• <code className="bg-background px-1 rounded">TEAM-ALPHA-MENTOR-2025</code> (Team Alpha)</p>
+                  </>
+                )}
+                {selectedRole === 'builder' && (
+                  <>
+                    <p>• <code className="bg-background px-1 rounded">PIEFI-BUILDER-CREATE-2025</code> (Master)</p>
+                    <p>• <code className="bg-background px-1 rounded">TEAM-ALPHA-BUILD-2025</code> (Team Alpha)</p>
+                  </>
+                )}
               </div>
             </div>
             <div>
