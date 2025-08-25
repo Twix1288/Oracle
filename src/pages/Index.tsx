@@ -33,9 +33,9 @@ function Index() {
     }
   }, [user, loading, navigate]);
 
-  // Set user's role from profile once loaded
+  // Set user's role from profile only for non-guest roles
   useEffect(() => {
-    if (profile?.role && !selectedRole) {
+    if (profile?.role && profile.role !== 'guest' && !selectedRole) {
       setSelectedRole(profile.role as UserRole);
     }
   }, [profile, selectedRole]);
@@ -98,8 +98,8 @@ function Index() {
     );
   }
 
-  // Show gateway if no role selected and user needs to pick one
-  if (!selectedRole && (!profile || !profile.role)) {
+  // Show gateway if no role selected - users must enter access code
+  if (!selectedRole) {
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">
         {/* Simplified Header */}
