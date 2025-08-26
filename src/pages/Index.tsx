@@ -34,19 +34,10 @@ function Index() {
     }
   }, [user, loading, navigate]);
 
-  // Handle onboarding and role selection
+  // Handle onboarding redirect - but don't auto-select roles
   useEffect(() => {
-    if (profile) {
-      // If user hasn't completed onboarding, don't auto-select role
-      if (!profile.onboarding_completed) {
-        return;
-      }
-      
-      // Auto-select role only if user has completed onboarding and has a non-guest role
-      if (profile.role && profile.role !== 'guest' && !selectedRole) {
-        setSelectedRole(profile.role as UserRole);
-      }
-    }
+    // Never auto-select roles - everyone must use access codes
+    // This ensures the access code system is always used
   }, [profile, selectedRole]);
 
   const handleDiscordLink = async () => {
@@ -84,8 +75,8 @@ function Index() {
   };
 
   const handleExit = () => {
+    // Clear the selected role to return to gateway
     setSelectedRole(null);
-    // This ensures users return to the gateway/access code screen
   };
 
   if (loading) {
@@ -110,10 +101,17 @@ function Index() {
 
   // Show onboarding for users who haven't completed it
   if (user && profile && !profile.onboarding_completed) {
-    return <DetailedOnboarding onComplete={() => window.location.reload()} />;
+    return (
+      <DetailedOnboarding 
+        onComplete={() => {
+          // After onboarding, reload to show gateway (not auto-dashboard)
+          window.location.reload();
+        }} 
+      />
+    );
   }
 
-  // Show gateway if no role selected - users must enter access code
+  // Always show gateway first - no auto role selection
   if (!selectedRole) {
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">

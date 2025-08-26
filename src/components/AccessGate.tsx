@@ -89,7 +89,7 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
             console.error('Profile update error:', profileError);
           }
         } else {
-          // Master code - just update role
+          // Master code - just update role  
           const { error: profileError } = await supabase
             .from('profiles')
             .update({ role: selectedRole })
