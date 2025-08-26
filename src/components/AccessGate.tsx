@@ -185,16 +185,10 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
                   <p>• <code className="bg-background px-1 rounded">PIEFI-LEAD-MASTER-2025</code> (Master)</p>
                 )}
                 {selectedRole === 'mentor' && (
-                  <>
-                    <p>• <code className="bg-background px-1 rounded">PIEFI-MENTOR-GUIDE-2025</code> (Master)</p>
-                    <p>• <code className="bg-background px-1 rounded">TEAM-ALPHA-MENTOR-2025</code> (Team Alpha)</p>
-                  </>
+                  <p className="text-muted-foreground text-center">Contact your lead for mentor access codes</p>
                 )}
                 {selectedRole === 'builder' && (
-                  <>
-                    <p>• <code className="bg-background px-1 rounded">PIEFI-BUILDER-CREATE-2025</code> (Master)</p>
-                    <p>• <code className="bg-background px-1 rounded">TEAM-ALPHA-BUILD-2025</code> (Team Alpha)</p>
-                  </>
+                  <p className="text-muted-foreground text-center">Contact your lead for builder access codes</p>
                 )}
               </div>
             </div>

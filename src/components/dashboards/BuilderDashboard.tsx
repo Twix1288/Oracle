@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { SuperOracle } from "../SuperOracle";
+import { SimpleOracle } from "../SimpleOracle";
 import { DiscordLinkManager } from "../DiscordLinkManager";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -322,7 +322,7 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="oracle">
-          <SuperOracle 
+          <SimpleOracle 
             selectedRole="builder"
             teamId={teamId}
           />

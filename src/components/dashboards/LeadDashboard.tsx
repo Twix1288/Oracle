@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { SuperOracle } from "@/components/SuperOracle";
+import { SimpleOracle } from "@/components/SimpleOracle";
 import { TeamDashboard } from "@/components/TeamDashboard";
 import { MessagingCenter } from "@/components/MessagingCenter";
 import { MasterAccessCodes } from "@/components/MasterAccessCodes";
@@ -158,7 +158,7 @@ export const LeadDashboard = ({
           </TabsContent>
 
           <TabsContent value="oracle" className="space-y-6">
-            <SuperOracle selectedRole={selectedRole} />
+            <SimpleOracle selectedRole={selectedRole} />
           </TabsContent>
 
           <TabsContent value="master-codes" className="space-y-6">

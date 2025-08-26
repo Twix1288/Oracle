@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useOracle } from "@/hooks/useOracle";
 import { AccessGate } from "@/components/AccessGate";
+import { DetailedOnboarding } from "@/components/DetailedOnboarding";
 import { BuilderDashboard } from "@/components/dashboards/BuilderDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
 import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
@@ -33,10 +34,18 @@ function Index() {
     }
   }, [user, loading, navigate]);
 
-  // Set user's role from profile only for non-guest roles
+  // Handle onboarding and role selection
   useEffect(() => {
-    if (profile?.role && profile.role !== 'guest' && !selectedRole) {
-      setSelectedRole(profile.role as UserRole);
+    if (profile) {
+      // If user hasn't completed onboarding, don't auto-select role
+      if (!profile.onboarding_completed) {
+        return;
+      }
+      
+      // Auto-select role only if user has completed onboarding and has a non-guest role
+      if (profile.role && profile.role !== 'guest' && !selectedRole) {
+        setSelectedRole(profile.role as UserRole);
+      }
     }
   }, [profile, selectedRole]);
 
@@ -76,6 +85,7 @@ function Index() {
 
   const handleExit = () => {
     setSelectedRole(null);
+    // This ensures users return to the gateway/access code screen
   };
 
   if (loading) {
@@ -96,6 +106,11 @@ function Index() {
         </div>
       </div>
     );
+  }
+
+  // Show onboarding for users who haven't completed it
+  if (user && profile && !profile.onboarding_completed) {
+    return <DetailedOnboarding onComplete={() => window.location.reload()} />;
   }
 
   // Show gateway if no role selected - users must enter access code
