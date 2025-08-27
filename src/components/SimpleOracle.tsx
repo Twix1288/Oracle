@@ -202,18 +202,40 @@ export const SimpleOracle = ({ selectedRole, teamId, userId }: SimpleOracleProps
               </div>
             </div>
 
-            {/* Resources Section - Show frameworks */}
-            {response.suggested_frameworks && response.suggested_frameworks.length > 0 && (
+            {/* Resources Section - Show actual resources */}
+            {response.resources && response.resources.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-primary" />
+                  <h4 className="font-medium text-primary">Resources & Learning Materials</h4>
+                </div>
+                <div className="grid gap-2">
+                  {response.resources.map((resource, index) => (
+                    <div key={index} className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-start gap-2">
+                        <FileText className="h-4 w-4 text-green-400 mt-0.5" />
+                        <div className="flex-1">
+                          <div className="text-sm text-foreground" dangerouslySetInnerHTML={{ __html: resource }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Frameworks Section */}
+            {response.suggested_frameworks && response.suggested_frameworks.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
                   <h4 className="font-medium text-primary">Recommended Frameworks</h4>
                 </div>
                 <div className="grid gap-2">
                   {response.suggested_frameworks.map((framework, index) => (
-                    <div key={index} className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <div key={index} className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <div className="flex items-start gap-2">
-                        <FileText className="h-4 w-4 text-green-400 mt-0.5" />
+                        <FileText className="h-4 w-4 text-blue-400 mt-0.5" />
                         <span className="text-sm text-foreground">{framework}</span>
                       </div>
                     </div>

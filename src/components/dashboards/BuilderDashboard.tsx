@@ -3,13 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Rocket, MessageSquare, Target, Calendar, Plus, TrendingUp, Bot } from "lucide-react";
+import { Rocket, MessageSquare, Target, Calendar, Plus, TrendingUp, Bot, Settings } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
 import { SimpleOracle } from "../SimpleOracle";
 import { DiscordLinkManager } from "../DiscordLinkManager";
+import { ProfileEditor } from "@/components/ProfileEditor";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface BuilderDashboardProps {
@@ -191,7 +192,7 @@ export const BuilderDashboard = ({
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-7 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Target className="h-4 w-4 mr-2" />
             Overview
@@ -215,6 +216,10 @@ export const BuilderDashboard = ({
           <TabsTrigger value="discord" className="data-[state=active]:bg-primary/20">
             <Bot className="h-4 w-4 mr-2" />
             Discord
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="data-[state=active]:bg-primary/20">
+            <Settings className="h-4 w-4 mr-2" />
+            Profile
           </TabsTrigger>
         </TabsList>
 
@@ -356,6 +361,16 @@ export const BuilderDashboard = ({
         <TabsContent value="discord">
           <div className="max-w-md mx-auto">
             <DiscordLinkManager />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="profile" className="space-y-6">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold mb-4">Your Builder Profile</h3>
+            <p className="text-muted-foreground mb-6">
+              Keep your profile updated to get personalized guidance from the Oracle
+            </p>
+            <ProfileEditor />
           </div>
         </TabsContent>
       </Tabs>
