@@ -75,7 +75,7 @@ function Index() {
   };
 
   const handleExit = () => {
-    // Clear the selected role to return to gateway
+    console.log("Exit clicked - clearing role and returning to gateway");
     setSelectedRole(null);
   };
 
