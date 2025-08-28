@@ -519,7 +519,11 @@ Investment Opportunity & Funding Needs`;
           </TabsContent>
 
           <TabsContent value="messages" className="space-y-6">
-            <MessagingCenter />
+            <MessagingCenter 
+              userRole="builder"
+              accessCode={builderName}
+              teamId={currentTeam.id}
+            />
           </TabsContent>
 
           <TabsContent value="team-room" className="space-y-6">

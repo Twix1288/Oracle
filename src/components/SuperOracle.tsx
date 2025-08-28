@@ -51,7 +51,6 @@ interface ChatMessage {
     mentions?: string[];
     confidence?: number;
     stage?: string;
-    personality?: 'helpful' | 'excited' | 'focused' | 'wise';
   };
   sections?: {
     answer: string;
@@ -176,77 +175,13 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   const [showMentions, setShowMentions] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [oraclePersonality, setOraclePersonality] = useState<'helpful' | 'excited' | 'focused' | 'wise'>('helpful');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { profile } = useAuth();
 
-  // Online users simulation (could be enhanced with real-time presence)
-  const [onlineUsers] = useState([
-    { name: 'Alex Chen', role: 'builder', status: 'coding' },
-    { name: 'Sarah Kim', role: 'mentor', status: 'mentoring' },
-    { name: 'Mike Johnson', role: 'lead', status: 'reviewing' }
-  ]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const getOracleAvatar = (personality: typeof oraclePersonality) => {
-    switch (personality) {
-      case 'excited': return '🤩';
-      case 'focused': return '🔍';
-      case 'wise': return '🧙‍♂️';
-      default: return '🛸';
-    }
-  };
-
-  // Send mention notifications
-  const sendMentionNotifications = async (mentions: string[], messageContent: string) => {
-    if (mentions.length === 0) return;
-
-    try {
-      for (const mentionedName of mentions) {
-        // Find the user by name
-        const { data: mentionedUser } = await supabase
-          .from('profiles')
-          .select('id, full_name, role')
-          .ilike('full_name', `%${mentionedName}%`)
-          .single();
-
-        if (mentionedUser && mentionedUser.id !== profile?.id) {
-          // Send mysterious notification message
-          const mysteriousMessages = [
-            `🌟 **Something interesting happened...**\n\n*Someone was talking about you in the Oracle. They seem to think you'd be perfect for something important.*\n\n**Curious?** Ask around to find out what's brewing! 🕵️‍♂️`,
-            `👁️ **Your name came up...**\n\n*Word is spreading about your skills. Someone just mentioned you in a conversation that could change everything.*\n\n**Want to know more?** Time to do some detective work! 🔍`,
-            `⚡ **The Oracle whispers your name...**\n\n*A mysterious conversation just happened, and somehow you were at the center of it. Interesting things are in motion.*\n\n**Intrigued?** Better reach out and see what's happening! 🤔`,
-            `🎭 **Plot twist: You're involved**\n\n*Someone just brought you up in a conversation that could be very relevant to your journey. The universe works in mysterious ways.*\n\n**Need answers?** Time to connect the dots! 🧩`
-          ];
-          
-          const randomMessage = mysteriousMessages[Math.floor(Math.random() * mysteriousMessages.length)];
-          
-          await supabase
-            .from('messages')
-            .insert({
-              sender_id: 'oracle-system',
-              sender_role: 'guest',
-              receiver_id: mentionedUser.id,
-              receiver_role: mentionedUser.role,
-              content: randomMessage,
-              team_id: teamId
-            });
-
-          toast({
-            title: "Mention Sent! 🎯",
-            description: `${mentionedUser.full_name} has been notified`,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error sending mention notifications:', error);
-    }
   };
 
   useEffect(() => {
@@ -286,8 +221,7 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         avatar: '🛸'
       },
       metadata: {
-        confidence: 100,
-        personality: 'helpful'
+        confidence: 100
       }
     };
     setMessages([welcomeMessage]);
@@ -832,17 +766,12 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
 
     setMessages(prev => [...prev, userMessage]);
     const currentMessage = message;
-    const parsed = parseMessage(currentMessage);
     setMessage("");
     setIsLoading(true);
-    setIsTyping(true);
-
-    // Send mention notifications for all messages
-    if (parsed.mentions.length > 0) {
-      await sendMentionNotifications(parsed.mentions, currentMessage);
-    }
 
     try {
+      const parsed = parseMessage(currentMessage);
+      
       // Handle slash commands
       if (parsed.hasSlashCommand) {
         const [command, ...args] = currentMessage.slice(1).split(' ');
@@ -865,23 +794,8 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         };
         
         setMessages(prev => [...prev, systemMessage]);
-        setIsTyping(false);
         return;
       }
-
-      // Change Oracle personality based on message content
-      if (currentMessage.includes('help') || currentMessage.includes('stuck')) {
-        setOraclePersonality('helpful');
-      } else if (currentMessage.includes('amazing') || currentMessage.includes('great') || currentMessage.includes('awesome')) {
-        setOraclePersonality('excited');
-      } else if (currentMessage.includes('analyze') || currentMessage.includes('data')) {
-        setOraclePersonality('focused');
-      } else {
-        setOraclePersonality('wise');
-      }
-
-      // Add typing delay for more human feel
-      await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1500));
 
       // Query the Oracle for intelligent response
       const oracleResponse = await queryOracle(currentMessage);
@@ -894,13 +808,12 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
         author: {
           name: 'Oracle',
           role: 'guest' as UserRole,
-          avatar: getOracleAvatar(oraclePersonality)
+          avatar: '🛸'
         },
         metadata: {
           sources: oracleResponse.sources,
           confidence: oracleResponse.confidence || 95,
-          stage: oracleResponse.detected_stage,
-          personality: oraclePersonality
+          stage: oracleResponse.detected_stage
         },
         sections: {
           answer: oracleResponse.answer,
@@ -912,14 +825,6 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
 
       setMessages(prev => [...prev, oracleMessage]);
 
-      // Show achievement notifications
-      if (oracleResponse.confidence > 95) {
-        toast({
-          title: "🎯 Perfect Match!",
-          description: "The Oracle found exactly what you need!",
-        });
-      }
-
     } catch (error) {
       console.error('Oracle error:', error);
       toast({
@@ -929,7 +834,6 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
       });
     } finally {
       setIsLoading(false);
-      setIsTyping(false);
     }
   };
 
@@ -1044,172 +948,90 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
   };
 
   return (
-    <div className="flex flex-col h-[700px] max-w-5xl mx-auto">
-      {/* Enhanced Header */}
-      <Card className="glow-border bg-card/50 backdrop-blur mb-4">
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
-              <Bot className="h-6 w-6 text-primary animate-pulse" />
+    <div className="flex flex-col h-[600px] max-w-4xl mx-auto">
+      <Card className="flex-1 flex flex-col glow-border bg-card/50 backdrop-blur">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/20 ufo-pulse">
+              <Bot className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <CardTitle className="text-xl text-glow flex items-center gap-2">
-                🛸 PieFi Super Oracle
-                <Badge className="bg-primary/20 text-primary border-primary/30 pulse">
-                  {selectedRole} Mode
-                </Badge>
-                {isLoading && (
-                  <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20 animate-pulse">
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                    Thinking...
-                  </Badge>
-                )}
-              </CardTitle>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>💬 {messages.length} messages</span>
-                <span>🟢 {onlineUsers.length} online</span>
-                <span>🎯 Mentions enabled</span>
-                <span className="flex items-center gap-1">
-                  <Heart className="h-3 w-3 text-red-400" />
-                  Oracle feeling {oraclePersonality}
-                </span>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCommands(!showCommands)}
-                className="border-primary/30 hover:bg-primary/10"
-              >
-                <Hash className="h-4 w-4 mr-2" />
-                Commands
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-green-500/30 hover:bg-green-500/10 text-green-400"
-                title="Oracle Status: Online & Ready"
-              >
-                <Sparkles className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Enhanced Commands Panel */}
-      {showCommands && (
-        <Card className="glow-border bg-card/50 backdrop-blur mb-4 animate-fade-in">
-          <CardContent className="p-4">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-primary mb-2">
-                Available Commands for {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
-              </h3>
+              <h2 className="text-xl font-bold text-glow">PieFi Oracle</h2>
               <p className="text-sm text-muted-foreground">
-                {SLASH_COMMANDS.filter(cmd => cmd.roleRequired.includes(selectedRole)).length} commands available • Click to use
+                Your intelligent AI companion for the incubator
               </p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {SLASH_COMMANDS.filter(cmd => cmd.roleRequired.includes(selectedRole)).map((cmd) => {
-                const categoryColors = {
-                  'oracle': 'border-purple-500/30 hover:bg-purple-500/10 hover:shadow-purple-500/20',
-                  'team': 'border-blue-500/30 hover:bg-blue-500/10 hover:shadow-blue-500/20',
-                  'user': 'border-green-500/30 hover:bg-green-500/10 hover:shadow-green-500/20',
-                  'admin': 'border-red-500/30 hover:bg-red-500/10 hover:shadow-red-500/20'
-                };
-                
-                return (
-                  <Button
-                    key={cmd.command}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setMessage(cmd.usage);
-                      setShowCommands(false);
-                    }}
-                    className={`h-auto p-3 text-left flex flex-col items-start transition-all duration-300 hover:scale-105 hover:shadow-lg ${categoryColors[cmd.category]}`}
-                  >
-                    <div className="font-medium text-primary flex items-center gap-2">
-                      {cmd.category === 'oracle' && '🔮'}
-                      {cmd.category === 'team' && '👥'}
-                      {cmd.category === 'user' && '🧑'}
-                      {cmd.category === 'admin' && '⚡'}
-                      {cmd.command}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{cmd.description}</div>
-                    <div className="text-xs text-primary/60 mt-1 font-mono">{cmd.usage}</div>
-                  </Button>
-                );
-              })}
-            </div>
-            
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border/50">
-              <p className="text-xs text-muted-foreground">
-                💡 <strong>Permission System:</strong> Commands are filtered based on your role. 
-                {selectedRole === 'guest' && ' Request role assignment from a lead to access more commands.'}
-                {selectedRole === 'builder' && ' You have access to team collaboration and resource commands.'}
-                {selectedRole === 'mentor' && ' You have access to mentoring and analysis commands.'}
-                {selectedRole === 'lead' && ' You have access to all administrative commands.'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Chat Messages */}
-      <ScrollArea className="flex-1 mb-4">
-        <div className="space-y-4 p-4">
-          {messages.map(renderMessage)}
-          
-          {/* Typing Indicator */}
-          {isTyping && (
-            <div className="flex gap-3 mb-4">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary/20 text-primary animate-pulse">
-                  🛸
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium text-primary">Oracle</span>
-                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 animate-pulse">
-                    Connecting to the cosmic wisdom...
-                  </Badge>
-                </div>
-                <div className="rounded-lg p-3 bg-muted/50 mr-8">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <Badge className="bg-primary/20 text-primary border-primary/30">
+              {selectedRole} Mode
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        
+        <Separator />
+        
+        <CardContent className="flex-1 flex flex-col p-4">
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              {messages.map(renderMessage)}
+              {isLoading && (
+                <div className="flex items-center gap-3 mb-4">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>🛸</AvatarFallback>
+                  </Avatar>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Oracle is thinking...</span>
                   </div>
                 </div>
-              </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
-          )}
+          </ScrollArea>
           
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-
-      {/* Enhanced Dynamic Input */}
-      <Card className="glow-border bg-card/50 backdrop-blur hover:shadow-xl hover:shadow-primary/10 transition-all duration-500">
-        <CardContent className="p-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex gap-3">
+          <div className="mt-4 space-y-3">
+            <Separator />
+            
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/help')}
+                className="text-xs"
+              >
+                <Hash className="h-3 w-3 mr-1" />
+                Commands
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/resources AI development')}
+                className="text-xs"
+              >
+                <Star className="h-3 w-3 mr-1" />
+                Resources
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/find React developer')}
+                className="text-xs"
+              >
+                <Users className="h-3 w-3 mr-1" />
+                Find People
+              </Button>
+            </div>
+            
+            {/* Message Input */}
+            <form onSubmit={handleSubmit} className="flex gap-2">
               <div className="flex-1 relative">
-                <MessageSquare className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 transition-all duration-300 ${
-                  message ? 'text-primary' : 'text-primary/60'
-                } ${isLoading ? 'animate-pulse' : ''}`} />
+                <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   ref={inputRef}
                   value={message}
                   onChange={handleInputChange}
-                  placeholder={`Ask the Oracle, use /commands, or @mention users... (${selectedRole} permissions active)`}
-                  className={`pl-10 bg-background/50 border-primary/20 focus:border-primary/50 transition-all duration-300 ${
-                    message ? 'shadow-lg shadow-primary/10' : ''
-                  } ${isLoading ? 'animate-pulse' : ''}`}
+                  placeholder="Ask the Oracle anything, use /commands, or @mention users..."
+                  className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
                   disabled={isLoading}
                 />
                 
@@ -1235,135 +1057,24 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
                   </div>
                 )}
               </div>
-              
-            <Button 
-              type="submit" 
-              disabled={isLoading || !message.trim()}
-              className="ufo-gradient hover:opacity-90 min-w-[120px] relative overflow-hidden"
-            >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                  Transmitting...
-                </div>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send to Oracle
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
-                </>
-              )}
-            </Button>
-            </div>
-
-            {/* Quick Actions - Role-Based */}
-            <div className="flex flex-wrap gap-2">
-              {/* Help - Available to all roles */}
               <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/help')}
-                className="text-xs border-primary/30 hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300"
+                type="submit" 
+                disabled={isLoading || !message.trim()}
+                className="ufo-gradient hover:opacity-90"
               >
-                <Hash className="h-3 w-3 mr-1" />
-                Help
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
-              
-              {/* Find People - Available to builder, mentor, lead */}
-              {(['builder', 'mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setMessage('/find React developer')}
-                  className="text-xs border-blue-500/30 hover:bg-blue-500/10 hover:shadow-lg hover:shadow-blue-500/20 transition-all duration-300"
-                >
-                  <Users className="h-3 w-3 mr-1" />
-                  Find People
-                </Button>
-              )}
-              
-              {/* Resources - Available to all roles */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/resources AI development')}
-                className="text-xs border-green-500/30 hover:bg-green-500/10 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
-              >
-                <Star className="h-3 w-3 mr-1" />
-                Resources
-              </Button>
-              
-              {/* Quick Update - Available to builder, mentor, lead */}
-              {(['builder', 'mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setMessage('/update Finished implementing the new feature')}
-                  className="text-xs border-purple-500/30 hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300"
-                >
-                  <Zap className="h-3 w-3 mr-1" />
-                  Quick Update
-                </Button>
-              )}
-              
-              {/* Connect - Available to builder, mentor, lead */}
-              {(['builder', 'mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setMessage('/connect Need help with React hooks')}
-                  className="text-xs border-cyan-500/30 hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-300"
-                >
-                  <LinkIcon className="h-3 w-3 mr-1" />
-                  Connect
-                </Button>
-              )}
-              
-              {/* Message - Available to mentor, lead */}
-              {(['mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setMessage('/message @')}
-                  className="text-xs border-orange-500/30 hover:bg-orange-500/10 hover:shadow-lg hover:shadow-orange-500/20 transition-all duration-300"
-                >
-                  <MessageSquare className="h-3 w-3 mr-1" />
-                  Message
-                </Button>
-              )}
-              
-              {/* Analyze - Available to mentor, lead */}
-              {(['mentor', 'lead'] as UserRole[]).includes(selectedRole) && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setMessage('/analyze overall')}
-                  className="text-xs border-red-500/30 hover:bg-red-500/10 hover:shadow-lg hover:shadow-red-500/20 transition-all duration-300"
-                >
-                  <Play className="h-3 w-3 mr-1" />
-                  Analyze
-                </Button>
-              )}
-              
-              {/* Broadcast - Available to lead only */}
-              {selectedRole === 'lead' && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setMessage('/broadcast Important announcement: ')}
-                  className="text-xs border-yellow-500/30 hover:bg-yellow-500/10 hover:shadow-lg hover:shadow-yellow-500/20 transition-all duration-300"
-                >
-                  <Crown className="h-3 w-3 mr-1" />
-                  Broadcast
-                </Button>
-              )}
-            </div>
+            </form>
             
             <p className="text-xs text-muted-foreground text-center">
-              💡 <strong>Pro tip:</strong> Use <code>/help</code> for commands • <code>@username</code> to mention • 
-              The Oracle remembers your context and gets smarter with each interaction!
+              Type <code>/help</code> for commands • Mention users with <code>@username</code> • 
+              The Oracle knows about your team, project, and progress
             </p>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </div>

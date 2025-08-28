@@ -31,7 +31,6 @@ interface JourneyResponse {
   suggested_frameworks?: string[];
   next_actions?: string[];
   stage_confidence?: number;
-  resources?: string[];
   sections?: {
     update?: string;
     progress?: string;
@@ -423,131 +422,6 @@ const generateNextActions = (stage: string): string[] => {
   return actionMap[stage] || actionMap.ideation;
 };
 
-// Get actual resources (YouTube videos, articles, people)
-const getActualResources = async (query: string, stage: string, role: string): Promise<string[]> => {
-  const resources: string[] = [];
-  
-  // YouTube Learning Videos
-  const videoResources = {
-    ideation: [
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=UvCri1tqIxQ" target="_blank">"How to Validate Your Business Idea in 24 Hours" by Y Combinator</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=yP176MBG9Tk" target="_blank">"Customer Development Process" by Steve Blank</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=1hHMwLxN6EM" target="_blank">"Jobs to be Done Theory" by Clayton Christensen</a>'
-    ],
-    development: [
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=l9ET1WUtFZ8" target="_blank">"Building Your First MVP" by Product School</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=jHyU54GhfGs" target="_blank">"Lean Startup Methodology" by Eric Ries</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=GKmeTKuRwjg" target="_blank">"Agile Development Best Practices" by Atlassian</a>'
-    ],
-    testing: [
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=riDJGI2Eb3k" target="_blank">"How to Get User Feedback" by First Round Capital</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=BdHmpF24OzY" target="_blank">"Growth Hacking Techniques" by Sean Ellis</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=yUaIVj_lSDE" target="_blank">"Data-Driven Product Development" by Google Ventures</a>'
-    ],
-    launch: [
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=xZi4kTJG-LE" target="_blank">"Go-to-Market Strategy" by a16z</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=n_yHZ_vKjno" target="_blank">"Customer Acquisition Strategies" by HubSpot</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=F4K_qWYWYRY" target="_blank">"Product Launch Framework" by First Round</a>'
-    ],
-    growth: [
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=raIUQP71SBU" target="_blank">"Scaling Your Startup" by Sequoia Capital</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=UTMxvnyVtNg" target="_blank">"Unit Economics Explained" by David Skok</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=k_nj9cjOqw8" target="_blank">"Building Systems for Growth" by Y Combinator</a>'
-    ],
-    expansion: [
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=DE_lGwzfBrE" target="_blank">"Market Expansion Strategy" by McKinsey</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=VNG7qlRgkI8" target="_blank">"Strategic Partnerships" by Harvard Business Review</a>',
-      '<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=4h84ciERSos" target="_blank">"Venture Capital Fundraising" by Sequoia Capital</a>'
-    ]
-  };
-
-  // Articles and Reading Materials
-  const articleResources = {
-    ideation: [
-      '<strong>📰 Article:</strong> <a href="https://firstround.com/review/how-superhuman-built-an-engine-to-find-product-market-fit/" target="_blank">"How Superhuman Built an Engine to Find Product Market Fit" - First Round Review</a>',
-      '<strong>📰 Article:</strong> <a href="https://hbr.org/2013/05/why-the-lean-start-up-changes-everything" target="_blank">"Why the Lean Start-Up Changes Everything" - Harvard Business Review</a>'
-    ],
-    development: [
-      '<strong>📰 Article:</strong> <a href="https://blog.ycombinator.com/mvp-paradox/" target="_blank">"The MVP Paradox" - Y Combinator Blog</a>',
-      '<strong>📰 Article:</strong> <a href="https://a16z.com/2018/02/18/when-to-be-contrarian/" target="_blank">"Product-Market Fit: What it really means" - Andreessen Horowitz</a>'
-    ],
-    testing: [
-      '<strong>📰 Article:</strong> <a href="https://firstround.com/review/what-we-learned-from-google-is-that-data-beats-opinions/" target="_blank">"What We Learned from Google: Data Beats Opinions" - First Round Review</a>',
-      '<strong>📰 Article:</strong> <a href="https://blog.kissmetrics.com/growth-hacking-fundamentals/" target="_blank">"Growth Hacking Fundamentals" - KISSmetrics</a>'
-    ],
-    launch: [
-      '<strong>📰 Article:</strong> <a href="https://review.firstround.com/how-to-build-your-go-to-market-strategy" target="_blank">"How to Build Your Go-to-Market Strategy" - First Round Review</a>',
-      '<strong>📰 Article:</strong> <a href="https://a16z.com/2020/04/18/its-time-to-build/" target="_blank">"Customer Acquisition Cost Strategies" - a16z</a>'
-    ],
-    growth: [
-      '<strong>📰 Article:</strong> <a href="https://www.forentrepreneurs.com/saas-metrics-2/" target="_blank">"SaaS Metrics 2.0 - A Guide to Measuring and Improving" - For Entrepreneurs</a>',
-      '<strong>📰 Article:</strong> <a href="https://medium.com/sequoia-capital/scaling-to-100-million-users-643f521b7fc2" target="_blank">"Scaling to 100 Million Users" - Sequoia Capital</a>'
-    ],
-    expansion: [
-      '<strong>📰 Article:</strong> <a href="https://hbr.org/2021/07/how-to-decide-which-countries-to-enter-next" target="_blank">"How to Decide Which Countries to Enter Next" - Harvard Business Review</a>',
-      '<strong>📰 Article:</strong> <a href="https://www.mckinsey.com/business-functions/strategy-and-corporate-finance/our-insights/the-art-of-the-strategic-partnership" target="_blank">"The Art of Strategic Partnership" - McKinsey</a>'
-    ]
-  };
-
-  // PieFi Team Members and Mentors to Connect With
-  const piefiConnections = [
-    '<strong>👥 PieFi Connect:</strong> Reach out to <strong>Lead Mentors</strong> via Discord for personalized 1:1 guidance',
-    '<strong>👥 PieFi Connect:</strong> Join weekly <strong>Office Hours</strong> - Wednesdays 3PM EST in #general',
-    '<strong>👥 PieFi Connect:</strong> Book a session with <strong>Industry Specialists</strong> through the mentorship program'
-  ];
-
-  // Role-specific resources
-  const roleSpecificResources = {
-    builder: [
-      '<strong>🛠️ Builder Tools:</strong> <a href="https://www.figma.com/community/file/768673374020851735" target="_blank">Lean Canvas Template (Figma)</a>',
-      '<strong>🛠️ Builder Tools:</strong> <a href="https://docs.google.com/spreadsheets/d/1mTsKzEJ2bnqF8Q9d4Y5vJ7a8fR2nC3bT1lP8xK5rN7s/" target="_blank">MVP Planning Template (Google Sheets)</a>'
-    ],
-    mentor: [
-      '<strong>📚 Mentor Resources:</strong> <a href="https://firstround.com/review/radical-candor-the-surprising-secret-to-being-a-good-boss/" target="_blank">"Radical Candor: The Surprising Secret to Being a Good Boss" - First Round Review</a>',
-      '<strong>📚 Mentor Resources:</strong> <a href="https://www.mindtheproduct.com/what-makes-a-great-mentor/" target="_blank">"What Makes a Great Mentor" - Mind the Product</a>'
-    ],
-    lead: [
-      '<strong>📊 Leadership Resources:</strong> <a href="https://a16z.com/2015/03/31/on-the-role-of-a-ceo/" target="_blank">"On the Role of a CEO" - Andreessen Horowitz</a>',
-      '<strong>📊 Leadership Resources:</strong> <a href="https://firstround.com/review/how-medium-is-building-a-new-kind-of-company-with-no-managers/" target="_blank">"Building High-Performing Teams" - First Round Review</a>'
-    ],
-    guest: [
-      '<strong>🎯 Getting Started:</strong> <a href="https://www.ycombinator.com/library/4D-yc-s-essential-startup-advice" target="_blank">"YC\'s Essential Startup Advice" - Y Combinator</a>',
-      '<strong>🎯 Getting Started:</strong> <a href="https://steveblank.com/category/customer-development/" target="_blank">"Customer Development" - Steve Blank\'s Blog</a>'
-    ]
-  };
-
-  // Add stage-specific resources
-  if (videoResources[stage]) {
-    resources.push(...videoResources[stage].slice(0, 2));
-  }
-  
-  if (articleResources[stage]) {
-    resources.push(...articleResources[stage].slice(0, 1));
-  }
-
-  // Add role-specific resources
-  if (roleSpecificResources[role]) {
-    resources.push(...roleSpecificResources[role].slice(0, 1));
-  }
-
-  // Always add PieFi connection opportunities
-  resources.push(...piefiConnections.slice(0, 1));
-
-  // Add query-specific resources
-  const queryLower = query.toLowerCase();
-  if (queryLower.includes('customer') || queryLower.includes('user')) {
-    resources.push('<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=MT4Ig2uqjTc" target="_blank">"How to Talk to Users" by Y Combinator</a>');
-  }
-  if (queryLower.includes('funding') || queryLower.includes('investment')) {
-    resources.push('<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=17XZGUX_9iM" target="_blank">"Fundraising for Startups" by Y Combinator</a>');
-  }
-  if (queryLower.includes('marketing') || queryLower.includes('growth')) {
-    resources.push('<strong>📹 YouTube:</strong> <a href="https://youtube.com/watch?v=n_yHZ_vKjno" target="_blank">"Customer Acquisition Strategies" by HubSpot</a>');
-  }
-
-  return resources.slice(0, 5); // Limit to 5 resources max
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -666,15 +540,8 @@ serve(async (req) => {
     const data = await response.json();
     const journeyAnswer = data.choices[0].message.content;
 
-    // Build comprehensive response with guidance
-    let answer = '';
-    const frameworks = getRelevantFrameworks(stageAnalysis.stage, query);
+    // Generate next actions based on stage
     const nextActions = generateNextActions(stageAnalysis.stage);
-    const resources = await getActualResources(query, stageAnalysis.stage, role);
-    
-    if (commandResult?.executed) {
-      answer = `${commandResult.message}\n\n`;
-    }
 
     // Store interaction for learning
     await supabase.from('oracle_logs').insert({
@@ -694,8 +561,7 @@ serve(async (req) => {
       detected_stage: stageAnalysis.stage,
       suggested_frameworks: suggestedFrameworks,
       next_actions: nextActions,
-      stage_confidence: stageAnalysis.confidence,
-      resources: resources
+      stage_confidence: stageAnalysis.confidence
     };
 
     return new Response(JSON.stringify(result), {

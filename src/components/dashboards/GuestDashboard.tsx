@@ -2,10 +2,9 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Users, TrendingUp, Calendar, Sparkles, MessageSquare, Settings } from "lucide-react";
+import { Eye, Users, TrendingUp, Calendar, Sparkles, MessageSquare } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { SimpleOracle } from "../SimpleOracle";
-import { ProfileEditor } from "@/components/ProfileEditor";
+import { SuperOracle } from "../SuperOracle";
 import type { Team, Update } from "@/types/oracle";
 
 interface GuestDashboardProps {
@@ -126,7 +125,7 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 ufo-card">
+        <TabsList className="grid w-full grid-cols-3 ufo-card">
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Eye className="h-4 w-4 mr-2" />
             Overview
@@ -138,10 +137,6 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
           <TabsTrigger value="about" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Sparkles className="h-4 w-4 mr-2" />
             About
-          </TabsTrigger>
-          <TabsTrigger value="profile" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-            <Settings className="h-4 w-4 mr-2" />
-            Profile
           </TabsTrigger>
         </TabsList>
 
@@ -242,7 +237,7 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
         </TabsContent>
 
         <TabsContent value="oracle">
-          <SimpleOracle 
+          <SuperOracle 
             selectedRole="guest"
           />
         </TabsContent>
@@ -279,16 +274,6 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="profile" className="space-y-6">
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-4">Your Profile</h3>
-            <p className="text-muted-foreground mb-6">
-              Complete your profile to access more features and get personalized guidance
-            </p>
-            <ProfileEditor />
-          </div>
         </TabsContent>
       </Tabs>
       </div>

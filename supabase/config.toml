@@ -37,12 +37,6 @@ verify_jwt = false
 [functions.journey-assistant]
 verify_jwt = false
 
-[functions.discord-bot]
-verify_jwt = false
-
-[functions.create-master-admin]
-verify_jwt = false
-
 [analytics]
 enabled = false
 port = 54328

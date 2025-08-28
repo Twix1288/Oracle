@@ -7,7 +7,7 @@ import { User, MessageSquare, TrendingUp, AlertTriangle, BookOpen } from "lucide
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { SimpleOracle } from "../SimpleOracle";
+import { SuperOracle } from "../SuperOracle";
 import { MentorRequests } from "../MentorRequests";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +58,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         onExit={onExit}
       />
       <div className="container mx-auto px-6 pb-6 space-y-6">
-        {/* Header */}
+      {/* Header */}
       <div className="flex items-center gap-4">
         <div className="p-3 rounded-full bg-green-500/20 ufo-pulse">
           <User className="h-6 w-6 text-green-400" />
@@ -149,7 +149,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         </TabsContent>
 
         <TabsContent value="messages">
-          <MessagingCenter />
+          <MessagingCenter userRole="mentor" accessCode={mentorId || 'unknown'} />
         </TabsContent>
 
         <TabsContent value="requests">
@@ -197,7 +197,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         </TabsContent>
 
         <TabsContent value="oracle">
-          <SimpleOracle 
+          <SuperOracle 
             selectedRole="mentor"
           />
         </TabsContent>
