@@ -24,6 +24,7 @@ export const ProfileEditor = ({ trigger = "button", className = "" }: ProfileEdi
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || "",
     bio: profile?.bio || "",
+    role: profile?.role || "guest",
     experience_level: profile?.experience_level || "",
     availability: profile?.availability || "",
     timezone: profile?.timezone || "",
@@ -160,6 +161,26 @@ export const ProfileEditor = ({ trigger = "button", className = "" }: ProfileEdi
                   />
                 </div>
                 
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select 
+                    value={formData.role} 
+                    onValueChange={(value: "builder" | "mentor" | "lead" | "guest") => setFormData(prev => ({ ...prev, role: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="builder">Builder</SelectItem>
+                      <SelectItem value="mentor">Mentor</SelectItem>
+                      <SelectItem value="lead">Lead</SelectItem>
+                      <SelectItem value="guest">Guest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Experience Level</Label>
                   <Select 

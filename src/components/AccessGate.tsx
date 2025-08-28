@@ -89,7 +89,7 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
             console.error('Profile update error:', profileError);
           }
         } else {
-          // Master code - just update role  
+          // General access code - just update role  
           const { error: profileError } = await supabase
             .from('profiles')
             .update({ role: selectedRole })
@@ -129,42 +129,79 @@ export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Hero Section */}
+      <div className="text-center space-y-6 py-12">
+        <div className="flex justify-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl ufo-pulse"></div>
+            <div className="relative bg-gradient-to-br from-primary/20 to-accent/20 p-8 rounded-full border border-primary/30">
+              <Rocket className="h-16 w-16 text-primary" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent cosmic-text">
+            Welcome to PieFi
+          </h1>
+          <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
+            Your AI-powered incubator for revolutionary ideas. Join as a Builder, Mentor, Lead, or explore as a Guest.
+          </p>
+        </div>
+        <div className="flex justify-center gap-4 flex-wrap">
+          <Badge variant="outline" className="text-sm px-4 py-2">
+            <User className="h-4 w-4 mr-2" />
+            AI Oracle Guidance
+          </Badge>
+          <Badge variant="outline" className="text-sm px-4 py-2">
+            <Shield className="h-4 w-4 mr-2" />
+            Expert Mentorship
+          </Badge>
+          <Badge variant="outline" className="text-sm px-4 py-2">
+            <Rocket className="h-4 w-4 mr-2" />
+            Stage-Based Growth
+          </Badge>
+        </div>
+      </div>
+
       {/* Role Selection Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Object.entries(roleInfo).map(([role, info]) => (
-          <Card 
-            key={role}
-            className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] glow-border group bg-card/50 backdrop-blur border-border/50 hover:border-primary/30 ${
-              selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
-            }`}
-            onClick={() => handleRoleClick(role as UserRole)}
-          >
-            <CardHeader className="text-center pb-3">
-              <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
-                <info.icon className="w-6 h-6" />
-              </div>
-              <CardTitle className="text-lg font-semibold cosmic-text">{info.label}</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground px-2">
-                {info.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0 text-center">
-              {info.needsCode && (
-                <Badge variant="outline" className="text-xs border-primary/30 text-primary/80">
-                  <Lock className="w-3 h-3 mr-1" />
-                  Access Code Required
-                </Badge>
-              )}
-              {!info.needsCode && (
-                <Badge variant="secondary" className="text-xs">
-                  <Eye className="w-3 h-3 mr-1" />
-                  Open Access
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+      <div>
+        <h2 className="text-2xl font-bold text-center mb-6 cosmic-text">Choose Your Role</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+         {Object.entries(roleInfo).map(([role, info]) => (
+           <Card 
+             key={role}
+             className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] glow-border group bg-card/50 backdrop-blur border-border/50 hover:border-primary/30 ${
+               selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
+             }`}
+             onClick={() => handleRoleClick(role as UserRole)}
+           >
+             <CardHeader className="text-center pb-3">
+               <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
+                 <info.icon className="w-6 h-6" />
+               </div>
+               <CardTitle className="text-lg font-semibold cosmic-text">{info.label}</CardTitle>
+               <CardDescription className="text-sm text-muted-foreground px-2">
+                 {info.description}
+               </CardDescription>
+             </CardHeader>
+             <CardContent className="pt-0 text-center">
+               {info.needsCode && (
+                 <Badge variant="outline" className="text-xs border-primary/30 text-primary/80">
+                   <Lock className="w-3 h-3 mr-1" />
+                   Access Code Required
+                 </Badge>
+               )}
+               {!info.needsCode && (
+                 <Badge variant="secondary" className="text-xs">
+                   <Eye className="w-3 h-3 mr-1" />
+                   Open Access
+                 </Badge>
+               )}
+             </CardContent>
+           </Card>
+         ))}
+        </div>
       </div>
 
       {/* Access Code Dialog */}

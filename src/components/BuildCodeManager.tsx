@@ -21,6 +21,12 @@ interface Team {
 
 interface BuildCodeManagerProps {
   teams: Team[];
+  users?: Array<{
+    id: string;
+    email: string;
+    full_name?: string;
+    role: string;
+  }>;
 }
 
 interface GeneratedCode {
@@ -30,9 +36,10 @@ interface GeneratedCode {
   description?: string;
 }
 
-export const BuildCodeManager = ({ teams }: BuildCodeManagerProps) => {
+export const BuildCodeManager = ({ teams, users = [] }: BuildCodeManagerProps) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>('builder');
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [description, setDescription] = useState('');
   const [maxUses, setMaxUses] = useState<string>('');
   const [generatedCodes, setGeneratedCodes] = useState<GeneratedCode[]>([]);
@@ -104,6 +111,7 @@ export const BuildCodeManager = ({ teams }: BuildCodeManagerProps) => {
       setDescription('');
       setMaxUses('');
       setSelectedTeamId('');
+      setSelectedUserId('');
     },
     onError: (error) => {
       toast.error('Failed to generate code: ' + error.message);
@@ -176,6 +184,24 @@ export const BuildCodeManager = ({ teams }: BuildCodeManagerProps) => {
                 </SelectContent>
               </Select>
             </div>
+
+            {users.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="user">Assign to User (Optional)</Label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.full_name || user.email} ({user.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {selectedRole === 'builder' && (
               <div className="space-y-2">

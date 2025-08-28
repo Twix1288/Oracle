@@ -5,8 +5,8 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { SimpleOracle } from "@/components/SimpleOracle";
 import { TeamDashboard } from "@/components/TeamDashboard";
 import { MessagingCenter } from "@/components/MessagingCenter";
-import { MasterAccessCodes } from "@/components/MasterAccessCodes";
-import { LeadDashboardEnhanced } from "@/components/LeadDashboardEnhanced";
+import { UserManagement } from "@/components/UserManagement";
+import { EnhancedManagementDashboard } from "@/components/EnhancedManagementDashboard";
 import { DiscordBotManagement } from "@/components/DiscordBotManagement";
 import { OracleAnalytics } from "@/components/OracleAnalytics";
 import { Users, MessageSquare, Target, BarChart3, Settings, Hash, TrendingUp, Clock, UserPlus } from "lucide-react";
@@ -67,9 +67,9 @@ export const LeadDashboard = ({
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Oracle</span>
             </TabsTrigger>
-            <TabsTrigger value="master-codes" className="flex items-center gap-2">
+            <TabsTrigger value="users" className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Master Codes</span>
+              <span className="hidden sm:inline">Users</span>
             </TabsTrigger>
             <TabsTrigger value="management" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -161,12 +161,12 @@ export const LeadDashboard = ({
             <SimpleOracle selectedRole={selectedRole} />
           </TabsContent>
 
-          <TabsContent value="master-codes" className="space-y-6">
-            <MasterAccessCodes />
+          <TabsContent value="users" className="space-y-6">
+            <UserManagement />
           </TabsContent>
 
           <TabsContent value="management" className="space-y-6">
-            <LeadDashboardEnhanced />
+            <EnhancedManagementDashboard />
           </TabsContent>
 
           <TabsContent value="discord" className="space-y-6">
