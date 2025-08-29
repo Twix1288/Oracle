@@ -17,6 +17,7 @@ import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { SuperOracle } from "../SuperOracle";
 import { AccessCodeManager } from "../AccessCodeManager";
+import { DiscordBotManagement } from "../DiscordBotManagement";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface LeadDashboardProps {
@@ -205,7 +206,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-6 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Eye className="h-4 w-4 mr-2" />
             Overview
@@ -220,7 +221,11 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
           </TabsTrigger>
           <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <Activity className="h-4 w-4 mr-2" />
-            Oracle Assistant
+            Enhanced Oracle
+          </TabsTrigger>
+          <TabsTrigger value="discord" className="data-[state=active]:bg-primary/20">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Discord Bot
           </TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20">
             <Settings className="h-4 w-4 mr-2" />
@@ -402,6 +407,10 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
           <SuperOracle 
             selectedRole="lead"
           />
+        </TabsContent>
+
+        <TabsContent value="discord">
+          <DiscordBotManagement />
         </TabsContent>
 
         <TabsContent value="settings">

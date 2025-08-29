@@ -1,0 +1,583 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+
+const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
+const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+const supabase = createClient(supabaseUrl!, supabaseKey!);
+
+// Discord interaction types
+const InteractionType = {
+  PING: 1,
+  APPLICATION_COMMAND: 2,
+  MESSAGE_COMPONENT: 3,
+  APPLICATION_COMMAND_AUTOCOMPLETE: 4,
+  MODAL_SUBMIT: 5,
+};
+
+const InteractionResponseType = {
+  PONG: 1,
+  CHANNEL_MESSAGE_WITH_SOURCE: 4,
+  DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE: 5,
+  DEFERRED_UPDATE_MESSAGE: 6,
+  UPDATE_MESSAGE: 7,
+  APPLICATION_COMMAND_AUTOCOMPLETE_RESULT: 8,
+  MODAL: 9,
+};
+
+// Ed25519 signature verification
+async function verifySignature(request: Request): Promise<boolean> {
+  if (!DISCORD_PUBLIC_KEY) return false;
+  
+  const signature = request.headers.get('x-signature-ed25519');
+  const timestamp = request.headers.get('x-signature-timestamp');
+  const body = await request.clone().text();
+  
+  if (!signature || !timestamp) return false;
+  
+  try {
+    const encoder = new TextEncoder();
+    const message = encoder.encode(timestamp + body);
+    const signatureBytes = hexToUint8Array(signature);
+    const publicKeyBytes = hexToUint8Array(DISCORD_PUBLIC_KEY);
+    
+    // Import the public key for verification
+    const key = await crypto.subtle.importKey(
+      'raw',
+      publicKeyBytes,
+      { name: 'Ed25519', namedCurve: 'Ed25519' },
+      false,
+      ['verify']
+    );
+    
+    return await crypto.subtle.verify('Ed25519', key, signatureBytes, message);
+  } catch (error) {
+    console.error('Signature verification error:', error);
+    return false;
+  }
+}
+
+function hexToUint8Array(hex: string): Uint8Array {
+  return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+}
+
+// Discord bot commands - mirror of Oracle commands
+const DISCORD_COMMANDS = [
+  {
+    name: 'help',
+    description: 'Show all available Oracle commands',
+    type: 1
+  },
+  {
+    name: 'resources',
+    description: 'Find curated resources and tutorials',
+    type: 1,
+    options: [
+      {
+        name: 'topic',
+        description: 'What topic do you need resources for?',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'connect',
+    description: 'Find people and experts to help with challenges',
+    type: 1,
+    options: [
+      {
+        name: 'challenge',
+        description: 'What challenge do you need help with?',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'find',
+    description: 'Search for team members by name or skills',
+    type: 1,
+    options: [
+      {
+        name: 'search',
+        description: 'Name or skill to search for',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'update',
+    description: 'Log progress update',
+    type: 1,
+    options: [
+      {
+        name: 'progress',
+        description: 'Describe your progress',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'message',
+    description: 'Send message to a user (cross-platform)',
+    type: 1,
+    options: [
+      {
+        name: 'user',
+        description: 'Username to message',
+        type: 3,
+        required: true
+      },
+      {
+        name: 'content',
+        description: 'Message content',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'link',
+    description: 'Link your Discord account to PieFi',
+    type: 1
+  }
+];
+
+// Enhanced Discord Oracle - mirrors website Oracle exactly
+async function handleOracleCommand(commandName: string, options: any, user: any, guildId?: string): Promise<string> {
+  const discordId = user.id;
+  const username = user.username;
+  
+  // Check if user is linked to PieFi account
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('discord_id', discordId)
+    .single();
+  
+  const userId = profile?.id;
+  const role = profile?.role || 'guest';
+  const teamId = profile?.team_id;
+
+  try {
+    switch (commandName) {
+      case 'help':
+        return `🛸 **Enhanced PieFi Oracle - Discord Commands**
+
+**📚 Resource Commands:**
+• \`/resources [topic]\` - Find curated resources and tutorials
+• \`/connect [challenge]\` - Find people and experts to help
+
+**👥 User Commands:**
+• \`/find [search]\` - Search for team members
+• \`/message [user] [content]\` - Send cross-platform message
+• \`/update [progress]\` - Log progress update
+
+**🔗 Account Commands:**
+• \`/link\` - Link Discord to PieFi account
+
+**💡 Enhanced Features:**
+✨ Same Oracle as website - full sync
+🌐 Cross-platform messaging (Discord ↔ Website)
+📚 Real resource fetching from web
+👥 Prioritizes PieFi community connections
+
+${profile ? `🔗 **Linked Account:** ${profile.full_name} (${role})` : '🚨 **Account not linked** - Use `/link` to connect'}`;
+
+      case 'resources':
+        const topic = options.find((opt: any) => opt.name === 'topic')?.value;
+        if (!topic) return '❌ Please specify a topic for resources.';
+        
+        // Call the same resource function as website
+        const resourceResponse = await supabase.functions.invoke('enhanced-resource-oracle', {
+          body: {
+            query: topic,
+            type: 'resources',
+            role: role,
+            teamId,
+            userId
+          }
+        });
+        
+        if (resourceResponse.data?.resources) {
+          const resources = resourceResponse.data.resources;
+          let response = `📚 **Resources for "${topic}":**\n\n`;
+          
+          // Prioritize PieFi resources
+          const pieFiResources = resources.filter((r: any) => r.type === 'piefi');
+          const externalResources = resources.filter((r: any) => r.type !== 'piefi');
+          
+          if (pieFiResources.length > 0) {
+            response += `**🏠 PieFi Resources:**\n`;
+            pieFiResources.slice(0, 2).forEach((r: any, idx: number) => {
+              response += `${idx + 1}. **${r.title}**\n   ${r.description}\n   🔗 ${r.url}\n\n`;
+            });
+          }
+          
+          if (externalResources.length > 0) {
+            response += `**🌐 External Resources:**\n`;
+            externalResources.slice(0, 3).forEach((r: any, idx: number) => {
+              const icon = r.type === 'youtube' ? '📺' : '📄';
+              response += `${idx + 1}. ${icon} **${r.title}**\n   ${r.description}\n   🔗 ${r.url}\n\n`;
+            });
+          }
+          
+          response += `💡 *Also available on PieFi website Oracle!*`;
+          return response;
+        } else {
+          return `🔍 No resources found for "${topic}". Try different keywords or check the website Oracle.`;
+        }
+
+      case 'connect':
+        const challenge = options.find((opt: any) => opt.name === 'challenge')?.value;
+        if (!challenge) return '❌ Please specify what you need help with.';
+        
+        // First check PieFi users
+        const { data: pieFiUsers } = await supabase
+          .from('profiles')
+          .select('full_name, role, skills, bio, discord_id')
+          .not('skills', 'is', null);
+        
+        let connectResponse = `🤝 **Connections for "${challenge}":**\n\n`;
+        
+        if (pieFiUsers) {
+          const relevantPeople = pieFiUsers.filter(p => 
+            p.skills?.some((skill: string) => 
+              challenge.toLowerCase().includes(skill.toLowerCase()) ||
+              skill.toLowerCase().includes(challenge.toLowerCase())
+            ) || 
+            p.bio?.toLowerCase().includes(challenge.toLowerCase())
+          ).slice(0, 2);
+          
+          if (relevantPeople.length > 0) {
+            connectResponse += `**🏠 PieFi Community:**\n`;
+            relevantPeople.forEach((p, idx) => {
+              connectResponse += `${idx + 1}. **${p.full_name}** (${p.role})\n   💪 Skills: ${p.skills?.join(', ')}\n`;
+              if (p.discord_id) {
+                connectResponse += `   💬 <@${p.discord_id}>\n`;
+              }
+              connectResponse += `\n`;
+            });
+          }
+        }
+        
+        // Then get external connections
+        const connectionResponse = await supabase.functions.invoke('enhanced-resource-oracle', {
+          body: {
+            query: challenge,
+            type: 'connect',
+            role: role,
+            teamId,
+            userId
+          }
+        });
+        
+        if (connectionResponse.data?.connections) {
+          connectResponse += `**🌐 LinkedIn Experts:**\n`;
+          connectionResponse.data.connections.slice(0, 2).forEach((c: any, idx: number) => {
+            connectResponse += `${idx + 1}. **${c.name}** - ${c.title}\n   🏢 ${c.company}\n   🔗 ${c.linkedin_url}\n\n`;
+          });
+        }
+        
+        return connectResponse;
+
+      case 'find':
+        const searchTerm = options.find((opt: any) => opt.name === 'search')?.value;
+        if (!searchTerm) return '❌ Please specify who or what to find.';
+        
+        const { data: foundUsers } = await supabase
+          .from('profiles')
+          .select('full_name, role, skills, discord_id')
+          .or(`full_name.ilike.%${searchTerm}%,skills.cs.{${searchTerm}}`);
+        
+        if (foundUsers && foundUsers.length > 0) {
+          let findResponse = `🔍 **Found ${foundUsers.length} matches for "${searchTerm}":**\n\n`;
+          foundUsers.slice(0, 4).forEach((user, idx) => {
+            findResponse += `${idx + 1}. **${user.full_name}** (${user.role})\n   💪 ${user.skills?.join(', ') || 'No skills listed'}\n`;
+            if (user.discord_id) {
+              findResponse += `   💬 <@${user.discord_id}>\n`;
+            }
+            findResponse += `\n`;
+          });
+          return findResponse;
+        } else {
+          return `❌ No matches found for "${searchTerm}". Try different keywords.`;
+        }
+
+      case 'message':
+        if (!profile) return '❌ You must link your Discord account first. Use `/link` command.';
+        
+        const targetUser = options.find((opt: any) => opt.name === 'user')?.value;
+        const messageContent = options.find((opt: any) => opt.name === 'content')?.value;
+        
+        if (!targetUser || !messageContent) {
+          return '❌ Please provide both username and message content.';
+        }
+        
+        // Find target user
+        const { data: target } = await supabase
+          .from('profiles')
+          .select('id, full_name, role, discord_id')
+          .ilike('full_name', `%${targetUser}%`)
+          .single();
+        
+        if (target) {
+          // Send to database (website will show this)
+          const { error } = await supabase
+            .from('messages')
+            .insert({
+              sender_id: userId,
+              sender_role: role,
+              receiver_id: target.id,
+              receiver_role: target.role,
+              content: `${messageContent}\n\n*Sent via Discord Oracle*`,
+              team_id: teamId
+            });
+          
+          if (!error) {
+            let response = `✅ **Message sent to ${target.full_name}:**\n"${messageContent}"\n\n📱 **Delivered to:** Website dashboard`;
+            
+            // Try to send Discord DM if they have Discord linked
+            if (target.discord_id && DISCORD_BOT_TOKEN) {
+              try {
+                const dmResponse = await fetch(`https://discord.com/api/v10/users/@me/channels`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({ recipient_id: target.discord_id })
+                });
+                
+                if (dmResponse.ok) {
+                  const dmChannel = await dmResponse.json();
+                  
+                  await fetch(`https://discord.com/api/v10/channels/${dmChannel.id}/messages`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      content: `💬 **Message from ${profile.full_name} via PieFi Oracle:**\n\n${messageContent}\n\n*This message was also sent to your PieFi dashboard*`
+                    })
+                  });
+                  
+                  response += ` + Discord DM`;
+                }
+              } catch (dmError) {
+                console.error('Failed to send Discord DM:', dmError);
+              }
+            }
+            
+            return response;
+          } else {
+            return `❌ Failed to send message: ${error.message}`;
+          }
+        } else {
+          return `❌ User "${targetUser}" not found. Use \`/find\` to search first.`;
+        }
+
+      case 'update':
+        if (!profile) return '❌ You must link your Discord account first. Use `/link` command.';
+        if (!teamId) return '❌ You must be assigned to a team to log updates.';
+        
+        const progressContent = options.find((opt: any) => opt.name === 'progress')?.value;
+        if (!progressContent) return '❌ Please provide update content.';
+        
+        const { error } = await supabase
+          .from('updates')
+          .insert({
+            team_id: teamId,
+            content: progressContent,
+            type: 'daily',
+            created_by: userId
+          });
+        
+        if (!error) {
+          // Also update team status
+          await supabase
+            .from('team_status')
+            .upsert({
+              team_id: teamId,
+              current_status: progressContent.substring(0, 200),
+              last_update: new Date().toISOString()
+            });
+          
+          return `✅ **Progress Update Logged:**\n"${progressContent}"\n\n📊 Team status updated\n⏰ ${new Date().toLocaleString()}\n🔄 Synced to PieFi website`;
+        } else {
+          return `❌ Failed to log update: ${error.message}`;
+        }
+
+      case 'link':
+        // Generate linking code
+        const linkCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+        
+        await supabase
+          .from('discord_link_requests')
+          .insert({
+            discord_id: discordId,
+            discord_username: username,
+            link_code: linkCode,
+            expires_at: expiresAt.toISOString()
+          });
+        
+        return `🔗 **Link Your Discord to PieFi Account**
+
+**Link Code:** \`${linkCode}\`
+**Expires:** ${expiresAt.toLocaleTimeString()}
+
+**How to link:**
+1. Go to PieFi website and log in
+2. Go to your profile settings
+3. Enter the code: \`${linkCode}\`
+4. Your Discord and PieFi accounts will be fully synced!
+
+**Once linked you can:**
+✨ Use all Oracle commands with your account context
+💬 Send cross-platform messages
+📊 Log updates that sync to your team dashboard
+🔄 Full synchronization between Discord ↔ Website`;
+
+      default:
+        return `❌ Unknown command: ${commandName}. Use \`/help\` to see available commands.`;
+    }
+  } catch (error) {
+    console.error('Discord Oracle command error:', error);
+    return `❌ An error occurred while processing your command. Please try again or contact support.`;
+  }
+}
+
+// Log Discord bot interaction
+async function logBotInteraction(interaction: any, success: boolean, error?: string) {
+  try {
+    await supabase.from('bot_commands_log').insert({
+      command_name: interaction.data?.name || 'unknown',
+      guild_id: interaction.guild_id,
+      user_id: interaction.member?.user?.id || interaction.user?.id,
+      command_data: interaction.data,
+      success,
+      error_message: error,
+      response_time_ms: Date.now() - (interaction.timestamp || Date.now())
+    });
+  } catch (logError) {
+    console.error('Failed to log bot interaction:', logError);
+  }
+}
+
+serve(async (req) => {
+  const url = new URL(req.url);
+  
+  // Handle Discord interactions
+  if (req.method === 'POST') {
+    // Verify Discord signature
+    const isValid = await verifySignature(req);
+    if (!isValid) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+    
+    const interaction = await req.json();
+    
+    // Handle PING
+    if (interaction.type === InteractionType.PING) {
+      return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Handle slash commands
+    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+      try {
+        const commandName = interaction.data.name;
+        const options = interaction.data.options || [];
+        const user = interaction.member?.user || interaction.user;
+        
+        console.log(`Discord command: ${commandName} by ${user.username}`);
+        
+        const response = await handleOracleCommand(
+          commandName, 
+          options, 
+          user, 
+          interaction.guild_id
+        );
+        
+        await logBotInteraction(interaction, true);
+        
+        return new Response(JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: response,
+            flags: 64 // Ephemeral - only visible to the user
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+      } catch (error) {
+        console.error('Discord command error:', error);
+        await logBotInteraction(interaction, false, error.message);
+        
+        return new Response(JSON.stringify({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: '❌ An error occurred while processing your command. Please try again.',
+            flags: 64
+          }
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+  }
+  
+  // Handle GET requests - bot status page
+  if (req.method === 'GET') {
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PieFi Discord Bot</title>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+            .status { color: green; font-weight: bold; }
+            .command { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+          </style>
+        </head>
+        <body>
+          <h1>🛸 PieFi Discord Bot</h1>
+          <p class="status">✅ Bot is online and ready!</p>
+          
+          <h2>Available Commands:</h2>
+          ${DISCORD_COMMANDS.map(cmd => `
+            <div class="command">
+              <strong>/${cmd.name}</strong> - ${cmd.description}
+            </div>
+          `).join('')}
+          
+          <h2>Features:</h2>
+          <ul>
+            <li>🔄 Full sync with PieFi website Oracle</li>
+            <li>📚 Real resource fetching from web</li>
+            <li>👥 Cross-platform messaging</li>
+            <li>🔗 Account linking system</li>
+            <li>📊 Progress tracking and updates</li>
+          </ul>
+          
+          <p><strong>Interaction Endpoint:</strong> ${req.url}</p>
+          <p><em>Use this URL in Discord Developer Portal</em></p>
+        </body>
+      </html>
+    `, {
+      headers: { 'Content-Type': 'text/html' }
+    });
+  }
+  
+  return new Response('Method not allowed', { status: 405 });
+});

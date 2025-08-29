@@ -8,7 +8,8 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { SuperOracle } from "../SuperOracle";
+import { EnhancedResourceOracle } from "../EnhancedResourceOracle";
+import { UserProfileEditor } from "../UserProfileEditor";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface BuilderDashboardProps {
