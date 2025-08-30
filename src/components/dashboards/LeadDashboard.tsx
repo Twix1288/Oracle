@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { createTeam, deleteTeam, regenerateAccessCode, assignMemberToTeam } from "@/utils/teamManagement";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { KeyRound, Users, Shield, UserCheck, MessageSquare, Activity, Settings, Plus, Eye } from "lucide-react";
@@ -80,18 +81,13 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
     }
 
     try {
-      const { error } = await supabase
-        .from("teams")
-        .delete()
-        .eq("id", teamId);
-
-      if (error) throw error;
-
+      await deleteTeam(teamId);
       toast.success(`Team "${teamName}" deleted successfully.`);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["teams"] });
       queryClient.invalidateQueries({ queryKey: ["teamStatuses"] });
+      queryClient.invalidateQueries({ queryKey: ["members"] });
     } catch (error: any) {
       toast.error(`Failed to delete team: ${error.message}`);
     }
@@ -105,19 +101,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
 
     setIsCreating(true);
     try {
-      const { data, error } = await supabase
-        .from("teams")
-        .insert({
-          name: teamName,
-          description: null, // Will be filled during member onboarding
-          stage: 'ideation', // Default stage, will be updated during onboarding
-          tags: null, // Will be filled during member onboarding
-          access_code: generateAccessCode() // Add access code for team
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const team = await createTeam(teamName.trim());
 
       toast.success(`Team "${teamName}" created successfully! Team details will be completed when members join and complete onboarding.`);
       
@@ -342,7 +326,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                             size="sm"
                             onClick={async () => {
                               try {
-                                const newCode = await regenerateAccessCode(team.id, supabase);
+                                const newCode = await regenerateAccessCode(team.id);
                                 toast.success("Access code regenerated");
                                 queryClient.invalidateQueries({ queryKey: ["teams"] });
                               } catch (error: any) {
@@ -392,13 +376,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                         value={member.team_id || ""}
                         onValueChange={async (teamId) => {
                           try {
-                            const { error } = await supabase
-                              .from("members")
-                              .update({ team_id: teamId })
-                              .eq("id", member.id);
-                            
-                            if (error) throw error;
-                            
+                            await assignMemberToTeam(member.id, teamId || null);
                             toast.success("User assigned to team successfully");
                             queryClient.invalidateQueries({ queryKey: ["members"] });
                           } catch (error: any) {
