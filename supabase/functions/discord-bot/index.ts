@@ -673,17 +673,94 @@ serve(async (req) => {
     // Check if this is a command registration request
     if (url.searchParams.get('register') === 'true') {
       console.log('🎯 Command registration requested');
-      const success = await registerDiscordCommands();
-      return new Response(JSON.stringify({
-        success,
-        message: success ? 'Commands registered successfully!' : 'Failed to register commands. Check logs.',
-        timestamp: new Date().toISOString()
-      }), {
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders
+      
+      try {
+        // Check environment variables first
+        const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+        const APPLICATION_ID = Deno.env.get('DISCORD_APPLICATION_ID');
+        
+        if (!DISCORD_BOT_TOKEN) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Missing DISCORD_BOT_TOKEN environment variable',
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
         }
-      });
+        
+        if (!APPLICATION_ID) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: 'Missing DISCORD_APPLICATION_ID environment variable',
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+        
+        // Try to register commands and return detailed response
+        const url_discord = `https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`;
+        
+        const response = await fetch(url_discord, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(DISCORD_COMMANDS),
+        });
+
+        const responseText = await response.text();
+        
+        if (response.ok) {
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Commands registered successfully!',
+            discord_response: responseText,
+            commands_count: DISCORD_COMMANDS.length,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        } else {
+          return new Response(JSON.stringify({
+            success: false,
+            message: `Discord API Error: ${response.status} ${response.statusText}`,
+            discord_error: responseText,
+            api_url: url_discord,
+            commands_sent: DISCORD_COMMANDS.length,
+            timestamp: new Date().toISOString()
+          }), {
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+        
+      } catch (error) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `Exception during registration: ${error.message}`,
+          error_stack: error.stack,
+          timestamp: new Date().toISOString()
+        }), {
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
     }
     
     return new Response(`
