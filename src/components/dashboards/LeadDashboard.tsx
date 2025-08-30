@@ -125,13 +125,13 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
   };
 
   const getEngagementMetrics = () => {
-    const totalTeams = teams.length;
-    const activeTeams = teamStatuses.filter(status => 
+    const totalTeams = teams?.length || 0;
+    const activeTeams = teamStatuses?.filter(status => 
       status.last_update && new Date(status.last_update) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    ).length;
-    const recentUpdates = updates.filter(update => 
+    ).length || 0;
+    const recentUpdates = updates?.filter(update => 
       new Date(update.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-    ).length;
+    ).length || 0;
 
     return { totalTeams, activeTeams, recentUpdates };
   };
