@@ -271,12 +271,65 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
         </TabsList>
 
         <TabsContent value="overview">
-          <TeamDashboard 
-            teams={teams} 
-            teamStatuses={teamStatuses} 
-            members={members} 
-            selectedRole="lead" 
-          />
+          <div className="space-y-6">
+            {/* Team Overview with Delete Options */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {teams.map((team) => {
+                const teamMembers = members.filter(m => m.team_id === team.id);
+                const teamStatus = teamStatuses.find(s => s.team_id === team.id);
+                
+                return (
+                  <Card key={team.id} className="glow-border bg-card/50 backdrop-blur">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-lg">{team.name}</CardTitle>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openDeleteConfirmation(team)}
+                        disabled={deletingTeam === team.id}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{team.stage}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      
+                      {team.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {team.description}
+                        </p>
+                      )}
+                      
+                      {teamStatus?.current_status && (
+                        <div className="p-2 bg-muted/50 rounded text-xs">
+                          <span className="text-muted-foreground">Latest: </span>
+                          {teamStatus.current_status}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+            
+            {teams.length === 0 && (
+              <Card className="glow-border bg-card/50 backdrop-blur">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Users className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No teams yet</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create your first team to get started with the platform.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="teams">
@@ -369,20 +422,9 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {teams.map((team) => (
                     <div key={team.id} className="p-3 rounded-lg bg-background/30 border border-primary/10 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium">{team.name}</h4>
-                          <Badge variant="outline">{team.stage}</Badge>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openDeleteConfirmation(team)}
-                          disabled={deletingTeam === team.id}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{team.name}</h4>
+                        <Badge variant="outline">{team.stage}</Badge>
                       </div>
                       <div className="space-y-2">
                         <Label>Assigned Mentor</Label>
