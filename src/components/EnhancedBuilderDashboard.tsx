@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardHeader } from "./DashboardHeader";
 import { ProgressTracker } from "./ProgressTracker";
 import { TeamProfileCard } from "./TeamProfileCard";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { LoadingSpinner } from "./LoadingSpinner";
 import { QueryBar } from "./QueryBar";
 import { SuperOracle } from "./SuperOracle";
 import { OnboardingFlow } from "./OnboardingFlow";
@@ -60,12 +62,22 @@ export const EnhancedBuilderDashboard = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentTeam, setCurrentTeam] = useState(team);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // Check if team needs onboarding (minimal description or no updates)
-useEffect(() => {
+  useEffect(() => {
     const needsOnboarding = !team.description || team.description.length < 10 || updates.length === 0;
     setShowOnboarding(needsOnboarding);
   }, [team, updates]);
+
+  const handleLeaveTeamClick = () => {
+    setShowLeaveConfirm(true);
+  };
+
+  const confirmLeaveTeam = () => {
+    onLeaveTeam();
+    setShowLeaveConfirm(false);
+  };
 
   // One-time: Ingest PieFi dashboard template into documents for Oracle reference
   useEffect(() => {
@@ -406,7 +418,7 @@ Investment Opportunity & Funding Needs`;
         role="builder"
         userName={builderName}
         teamName={currentTeam.name}
-        onExit={onLeaveTeam}
+        onExit={handleLeaveTeamClick}
       />
       
       <div className="container mx-auto px-6 py-8 space-y-8">
@@ -417,7 +429,7 @@ Investment Opportunity & Funding Needs`;
               team={currentTeam} 
               builderName={builderName}
               teamMemberCount={teamMembers.length}
-              onLeaveTeam={onLeaveTeam}
+              onLeaveTeam={handleLeaveTeamClick}
             />
             <div className="space-y-3">
               <h1 className="text-4xl font-bold text-glow fade-in-up">{currentTeam.name}</h1>
@@ -623,6 +635,17 @@ Investment Opportunity & Funding Needs`;
           </TabsContent>
         </Tabs>
       </div>
+      
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        onOpenChange={setShowLeaveConfirm}
+        title="Leave Team Session"
+        description="Are you sure you want to leave this team session? You'll need to authenticate again to rejoin."
+        confirmText="Leave Team"
+        cancelText="Stay"
+        variant="destructive"
+        onConfirm={confirmLeaveTeam}
+      />
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Target, Lightbulb, Users, Rocket, TrendingUp } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { BackButton } from "./BackButton";
 import type { Team, TeamStage } from "@/types/oracle";
 
 interface OnboardingFlowProps {
@@ -209,9 +210,11 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
             </div>
 
             <div className="flex gap-4">
-              <Button variant="outline" onClick={handleBack} className="flex-1 glass-button">
-                Back
-              </Button>
+              <BackButton 
+                onClick={handleBack}
+                text="Back"
+                className="flex-1 mb-0"
+              />
               <Button onClick={handleNext} className="flex-1 ufo-gradient hover:opacity-90 font-semibold">
                 Continue to Mentorship
               </Button>
@@ -241,9 +244,11 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                Back
-              </Button>
+              <BackButton 
+                onClick={handleBack}
+                text="Back"
+                className="flex-1 mb-0"
+              />
               <Button 
                 onClick={handleNext} 
                 disabled={!formData.mentorshipNeeds.trim()}
@@ -298,9 +303,11 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                Back
-              </Button>
+              <BackButton 
+                onClick={handleBack}
+                text="Back"
+                className="flex-1 mb-0"
+              />
               <Button 
                 onClick={handleComplete} 
                 disabled={isLoading}

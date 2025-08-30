@@ -1,7 +1,9 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, Home, ArrowLeft, X } from "lucide-react";
+import { LogOut, Home, ArrowLeft, X, User } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 import type { UserRole } from "@/types/oracle";
 
 interface DashboardHeaderProps {
@@ -13,6 +15,17 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader = ({ role, userName, teamName, onExit, onHome }: DashboardHeaderProps) => {
+  const { signOut, user } = useAuth();
+  
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      toast.error("Failed to log out");
+    }
+  };
+
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case 'builder': return 'Builder';
@@ -62,14 +75,26 @@ export const DashboardHeader = ({ role, userName, teamName, onExit, onHome }: Da
                 Back to Menu
               </Button>
             )}
+            
             <Button 
               onClick={onExit}
-              variant="destructive"
+              variant="outline"
               size="sm"
-              className="bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/20"
+              className="bg-background hover:bg-muted/50 border-border"
             >
               <X className="w-4 h-4 mr-2" />
               Exit Dashboard
+            </Button>
+            
+            <Button 
+              onClick={handleLogout}
+              variant="destructive"
+              size="sm"
+              className="bg-destructive hover:bg-destructive/90"
+              title="Sign out of your account"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
             </Button>
           </div>
         </div>
