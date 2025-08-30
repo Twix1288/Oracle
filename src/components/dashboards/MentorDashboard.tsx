@@ -7,7 +7,7 @@ import { User, MessageSquare, TrendingUp, AlertTriangle, BookOpen } from "lucide
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { SuperOracle } from "../SuperOracle";
+import { GloriousOracle } from "../GloriousOracle";
 import { MentorRequests } from "../MentorRequests";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +23,7 @@ interface MentorDashboardProps {
 }
 
 export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorId, onExit }: MentorDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("teams");
+  const [activeTab, setActiveTab] = useState("oracle");
   const [reqLoading, setReqLoading] = useState(false);
   const [reqSummary, setReqSummary] = useState<string>("");
 
@@ -101,6 +101,10 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-6 bg-card/50 backdrop-blur border-primary/20">
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Oracle Intelligence
+          </TabsTrigger>
           <TabsTrigger value="teams" className="data-[state=active]:bg-primary/20">
             <User className="h-4 w-4 mr-2" />
             My Teams
@@ -113,10 +117,6 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
             <AlertTriangle className="h-4 w-4 mr-2" />
             Requests
           </TabsTrigger>
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Oracle Assistant
-          </TabsTrigger>
           <TabsTrigger value="resources" className="data-[state=active]:bg-primary/20">
             <BookOpen className="h-4 w-4 mr-2" />
             Resources
@@ -126,6 +126,12 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
             Guidance
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="oracle">
+          <GloriousOracle 
+            selectedRole="mentor"
+          />
+        </TabsContent>
 
         <TabsContent value="teams">
           {assignedTeams.length === 0 ? (
@@ -196,11 +202,6 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
           </div>
         </TabsContent>
 
-        <TabsContent value="oracle">
-          <SuperOracle 
-            selectedRole="mentor"
-          />
-        </TabsContent>
 
         <TabsContent value="resources">
           <Card className="glow-border bg-card/50 backdrop-blur">

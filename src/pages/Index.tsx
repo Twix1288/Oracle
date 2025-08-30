@@ -214,9 +214,7 @@ function Index() {
             members={members || []}
             updates={updates || []}
             teamStatuses={teamStatuses}
-            onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
-              submitUpdate({ teamId, content, type, createdBy })
-            }
+            onSubmitUpdate={submitUpdate}
             onQueryRAG={(params: { query: string; role: UserRole }) => 
               queryRAG(params)
             }
@@ -233,9 +231,7 @@ function Index() {
             selectedRole={selectedRole}
             builderId="current-builder"
             teamId={teams?.[0]?.id}
-            onSubmitUpdate={(update: any) => 
-              submitUpdate(update)
-            }
+            onSubmitUpdate={submitUpdate}
             onQueryRAG={(query: string, role: UserRole) => 
               queryRAG({ query, role })
             }

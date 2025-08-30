@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, Users, TrendingUp, Calendar, Sparkles, MessageSquare } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { EnhancedResourceOracle } from "../EnhancedResourceOracle";
+import { GloriousOracle } from "../GloriousOracle";
 import { UserProfileEditor } from "../UserProfileEditor";
 import type { Team, Update } from "@/types/oracle";
 
@@ -15,7 +15,7 @@ interface GuestDashboardProps {
 }
 
 export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("oracle");
   // Filter to show only sanitized, public data
   const publicTeams = teams.map(team => ({
     ...team,
@@ -127,19 +127,25 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 ufo-card">
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Oracle Intelligence
+          </TabsTrigger>
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Eye className="h-4 w-4 mr-2" />
             Overview
-          </TabsTrigger>
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Ask Oracle
           </TabsTrigger>
           <TabsTrigger value="about" className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary">
             <Sparkles className="h-4 w-4 mr-2" />
             About
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="oracle">
+          <GloriousOracle 
+            selectedRole="guest"
+          />
+        </TabsContent>
 
         <TabsContent value="overview">
       {/* Active Teams Overview */}
@@ -237,11 +243,6 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
       </Card>
         </TabsContent>
 
-        <TabsContent value="oracle">
-          <EnhancedResourceOracle 
-            selectedRole="guest"
-          />
-        </TabsContent>
 
         <TabsContent value="about">
           {/* FAQ Section */}

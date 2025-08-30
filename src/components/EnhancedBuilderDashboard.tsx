@@ -39,7 +39,7 @@ interface EnhancedBuilderDashboardProps {
   members: Member[];
   updates: Update[];
   teamStatuses?: TeamStatus[];
-  onSubmitUpdate?: (teamId: string, content: string, type: UpdateType, createdBy?: string) => void;
+  onSubmitUpdate?: (params: { teamId: string; content: string; type: UpdateType; createdBy?: string }) => void;
   onQueryRAG?: (params: { query: string; role: UserRole }) => void;
   ragResponse?: any;
   ragLoading?: boolean;
