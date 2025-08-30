@@ -238,7 +238,7 @@ export const GuestDashboard = ({ teams, updates, onExit }: GuestDashboardProps) 
         </TabsContent>
 
         <TabsContent value="oracle">
-          <SuperOracle 
+          <EnhancedResourceOracle 
             selectedRole="guest"
           />
         </TabsContent>

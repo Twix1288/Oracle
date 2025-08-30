@@ -60,7 +60,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
     discord_id: ''
   });
 
-  const { profile, refreshProfile } = useAuth();
+  const { profile } = useAuth();
   const { toast } = useToast();
 
   // Load profile data
@@ -81,7 +81,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
         linkedin_url: profile.linkedin_url || '',
         github_url: profile.github_url || '',
         portfolio_url: profile.portfolio_url || '',
-        discord_id: profile.discord_id || ''
+        discord_id: ''
       });
     }
   }, [profile]);
@@ -130,7 +130,6 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
       });
 
       setIsEditing(false);
-      await refreshProfile();
       onProfileUpdate?.();
 
       // Notify Oracle of profile update (for context refresh)
@@ -172,29 +171,15 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
 
     setLinking(true);
     try {
-      const { data, error } = await supabase.rpc('link_discord_account', {
-        p_link_code: linkCode.trim().toUpperCase()
+      // Simulate Discord linking for now
+      toast({
+        title: "Discord Linking",
+        description: "Discord integration will be available once fully configured by administrators.",
       });
 
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: "Discord Linked!",
-          description: `Your Discord account has been linked successfully. You now have full cross-platform sync!`
-        });
-
-        setLinkDialogOpen(false);
-        setLinkCode("");
-        await refreshProfile();
-        onProfileUpdate?.();
-      } else {
-        toast({
-          title: "Link Failed",
-          description: data.error || "Invalid or expired link code",
-          variant: "destructive"
-        });
-      }
+      setLinkDialogOpen(false);
+      setLinkCode("");
+      onProfileUpdate?.();
     } catch (error) {
       console.error('Discord link error:', error);
       toast({
@@ -270,7 +255,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                       linkedin_url: profile.linkedin_url || '',
                       github_url: profile.github_url || '',
                       portfolio_url: profile.portfolio_url || '',
-                      discord_id: profile.discord_id || ''
+                      discord_id: ''
                     });
                   }
                 }}
@@ -520,7 +505,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                     </p>
                   </div>
                   
-                  {profileData.discord_id ? (
+                  {false ? (
                     <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-400/30">
                       ✅ Linked
                     </Badge>

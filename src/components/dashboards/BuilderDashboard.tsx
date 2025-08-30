@@ -318,7 +318,7 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="oracle">
-          <SuperOracle 
+          <EnhancedResourceOracle 
             selectedRole="builder"
             teamId={teamId}
           />
