@@ -65,58 +65,57 @@ export const DiscordBotManagement = () => {
 
   const fetchBotData = async () => {
     try {
-      // Simulate bot status since we don't have the full Discord integration yet
+      // Fetch real bot command logs
+      const { data: commandLogs } = await supabase
+        .from('bot_commands_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      // Fetch linked accounts
+      const { data: linkedAccountsData } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, discord_id, created_at')
+        .not('discord_id', 'is', null);
+      
+      // Calculate bot status from real data
+      const commandsExecuted = commandLogs?.length || 0;
+      const successfulCommands = commandLogs?.filter(cmd => cmd.success).length || 0;
+      const errors = commandLogs?.filter(cmd => !cmd.success).length || 0;
+      const linkedAccounts = linkedAccountsData?.length || 0;
+      
       setBotStatus({
-        online: true,
-        lastPing: new Date().toISOString(),
-        commandsExecuted: 42,
-        linkedAccounts: 3,
-        errors: 0
+        online: true, // Bot is considered online if it exists
+        lastPing: commandLogs?.[0]?.created_at || new Date().toISOString(),
+        commandsExecuted: commandsExecuted,
+        linkedAccounts: linkedAccounts,
+        errors: errors
       });
 
-      // Mock recent commands for display
-      const mockCommands: BotCommand[] = [
-        {
-          id: '1',
-          command_name: 'resources',
-          user_id: 'user123',
-          guild_id: 'guild456',
-          success: true,
-          created_at: new Date().toISOString(),
-          response_time_ms: 250
-        },
-        {
-          id: '2',
-          command_name: 'help',
-          user_id: 'user789',
-          guild_id: 'guild456',
-          success: true,
-          created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-          response_time_ms: 150
-        }
-      ];
+      // Set real command logs
+      const formattedCommands: BotCommand[] = (commandLogs || []).map(cmd => ({
+        id: cmd.id,
+        command_name: cmd.command_name,
+        user_id: cmd.user_id || 'unknown',
+        guild_id: cmd.guild_id || 'unknown',
+        success: cmd.success,
+        error_message: cmd.error_message,
+        created_at: cmd.created_at,
+        response_time_ms: cmd.response_time_ms
+      }));
       
-      setRecentCommands(mockCommands);
+      setRecentCommands(formattedCommands);
 
-      // Mock linked accounts
-      const mockLinkedAccounts: LinkedAccount[] = [
-        {
-          id: '1',
-          full_name: 'John Doe',
-          role: 'builder',
-          discord_id: '123456789',
-          linked_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          full_name: 'Jane Smith',
-          role: 'mentor',
-          discord_id: '987654321',
-          linked_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        }
-      ];
+      // Set real linked accounts
+      const formattedAccounts: LinkedAccount[] = (linkedAccountsData || []).map(account => ({
+        id: account.id,
+        full_name: account.full_name || 'Unknown User',
+        role: account.role || 'guest',
+        discord_id: account.discord_id || '',
+        linked_at: account.created_at
+      }));
       
-      setLinkedAccounts(mockLinkedAccounts);
+      setLinkedAccounts(formattedAccounts);
 
     } catch (error) {
       console.error('Failed to fetch bot data:', error);

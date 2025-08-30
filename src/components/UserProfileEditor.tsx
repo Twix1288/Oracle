@@ -81,7 +81,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
         linkedin_url: profile.linkedin_url || '',
         github_url: profile.github_url || '',
         portfolio_url: profile.portfolio_url || '',
-        discord_id: ''
+        discord_id: (profile as any).discord_id || ''
       });
     }
   }, [profile]);
@@ -171,20 +171,40 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
 
     setLinking(true);
     try {
-      // Simulate Discord linking for now
-      toast({
-        title: "Discord Linking",
-        description: "Discord integration will be available once fully configured by administrators.",
+      // Call the Discord linking function from database
+      const { data, error } = await supabase.rpc('link_discord_account', {
+        p_link_code: linkCode.trim().toUpperCase()
       });
 
-      setLinkDialogOpen(false);
-      setLinkCode("");
-      onProfileUpdate?.();
+      if (error) throw error;
+
+      // Type-safe handling of the response
+      const result = data as any;
+      
+      if (result?.success) {
+        toast({
+          title: "Discord Account Linked!",
+          description: `Successfully linked Discord account: ${result.discord_username || 'Discord User'}. Now you can use Oracle on both platforms!`
+        });
+
+        setLinkDialogOpen(false);
+        setLinkCode("");
+        onProfileUpdate?.();
+        
+        // Refresh profile data
+        window.location.reload();
+      } else {
+        toast({
+          title: "Link Failed",
+          description: result?.error || "Invalid or expired link code",
+          variant: "destructive"
+        });
+      }
     } catch (error) {
       console.error('Discord link error:', error);
       toast({
         title: "Link Error",
-        description: "Failed to link Discord account. Please try again.",
+        description: "Failed to link Discord account. Please check your link code and try again.",
         variant: "destructive"
       });
     } finally {
@@ -255,7 +275,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                       linkedin_url: profile.linkedin_url || '',
                       github_url: profile.github_url || '',
                       portfolio_url: profile.portfolio_url || '',
-                      discord_id: ''
+                      discord_id: (profile as any).discord_id || ''
                     });
                   }
                 }}
@@ -505,11 +525,11 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                     </p>
                   </div>
                   
-                  {false ? (
-                    <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-400/30">
-                      ✅ Linked
-                    </Badge>
-                  ) : (
+                   {profileData.discord_id ? (
+                     <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-400/30">
+                       ✅ Linked
+                     </Badge>
+                   ) : (
                     <Dialog open={isLinkDialogOpen} onOpenChange={setLinkDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm">
