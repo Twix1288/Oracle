@@ -6,7 +6,6 @@ export interface Team {
   name: string;
   description: string | null;
   stage: TeamStage;
-  access_code: string | null;
   created_at: string;
   updated_at: string;
   is_archived: boolean;
@@ -24,33 +23,6 @@ export interface Member {
   updated_at: string;
 }
 
-// Generate a unique access code
-export const generateAccessCode = async (): Promise<string> => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code: string;
-  let isUnique = false;
-
-  while (!isUnique) {
-    // Generate a random 8-character code
-    code = Array.from({ length: 8 }, () => 
-      characters.charAt(Math.floor(Math.random() * characters.length))
-    ).join('');
-
-    // Check if code is unique
-    const { data } = await supabase
-      .from('teams')
-      .select('id')
-      .eq('access_code', code);
-
-    if (!data || data.length === 0) {
-      isUnique = true;
-      return code;
-    }
-  }
-
-  throw new Error('Failed to generate unique access code');
-};
-
 // Create a new team
 export const createTeam = async (
   name: string,
@@ -58,16 +30,14 @@ export const createTeam = async (
   stage: TeamStage = 'ideation',
   leadId: string
 ): Promise<Team> => {
-  const access_code = await generateAccessCode();
-
   const { data, error } = await supabase
     .from('teams')
     .insert({
       name,
       description,
       stage,
-      access_code,
-      created_by: leadId
+      created_by: leadId,
+      is_archived: false
     })
     .select()
     .single();
@@ -82,7 +52,6 @@ export const deleteTeam = async (teamId: string): Promise<void> => {
     .from('teams')
     .update({ 
       is_archived: true,
-      access_code: null, // Invalidate access code
       updated_at: new Date().toISOString()
     })
     .eq('id', teamId);
@@ -96,19 +65,6 @@ export const deleteTeam = async (teamId: string): Promise<void> => {
     .eq('team_id', teamId);
 
   if (memberError) throw memberError;
-};
-
-// Regenerate team access code
-export const regenerateAccessCode = async (teamId: string): Promise<string> => {
-  const newCode = await generateAccessCode();
-
-  const { error } = await supabase
-    .from('teams')
-    .update({ access_code: newCode })
-    .eq('id', teamId);
-
-  if (error) throw error;
-  return newCode;
 };
 
 // Get unassigned members
@@ -145,19 +101,6 @@ export const getTeamMembers = async (teamId: string): Promise<Member[]> => {
   return data || [];
 };
 
-// Validate team access code
-export const validateAccessCode = async (code: string): Promise<Team | null> => {
-  const { data, error } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('access_code', code)
-    .eq('is_archived', false)
-    .single();
-
-  if (error) return null;
-  return data;
-};
-
 // Get all active teams
 export const getActiveTeams = async (): Promise<Team[]> => {
   const { data, error } = await supabase
@@ -181,4 +124,51 @@ export const getTeamUpdates = async (teamId: string): Promise<any[]> => {
 
   if (error) throw error;
   return data || [];
+};
+
+// Create team update
+export const createTeamUpdate = async (
+  teamId: string,
+  content: string,
+  type: 'daily' | 'milestone' | 'mentor_meeting',
+  createdBy: string
+): Promise<void> => {
+  const { error } = await supabase
+    .from('updates')
+    .insert({
+      team_id: teamId,
+      content,
+      type,
+      created_by: createdBy
+    });
+
+  if (error) throw error;
+};
+
+// Update team status
+export const updateTeamStatus = async (
+  teamId: string,
+  currentStatus: string,
+  pendingActions?: string[]
+): Promise<void> => {
+  const { error } = await supabase
+    .from('team_status')
+    .upsert({
+      team_id: teamId,
+      current_status: currentStatus,
+      pending_actions: pendingActions,
+      last_update: new Date().toISOString()
+    });
+
+  if (error) throw error;
+};
+
+// Assign mentor to team
+export const assignMentorToTeam = async (teamId: string, mentorId: string | null): Promise<void> => {
+  const { error } = await supabase
+    .from('teams')
+    .update({ assigned_mentor_id: mentorId })
+    .eq('id', teamId);
+
+  if (error) throw error;
 };
