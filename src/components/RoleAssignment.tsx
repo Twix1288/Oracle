@@ -80,7 +80,7 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
     setIsProcessing(true);
     try {
       const { error } = await updateProfile({
-        role: 'guest' as any,
+        role: 'guest',
         onboarding_completed: true
       });
 
