@@ -20,7 +20,7 @@ export interface UserProfile {
   github_url?: string;
   portfolio_url?: string;
   team_id?: string;
-  role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
+  role: 'builder' | 'mentor' | 'lead' | 'guest';
   onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
@@ -129,7 +129,7 @@ export const useAuth = () => {
     return data as any;
   };
 
-  const assignRole = async (userId: string, role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned', reason?: string) => {
+  const assignRole = async (userId: string, role: 'builder' | 'mentor' | 'lead' | 'guest', reason?: string) => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
     const { data, error } = await supabase.rpc('assign_user_role', {

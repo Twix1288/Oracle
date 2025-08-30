@@ -931,10 +931,6 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
-      use_access_code: {
-        Args: { p_builder_name?: string; p_code: string; p_user_id: string }
-        Returns: Json
-      }
       validate_access_code: {
         Args: {
           p_code: string
@@ -990,7 +986,7 @@ export type Database = {
     Enums: {
       team_stage: "ideation" | "development" | "testing" | "launch" | "growth"
       update_type: "daily" | "milestone" | "mentor_meeting"
-      user_role: "builder" | "mentor" | "lead" | "guest" | "unassigned"
+      user_role: "builder" | "mentor" | "lead" | "guest"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1120,7 +1116,7 @@ export const Constants = {
     Enums: {
       team_stage: ["ideation", "development", "testing", "launch", "growth"],
       update_type: ["daily", "milestone", "mentor_meeting"],
-      user_role: ["builder", "mentor", "lead", "guest", "unassigned"],
+      user_role: ["builder", "mentor", "lead", "guest"],
     },
   },
 } as const

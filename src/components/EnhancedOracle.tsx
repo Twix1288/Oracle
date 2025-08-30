@@ -70,12 +70,6 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
     canEditOwnProgress: false,
     canSendMessages: true, // Everyone can send messages
     canChangeOracleState: false
-  },
-  unassigned: {
-    canViewTeamData: false,
-    canEditOwnProgress: false,
-    canSendMessages: false,
-    canChangeOracleState: false
   }
 };
 
