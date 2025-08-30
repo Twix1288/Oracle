@@ -413,9 +413,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
         <TabsContent value="discord" className="space-y-6">
           <div className="grid gap-6">
             <DiscordBotManagement />
-            <div className="border-t border-primary/20 pt-6">
-              <DiscordOAuthSetup userRole={selectedRole} />
-            </div>
+            <DiscordOAuthSetup userRole={selectedRole} />
           </div>
         </TabsContent>
 

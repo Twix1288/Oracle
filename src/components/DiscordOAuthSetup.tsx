@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,15 +20,42 @@ export const DiscordOAuthSetup = ({ userRole }: DiscordOAuthSetupProps) => {
   const [linkedAccount, setLinkedAccount] = useState<any>(null);
   const { toast } = useToast();
 
-  // Discord OAuth URLs for development and production
+  // Discord OAuth URLs - Use environment variables or fallback to placeholder
   const DISCORD_OAUTH_CONFIG = {
-    clientId: process.env.DISCORD_CLIENT_ID || '1234567890123456789', // Replace with actual Discord Client ID
+    clientId: '1408226131391418368', // Your actual Discord Client ID
     redirectUri: `${window.location.origin}/auth/discord/callback`,
     scope: 'identify',
     responseType: 'code'
   };
 
   const discordOAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_OAUTH_CONFIG.clientId}&redirect_uri=${encodeURIComponent(DISCORD_OAUTH_CONFIG.redirectUri)}&response_type=${DISCORD_OAUTH_CONFIG.responseType}&scope=${DISCORD_OAUTH_CONFIG.scope}`;
+
+  // Check for existing linked account on mount
+  useEffect(() => {
+    checkExistingLink();
+  }, []);
+
+  const checkExistingLink = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('discord_id, full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.discord_id) {
+          setLinkedAccount({
+            success: true,
+            discord_username: profile.full_name || 'Discord User'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking existing Discord link:', error);
+    }
+  };
 
   const handleDirectLink = async () => {
     // For direct OAuth linking, redirect to Discord

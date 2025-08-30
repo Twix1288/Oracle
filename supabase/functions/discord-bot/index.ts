@@ -4,8 +4,23 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const DISCORD_PUBLIC_KEY = Deno.env.get('DISCORD_PUBLIC_KEY');
 const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+const DISCORD_APPLICATION_ID = Deno.env.get('DISCORD_APPLICATION_ID');
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+// Validate environment variables
+if (!DISCORD_PUBLIC_KEY) {
+  console.error('❌ DISCORD_PUBLIC_KEY environment variable is required');
+}
+if (!DISCORD_BOT_TOKEN) {
+  console.error('❌ DISCORD_BOT_TOKEN environment variable is required');
+}
+if (!DISCORD_APPLICATION_ID) {
+  console.error('❌ DISCORD_APPLICATION_ID environment variable is required');
+}
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Supabase environment variables are required');
+}
 
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
@@ -693,43 +708,71 @@ serve(async (req) => {
           }
         });
         
-        // Process command in background
+        // Process command in background with proper timeout handling
         EdgeRuntime.waitUntil((async () => {
           try {
-            const response = await handleOracleCommand(
+            // Set a reasonable timeout for command processing
+            const commandPromise = handleOracleCommand(
               commandName, 
               options, 
               user, 
               interaction.guild_id
             );
             
+            // Race between command execution and timeout (increased to 8 seconds)
+            const timeoutPromise = new Promise<string>((_, reject) => {
+              setTimeout(() => reject(new Error('Command timeout')), 8000);
+            });
+            
+            const response = await Promise.race([commandPromise, timeoutPromise]);
+            
+            // Ensure response is not too long for Discord (2000 char limit)
+            const trimmedResponse = response.length > 1900 ? 
+              response.substring(0, 1897) + '...' : response;
+            
             // Send follow-up message
-            await fetch(`https://discord.com/api/v10/webhooks/${Deno.env.get('DISCORD_APPLICATION_ID')}/${interaction.token}`, {
+            const followUpResponse = await fetch(`https://discord.com/api/v10/webhooks/${DISCORD_APPLICATION_ID}/${interaction.token}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                content: response,
+                content: trimmedResponse,
                 flags: 64
               }),
             });
             
+            if (!followUpResponse.ok) {
+              const errorText = await followUpResponse.text();
+              console.error('Failed to send follow-up:', followUpResponse.status, errorText);
+              throw new Error(`Discord API error: ${followUpResponse.status}`);
+            }
+            
+            console.log(`✅ Discord command ${commandName} completed successfully for ${user.username}`);
             await logBotInteraction(interaction, true);
-          } catch (error) {
-            console.error('Discord command background error:', error);
             
-            // Send error follow-up
-            await fetch(`https://discord.com/api/v10/webhooks/${Deno.env.get('DISCORD_APPLICATION_ID')}/${interaction.token}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                content: '❌ An error occurred while processing your command. Please try again.',
-                flags: 64
-              }),
-            });
+          } catch (error) {
+            console.error(`❌ Discord command ${commandName} failed for ${user.username}:`, error);
+            
+            const errorMessage = error.message === 'Command timeout' 
+              ? '⏱️ Command processing timeout. The Oracle is working on your request but it\'s taking longer than expected. Please try a simpler query or check the website Oracle.'
+              : '❌ Command failed to execute. Please try again or use the website Oracle for complex queries.';
+            
+            // Send error follow-up with helpful suggestions
+            try {
+              await fetch(`https://discord.com/api/v10/webhooks/${DISCORD_APPLICATION_ID}/${interaction.token}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  content: errorMessage,
+                  flags: 64
+                }),
+              });
+            } catch (followUpError) {
+              console.error('Failed to send error follow-up:', followUpError);
+            }
             
             await logBotInteraction(interaction, false, error.message);
           }

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { KeyRound, Plus, Trash2, Eye, EyeOff, Copy, Check, Users2, UserPlus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import type { UserRole } from "@/types/oracle";
 import { Separator } from "@/components/ui/separator";
 
