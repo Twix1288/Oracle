@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Edit, Save, X, Plus, Link as LinkIcon, MessageSquare, Sparkles } from "lucide-react";
+import { User, Edit, Save, X, Plus, Sparkles } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,15 +33,11 @@ interface ProfileData {
   linkedin_url: string;
   github_url: string;
   portfolio_url: string;
-  discord_id: string;
 }
 
 export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setSaving] = useState(false);
-  const [isLinkDialogOpen, setLinkDialogOpen] = useState(false);
-  const [linkCode, setLinkCode] = useState("");
-  const [isLinking, setLinking] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
     full_name: '',
     email: '',
@@ -56,8 +52,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
     timezone: '',
     linkedin_url: '',
     github_url: '',
-    portfolio_url: '',
-    discord_id: ''
+    portfolio_url: ''
   });
 
   const { profile } = useAuth();
@@ -80,8 +75,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
         timezone: profile.timezone || '',
         linkedin_url: profile.linkedin_url || '',
         github_url: profile.github_url || '',
-        portfolio_url: profile.portfolio_url || '',
-        discord_id: (profile as any).discord_id || ''
+        portfolio_url: profile.portfolio_url || ''
       });
     }
   }, [profile]);
@@ -160,60 +154,6 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
     }
   };
 
-  const handleDiscordLink = async () => {
-    if (!linkCode.trim()) {
-      toast({
-        title: "Link Code Required",
-        description: "Please enter the link code from Discord",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLinking(true);
-    try {
-      // Call the Discord linking function from database
-      const { data, error } = await supabase.rpc('link_discord_account', {
-        p_link_code: linkCode.trim().toUpperCase()
-      });
-
-      if (error) throw error;
-
-      // Type-safe handling of the response
-      const result = data as any;
-      
-      if (result?.success) {
-        toast({
-          title: "Discord Account Linked!",
-          description: `Successfully linked Discord account: ${result.discord_username || 'Discord User'}. Now you can use Oracle on both platforms!`
-        });
-
-        setLinkDialogOpen(false);
-        setLinkCode("");
-        onProfileUpdate?.();
-        
-        // Invalidate auth queries to refresh profile data without full page reload
-        if (typeof onProfileUpdate === 'function') {
-          onProfileUpdate();
-        }
-      } else {
-        toast({
-          title: "Link Failed",
-          description: result?.error || "Invalid or expired link code",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Discord link error:', error);
-      toast({
-        title: "Link Error",
-        description: "Failed to link Discord account. Please check your link code and try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLinking(false);
-    }
-  };
 
   if (!profile) {
     return (
@@ -240,13 +180,6 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
         </div>
         
         <div className="flex items-center gap-2">
-          {profileData.discord_id && (
-            <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-400/30">
-              <MessageSquare className="h-3 w-3 mr-1" />
-              Discord Linked
-            </Badge>
-          )}
-          
           {!isEditing ? (
             <Button
               onClick={() => setIsEditing(true)}
@@ -277,8 +210,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                       timezone: profile.timezone || '',
                       linkedin_url: profile.linkedin_url || '',
                       github_url: profile.github_url || '',
-                      portfolio_url: profile.portfolio_url || '',
-                      discord_id: (profile as any).discord_id || ''
+                      portfolio_url: profile.portfolio_url || ''
                     });
                   }
                 }}
@@ -513,101 +445,6 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                     className="bg-background/50"
                   />
                 </div>
-              </div>
-
-              {/* Discord Linking */}
-              <div className="p-4 rounded-lg bg-background/30 border border-primary/10">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h4 className="font-medium flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      Discord Integration
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      Link your Discord for cross-platform Oracle sync
-                    </p>
-                  </div>
-                  
-                   {profileData.discord_id ? (
-                     <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-400/30">
-                       ✅ Linked
-                     </Badge>
-                   ) : (
-                    <Dialog open={isLinkDialogOpen} onOpenChange={setLinkDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <LinkIcon className="h-4 w-4 mr-2" />
-                          Link Discord
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <MessageSquare className="h-5 w-5 text-primary" />
-                            Link Discord Account
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="text-sm text-muted-foreground">
-                            <p className="mb-3">To link your Discord account:</p>
-                            <ol className="list-decimal list-inside space-y-1">
-                              <li>Go to Discord and use <code>/link</code> command</li>
-                              <li>Copy the link code you receive</li>
-                              <li>Paste it below and click "Link Account"</li>
-                            </ol>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="linkCode">Link Code</Label>
-                            <Input
-                              id="linkCode"
-                              value={linkCode}
-                              onChange={(e) => setLinkCode(e.target.value.toUpperCase())}
-                              placeholder="Enter 6-digit code from Discord"
-                              maxLength={6}
-                              className="text-center font-mono text-lg"
-                            />
-                          </div>
-                          
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setLinkDialogOpen(false);
-                                setLinkCode("");
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              onClick={handleDiscordLink}
-                              disabled={isLinking || linkCode.length !== 6}
-                            >
-                              {isLinking ? (
-                                <div className="h-4 w-4 mr-2 animate-spin border-2 border-white border-t-transparent rounded-full" />
-                              ) : (
-                                <LinkIcon className="h-4 w-4 mr-2" />
-                              )}
-                              Link Account
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                </div>
-                
-                {profileData.discord_id && (
-                  <div className="text-sm text-muted-foreground">
-                    <p className="mb-2">✅ Your Discord is fully integrated:</p>
-                    <ul className="list-disc list-inside space-y-1 text-xs">
-                      <li>Cross-platform messaging (Discord ↔ Website)</li>
-                      <li>Synchronized Oracle commands</li>
-                      <li>Profile updates sync automatically</li>
-                      <li>Mentions work across both platforms</li>
-                    </ul>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

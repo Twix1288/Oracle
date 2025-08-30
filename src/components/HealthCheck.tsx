@@ -62,29 +62,6 @@ export const HealthCheck = () => {
       });
     }
 
-    // Check Discord bot
-    try {
-      const discordBotUrl = 'https://dijskfbokusyxkcfwkrc.supabase.co/functions/v1/discord-bot';
-      const response = await fetch(discordBotUrl, { 
-        method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
-      });
-      
-      checks.push({
-        service: 'Discord Bot',
-        status: response.ok ? 'healthy' : 'warning',
-        message: response.ok ? 'Bot endpoint responsive' : `HTTP ${response.status}`,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      checks.push({
-        service: 'Discord Bot',
-        status: 'error',
-        message: `Endpoint unreachable: ${error.message}`,
-        timestamp: new Date().toISOString()
-      });
-    }
-
     // Check authentication
     try {
       const { data: { user } } = await supabase.auth.getUser();

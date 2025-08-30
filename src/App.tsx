@@ -6,7 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Index from '@/pages/Index';
 import Auth from '@/pages/Auth';
 import NotFound from '@/pages/NotFound';
-import { DiscordCallback } from '@/pages/DiscordCallback';
+
 import { DetailedOnboarding } from '@/components/DetailedOnboarding';
 import { TeamJoinFlow } from '@/components/TeamJoinFlow';
 import { Loader2 } from 'lucide-react';
@@ -58,7 +58,7 @@ function App() {
               } 
             />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/discord/callback" element={<DiscordCallback />} />
+            
             <Route path="/404" element={<NotFound />} />
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Routes>

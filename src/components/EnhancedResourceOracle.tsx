@@ -185,7 +185,6 @@ I'm your intelligent AI companion with superpowers! I can:
 🔍 **Find Real Resources** - YouTube videos, articles, tutorials from across the web
 👥 **Connect People** - Search Piefi community first, then expand to LinkedIn 
 ⚡ **Execute Commands** - Natural language or slash commands work perfectly
-🌐 **Cross-Platform Sync** - Works seamlessly with Discord integration
 📚 **Contextual Learning** - Prioritizes Piefi docs and internal knowledge
 
 **Try these enhanced commands:**
@@ -194,7 +193,7 @@ I'm your intelligent AI companion with superpowers! I can:
 • \`/connect blockchain expert\` - Find people who can help
 • \`/find Sarah\` - Search for team members
 
-🚀 **Everything syncs across Discord ↔ Website automatically!**`,
+🚀 **Enhanced features for better team collaboration!**`,
       timestamp: new Date().toISOString(),
       author: {
         name: 'Enhanced Oracle',
@@ -263,7 +262,7 @@ I'm your intelligent AI companion with superpowers! I can:
             });
           });
           
-          helpMessage += `**💡 Enhanced Features:**\n• Real resource fetching from YouTube, articles, docs\n• Cross-platform Discord ↔ Website sync\n• Prioritizes Piefi community connections\n• Natural language understanding\n• External resource fallback`;
+          helpMessage += `**💡 Enhanced Features:**\n• Real resource fetching from YouTube, articles, docs\n• Prioritizes Piefi community connections\n• Natural language understanding\n• External resource fallback`;
           
           return {
             success: true,
@@ -446,7 +445,7 @@ I'm your intelligent AI companion with superpowers! I can:
           // Find target user
           const { data: targetUser } = await supabase
             .from('profiles')
-            .select('id, full_name, role, discord_id')
+            .select('id, full_name, role')
             .ilike('full_name', `%${targetMatch}%`)
             .single();
           
@@ -464,13 +463,7 @@ I'm your intelligent AI companion with superpowers! I can:
               });
             
             if (!error) {
-              // If user has Discord linked, also send Discord notification (future enhancement)
               let responseMsg = `✅ **Message sent to ${targetUser.full_name}:**\n"${messageContent}"\n\n📱 Delivered to: Website dashboard`;
-              
-              if (targetUser.discord_id) {
-                responseMsg += ` + Discord DM`;
-                // Future: trigger Discord notification
-              }
               
               return {
                 success: true,
@@ -865,10 +858,6 @@ I'm your intelligent AI companion with superpowers! I can:
                     Website Oracle (Current)
                   </li>
                   <li className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-blue-400" />
-                    Discord Bot Integration (Ready)
-                  </li>
-                  <li className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-purple-400" />
                     User Profile Sync
                   </li>
@@ -876,25 +865,13 @@ I'm your intelligent AI companion with superpowers! I can:
               </div>
               
               <div className="p-4 rounded-lg bg-background/30 border border-blue-500/20">
-                <h4 className="font-medium text-blue-400 mb-2">🔄 How Sync Works</h4>
+                <h4 className="font-medium text-blue-400 mb-2">🔄 How It Works</h4>
                 <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>• Messages sent here also go to Discord (if linked)</li>
-                  <li>• Discord commands mirror website commands</li>
-                  <li>• User profiles update across both platforms</li>
-                  <li>• Resources and connections are shared</li>
-                  <li>• Mentions work cross-platform</li>
+                  <li>• Real-time resource fetching and sharing</li>
+                  <li>• User profiles sync automatically</li>
+                  <li>• Team connections and mentions</li>
+                  <li>• Cross-platform resource sharing</li>
                 </ul>
-              </div>
-              
-              <div className="p-4 rounded-lg bg-background/30 border border-yellow-500/20">
-                <h4 className="font-medium text-yellow-400 mb-2">📱 Link Your Discord</h4>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Connect your Discord account for full cross-platform sync.
-                </p>
-                <Button variant="outline" size="sm">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Link Discord Account
-                </Button>
               </div>
             </CardContent>
           </Card>
