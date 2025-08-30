@@ -7,7 +7,7 @@ import { User, MessageSquare, TrendingUp, AlertTriangle, BookOpen } from "lucide
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { SuperOracle } from "../SuperOracle";
+import { GloriousOracle } from "../GloriousOracle";
 import { MentorRequests } from "../MentorRequests";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +23,7 @@ interface MentorDashboardProps {
 }
 
 export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorId, onExit }: MentorDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("teams");
+  const [activeTab, setActiveTab] = useState("oracle");
   const [reqLoading, setReqLoading] = useState(false);
   const [reqSummary, setReqSummary] = useState<string>("");
 
@@ -197,8 +197,13 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
         </TabsContent>
 
         <TabsContent value="oracle">
-          <SuperOracle 
+          <GloriousOracle 
             selectedRole="mentor"
+            teams={assignedTeams}
+            members={members}
+            updates={mentorUpdates}
+            teamStatuses={mentorTeamStatuses}
+            onExit={() => setActiveTab("teams")}
           />
         </TabsContent>
 

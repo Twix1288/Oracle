@@ -233,8 +233,8 @@ function Index() {
             selectedRole={selectedRole}
             builderId="current-builder"
             teamId={teams?.[0]?.id}
-            onSubmitUpdate={(update: any) => 
-              submitUpdate(update)
+            onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
+              submitUpdate({ teamId, content, type, createdBy })
             }
             onQueryRAG={(query: string, role: UserRole) => 
               queryRAG({ query, role })

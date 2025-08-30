@@ -16,7 +16,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { SuperOracle } from "../SuperOracle";
-import { AccessCodeManager } from "../AccessCodeManager";
+import { GloriousOracle } from "../GloriousOracle";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface LeadDashboardProps {
@@ -29,7 +29,7 @@ interface LeadDashboardProps {
 }
 
 export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedRole, onExit }: LeadDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("oracle");
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -147,86 +147,118 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
         role="lead" 
         onExit={onExit}
       />
-      <div className="container mx-auto px-6 pb-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
-          <Shield className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold text-glow">Lead Command Center</h1>
-          <p className="text-muted-foreground">Full mission control and oversight</p>
-        </div>
-      </div>
-
-      {/* Quick Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Users className="h-5 w-5 text-primary" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Teams</p>
-                <p className="text-2xl font-bold">{metrics.totalTeams}</p>
-              </div>
+      
+      {/* Check if Oracle tab is active - make it full screen */}
+      {activeTab === "oracle" ? (
+        <GloriousOracle 
+          selectedRole="lead"
+          teams={teams}
+          members={members}
+          updates={updates}
+          teamStatuses={teamStatuses}
+          onExit={() => setActiveTab("overview")}
+        />
+      ) : (
+        <div className="container mx-auto px-6 pb-6 space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+              <Shield className="h-6 w-6 text-primary" />
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Activity className="h-5 w-5 text-green-400" />
-              <div>
-                <p className="text-sm text-muted-foreground">Active This Week</p>
-                <p className="text-2xl font-bold">{metrics.activeTeams}</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-glow">Lead Command Center</h1>
+              <p className="text-muted-foreground">Full mission control and oversight</p>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="glow-border bg-card/50 backdrop-blur">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="h-5 w-5 text-blue-400" />
-              <div>
-                <p className="text-sm text-muted-foreground">Today's Updates</p>
-                <p className="text-2xl font-bold">{metrics.recentUpdates}</p>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Teams</p>
+                    <p className="text-2xl font-bold">{metrics.totalTeams}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <Activity className="h-5 w-5 text-green-400" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active This Week</p>
+                    <p className="text-2xl font-bold">{metrics.activeTeams}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="h-5 w-5 text-blue-400" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Today's Updates</p>
+                    <p className="text-2xl font-bold">{metrics.recentUpdates}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Oracle Access Button */}
+          <Card className="glow-border bg-gradient-to-r from-primary/10 via-purple-500/10 to-blue-500/10 border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+                    <KeyRound className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-glow">Summon The Oracle</h3>
+                    <p className="text-muted-foreground">Access infinite wisdom and cosmic intelligence</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={() => setActiveTab("oracle")}
+                  className="ufo-gradient px-8 py-3 text-lg"
+                >
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  Enter Oracle Realm
+                </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
 
-      {/* Main Dashboard */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
-            <Eye className="h-4 w-4 mr-2" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="teams" className="data-[state=active]:bg-primary/20">
-            <Users className="h-4 w-4 mr-2" />
-            Teams
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Messages
-          </TabsTrigger>
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
-            <Activity className="h-4 w-4 mr-2" />
-            Enhanced Oracle
-          </TabsTrigger>
-        </TabsList>
+          {/* Main Dashboard */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3 bg-card/50 backdrop-blur border-primary/20">
+              <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
+                <Eye className="h-4 w-4 mr-2" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="teams" className="data-[state=active]:bg-primary/20">
+                <Users className="h-4 w-4 mr-2" />
+                Teams
+              </TabsTrigger>
+              <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20">
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Messages
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="overview">
-          <TeamDashboard 
-            teams={teams} 
-            teamStatuses={teamStatuses} 
-            members={members} 
-            selectedRole="lead" 
-          />
-        </TabsContent>
+            <TabsContent value="overview">
+              <TeamDashboard 
+                teams={teams} 
+                teamStatuses={teamStatuses} 
+                members={members} 
+                selectedRole="lead" 
+              />
+            </TabsContent>
 
         <TabsContent value="teams">
           <div className="space-y-6">
@@ -376,17 +408,12 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
           </div>
         </TabsContent>
 
-        <TabsContent value="messages">
-          <MessagingCenter userRole="lead" accessCode="lead-user" />
-        </TabsContent>
-
-        <TabsContent value="oracle">
-          <SuperOracle 
-            selectedRole="lead"
-          />
-        </TabsContent>
-      </Tabs>
-      </div>
+            <TabsContent value="messages">
+              <MessagingCenter userRole="lead" accessCode="lead-user" />
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
     </>
   );
 };
