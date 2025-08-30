@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { X, Plus, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { X, Plus, ArrowLeft, ArrowRight, CheckCircle, Users, Shield, UserCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface DetailedOnboardingProps {
   onComplete: () => void;
@@ -45,6 +47,8 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
     linkedin_url: '',
     github_url: '',
     portfolio_url: '',
+    selected_team_id: '',
+    selected_role: '' as 'builder' | 'mentor' | 'lead' | '',
   });
 
   const [tempInputs, setTempInputs] = useState({
@@ -53,7 +57,7 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
     help: '',
   });
 
-  const totalSteps = 5;
+  const totalSteps = 6;
   const progress = (currentStep / totalSteps) * 100;
 
   const addItem = (type: 'skills' | 'personal_goals' | 'help_needed', value: string) => {
@@ -93,18 +97,42 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
     }
   };
 
+  // Fetch teams for selection
+  const { data: teams = [] } = useQuery({
+    queryKey: ['teams-for-onboarding'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('teams')
+        .select('id, name, description, stage')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const handleComplete = async () => {
     setLoading(true);
     try {
-      const { error } = await updateProfile({
+      const updateData: any = {
         ...formData,
         onboarding_completed: true,
-        role: 'builder', // Default role for new users
-      });
+        role: 'unassigned', // Users start as unassigned until they use access code
+      };
+
+      // Add team_id if selected
+      if (formData.selected_team_id) {
+        updateData.team_id = formData.selected_team_id;
+      }
+
+      // Remove the selection fields from the profile update
+      delete updateData.selected_team_id;
+      delete updateData.selected_role;
+
+      const { error } = await updateProfile(updateData);
 
       if (error) throw error;
 
-      toast.success('Profile completed! Welcome to PieFi!');
+      toast.success('Profile completed! You can now access your dashboard and use access codes to get your role.');
       onComplete();
     } catch (error: any) {
       toast.error(error.message || 'Failed to complete onboarding');
@@ -428,6 +456,106 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
           </div>
         );
 
+      case 6:
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Team & Role Selection</h2>
+              <p className="text-muted-foreground">Choose your team and expected role</p>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Role Selection */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">What role do you expect to have?</Label>
+                <div className="grid grid-cols-1 gap-3">
+                  {[
+                    { value: 'builder', label: 'Builder', description: 'Team member building products', icon: Users },
+                    { value: 'mentor', label: 'Mentor', description: 'Guide and advisor to teams', icon: UserCheck },
+                    { value: 'lead', label: 'Lead', description: 'Program leader or organizer', icon: Shield }
+                  ].map(({ value, label, description, icon: Icon }) => (
+                    <Card
+                      key={value}
+                      className={`cursor-pointer transition-all ${
+                        formData.selected_role === value 
+                          ? 'border-primary bg-primary/5' 
+                          : 'hover:border-primary/50'
+                      }`}
+                      onClick={() => setFormData(prev => ({ ...prev, selected_role: value as any }))}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${
+                            formData.selected_role === value 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted'
+                          }`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{label}</h4>
+                            <p className="text-sm text-muted-foreground">{description}</p>
+                          </div>
+                          {formData.selected_role === value && (
+                            <Badge className="bg-primary">Selected</Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* Team Selection */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Which team are you part of? (Optional)</Label>
+                <Select 
+                  value={formData.selected_team_id} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, selected_team_id: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a team (leave blank if not sure)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No team selected</SelectItem>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{team.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {team.stage}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.selected_team_id && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-sm">
+                      <strong>Selected Team:</strong> {teams.find(t => t.id === formData.selected_team_id)?.name}
+                    </div>
+                    {teams.find(t => t.id === formData.selected_team_id)?.description && (
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {teams.find(t => t.id === formData.selected_team_id)?.description}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Note about access codes */}
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📝 Important Note</h4>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  Your role will be confirmed when you use an access code in your dashboard. 
+                  This helps ensure proper permissions and team assignments.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -461,12 +589,18 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
             </Button>
             
             {currentStep < totalSteps ? (
-              <Button onClick={handleNext}>
+              <Button 
+                onClick={handleNext}
+                disabled={currentStep === 6 && !formData.selected_role}
+              >
                 Next
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleComplete} disabled={loading}>
+              <Button 
+                onClick={handleComplete} 
+                disabled={loading || !formData.selected_role}
+              >
                 {loading ? 'Completing...' : 'Complete Profile'}
                 <CheckCircle className="ml-2 h-4 w-4" />
               </Button>

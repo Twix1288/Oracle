@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Shield, Users, MessageSquare, Activity, Settings, Plus, Eye } from "lucide-react";
+import { KeyRound, Users, Shield, UserCheck, MessageSquare, Activity, Settings, Plus, Eye } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
@@ -233,127 +233,147 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
         </TabsContent>
 
         <TabsContent value="teams">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xl font-semibold">Team Management</h3>
-              <Dialog open={isCreateTeamOpen} onOpenChange={setIsCreateTeamOpen}>
-                <DialogTrigger asChild>
-                  <Button className="ufo-gradient">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Team
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Team</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="teamName">Team Name *</Label>
-                      <Input
-                        id="teamName"
-                        value={teamName}
-                        onChange={(e) => setTeamName(e.target.value)}
-                        placeholder="Enter team name"
-                      />
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Note:</strong> Team details (description, stage, goals) will be completed automatically when team members complete their onboarding process.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateTeam} disabled={isCreating}>
-                      {isCreating ? "Creating..." : "Create Team"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-            <TeamDashboard 
-              teams={teams} 
-              teamStatuses={teamStatuses} 
-              members={members} 
-              selectedRole="lead" 
-            />
-
-            {/* Mentor Assignment System */}
+          <div className="space-y-6">
+            {/* Simple Team Creation */}
             <Card className="glow-border bg-card/50 backdrop-blur">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Assign Mentors to Teams</CardTitle>
-                <Dialog open={isAddMentorOpen} onOpenChange={setIsAddMentorOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="ufo-gradient">
-                      <Plus className="h-4 w-4 mr-1" /> Add Mentor
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[420px]">
-                    <DialogHeader>
-                      <DialogTitle>Add Mentor</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-3 py-2">
-                      <div className="grid gap-2">
-                        <Label htmlFor="mentorName">Name *</Label>
-                        <Input
-                          id="mentorName"
-                          value={newMentorName}
-                          onChange={(e) => setNewMentorName(e.target.value)}
-                          placeholder="Enter mentor name"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setIsAddMentorOpen(false)}>Cancel</Button>
-                      <Button onClick={createMentor} disabled={savingMentor}>
-                        {savingMentor ? "Saving..." : "Save"}
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Team Management</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Create teams for builders to join during onboarding
+                    </p>
+                  </div>
+                  <Dialog open={isCreateTeamOpen} onOpenChange={setIsCreateTeamOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="ufo-gradient">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Team
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {mentorsList.length === 0 && (
-                  <div className="text-sm text-muted-foreground">No mentors yet. Use "Add Mentor" to create one.</div>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {teams.map((team) => (
-                    <div key={team.id} className="p-3 rounded-lg bg-background/30 border border-primary/10 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">{team.name}</h4>
-                        <Badge variant="outline">{team.stage}</Badge>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Create New Team</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="teamName">Team Name *</Label>
+                          <Input
+                            id="teamName"
+                            value={teamName}
+                            onChange={(e) => setTeamName(e.target.value)}
+                            placeholder="Enter team name"
+                          />
+                        </div>
+                        <div className="p-4 bg-muted/50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">
+                            <strong>Note:</strong> Team details will be completed when members join and complete onboarding.
+                          </p>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Assigned Mentor</Label>
-                        <Select
-                          value={mentorAssignments[team.id]}
-                          onValueChange={(val) =>
-                            setMentorAssignments((prev) => ({ ...prev, [team.id]: val as any }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select mentor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Unassigned</SelectItem>
-                            {mentorsList.map((m) => (
-                              <SelectItem key={m.id} value={m.id}>
-                                {m.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex justify-end">
-                        <Button size="sm" onClick={() => handleAssignMentor(team.id)}>
-                          Save
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setIsCreateTeamOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleCreateTeam} disabled={isCreating}>
+                          {isCreating ? "Creating..." : "Create Team"}
                         </Button>
                       </div>
-                    </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {teams.map((team) => (
+                    <Card key={team.id} className="border-primary/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">{team.name}</h4>
+                          <Badge variant="outline" className="text-xs">
+                            {team.stage}
+                          </Badge>
+                        </div>
+                        {team.description && (
+                          <p className="text-sm text-muted-foreground mb-3">
+                            {team.description}
+                          </p>
+                        )}
+                        <div className="text-xs text-muted-foreground">
+                          Created: {new Date(team.created_at).toLocaleDateString()}
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
+                </div>
+                {teams.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No teams created yet. Create your first team to get started!</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Master Access Code */}
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                  Master Access Code
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Simple access code system for assigning roles
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Builder Code */}
+                  <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-blue-400" />
+                      <h4 className="font-semibold text-blue-400">Builder Code</h4>
+                    </div>
+                    <div className="font-mono text-lg bg-background/50 p-2 rounded border text-center">
+                      BUILD2024
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Give this to team builders
+                    </p>
+                  </div>
+
+                  {/* Mentor Code */}
+                  <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserCheck className="h-4 w-4 text-green-400" />
+                      <h4 className="font-semibold text-green-400">Mentor Code</h4>
+                    </div>
+                    <div className="font-mono text-lg bg-background/50 p-2 rounded border text-center">
+                      MENTOR2024
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Give this to mentors
+                    </p>
+                  </div>
+
+                  {/* Lead Code */}
+                  <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="h-4 w-4 text-purple-400" />
+                      <h4 className="font-semibold text-purple-400">Lead Code</h4>
+                    </div>
+                    <div className="font-mono text-lg bg-background/50 p-2 rounded border text-center">
+                      LEAD2024
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      For program leaders
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Users complete onboarding, join a team, then use these codes in their dashboard to get their role and access.
+                  </p>
                 </div>
               </CardContent>
             </Card>
