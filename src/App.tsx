@@ -10,6 +10,7 @@ import NotFound from '@/pages/NotFound';
 import { DetailedOnboarding } from '@/components/DetailedOnboarding';
 import { TeamJoinFlow } from '@/components/TeamJoinFlow';
 import { TeamSelector } from '@/components/TeamSelector';
+import { RoleAssignment } from '@/components/RoleAssignment';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -29,24 +30,22 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     return <Auth />;
   }
 
-  // Show team selection if user doesn't have a team (but skip for leads who can create teams)
-  if (!profile?.team_id && profile?.role !== 'lead') {
-    return <TeamSelector onTeamSelected={() => {
-      // Force refresh of auth state after team selection
+  // Show role assignment if user hasn't been assigned a role yet (unassigned or null)
+  if (!profile?.role || profile?.role === 'unassigned') {
+    return <RoleAssignment onRoleAssigned={() => {
+      // Force refresh of auth state after role assignment
       setTimeout(() => {
         // The auth hook will automatically refetch the profile data
       }, 100);
     }} />;
   }
 
-  // Only show onboarding if user hasn't completed it AND is a guest (no assigned role)
-  if (!profile?.onboarding_completed && profile?.role === 'guest') {
-    return <DetailedOnboarding onComplete={() => {
-      // Force refresh of auth state after onboarding completion
-      // This will re-evaluate the profile and redirect appropriately
+  // Show team selection if user is a builder without a team
+  if (profile?.role === 'builder' && !profile?.team_id) {
+    return <TeamSelector onTeamSelected={() => {
+      // Force refresh of auth state after team selection
       setTimeout(() => {
         // The auth hook will automatically refetch the profile data
-        // No need for full page reload
       }, 100);
     }} />;
   }
