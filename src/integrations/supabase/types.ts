@@ -902,6 +902,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      check_user_role_simple: {
+        Args: { required_role: string; user_id: string }
+        Returns: boolean
+      }
       find_or_create_discord_profile: {
         Args: { p_discord_id: string; p_discord_username?: string }
         Returns: string
