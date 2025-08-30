@@ -79,16 +79,12 @@ async function registerDiscordCommands() {
 
   try {
     const response = await fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: 'oracle',
-        description: 'PieFi Oracle - AI assistant for builders',
-        options: DISCORD_COMMANDS
-      }),
+      body: JSON.stringify(DISCORD_COMMANDS),
     });
 
     if (response.ok) {
