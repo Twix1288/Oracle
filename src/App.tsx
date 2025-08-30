@@ -9,7 +9,6 @@ import NotFound from '@/pages/NotFound';
 
 import { DetailedOnboarding } from '@/components/DetailedOnboarding';
 import { TeamJoinFlow } from '@/components/TeamJoinFlow';
-import { TeamSelector } from '@/components/TeamSelector';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -27,16 +26,6 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Auth />;
-  }
-
-  // Show team selection if user doesn't have a team (but skip for leads who can create teams)
-  if (!profile?.team_id && profile?.role !== 'lead') {
-    return <TeamSelector onTeamSelected={() => {
-      // Force refresh of auth state after team selection
-      setTimeout(() => {
-        // The auth hook will automatically refetch the profile data
-      }, 100);
-    }} />;
   }
 
   // Only show onboarding if user hasn't completed it AND is a guest (no assigned role)
