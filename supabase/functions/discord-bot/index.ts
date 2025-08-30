@@ -577,12 +577,30 @@ async function logBotInteraction(interaction: any, success: boolean, error?: str
 serve(async (req) => {
   const url = new URL(req.url);
   
+  // CORS headers for all responses
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  };
+
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders 
+    });
+  }
+  
   // Handle Discord interactions
   if (req.method === 'POST') {
     // Verify Discord signature
     const isValid = await verifySignature(req);
     if (!isValid) {
-      return new Response('Unauthorized', { status: 401 });
+      return new Response('Unauthorized', { 
+        status: 401,
+        headers: corsHeaders
+      });
     }
     
     const interaction = await req.json();
@@ -590,7 +608,10 @@ serve(async (req) => {
     // Handle PING
     if (interaction.type === InteractionType.PING) {
       return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
       });
     }
     
@@ -619,7 +640,10 @@ serve(async (req) => {
             flags: 64 // Ephemeral - only visible to the user
           }
         }), {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
         });
         
       } catch (error) {
@@ -633,7 +657,10 @@ serve(async (req) => {
             flags: 64
           }
         }), {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
         });
       }
     }
@@ -641,14 +668,21 @@ serve(async (req) => {
   
   // Handle GET requests - bot status page and command registration
   if (req.method === 'GET') {
+    console.log('🚀 GET request received:', url.searchParams.toString());
+    
     // Check if this is a command registration request
     if (url.searchParams.get('register') === 'true') {
+      console.log('🎯 Command registration requested');
       const success = await registerDiscordCommands();
       return new Response(JSON.stringify({
         success,
-        message: success ? 'Commands registered successfully!' : 'Failed to register commands. Check logs.'
+        message: success ? 'Commands registered successfully!' : 'Failed to register commands. Check logs.',
+        timestamp: new Date().toISOString()
       }), {
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
       });
     }
     
@@ -685,12 +719,19 @@ serve(async (req) => {
           
           <p><strong>Interaction Endpoint:</strong> ${req.url}</p>
           <p><em>Use this URL in Discord Developer Portal</em></p>
+          <p><strong>Test Registration:</strong> <a href="${req.url}?register=true">Register Commands</a></p>
         </body>
       </html>
     `, {
-      headers: { 'Content-Type': 'text/html' }
+      headers: { 
+        'Content-Type': 'text/html',
+        ...corsHeaders
+      }
     });
   }
   
-  return new Response('Method not allowed', { status: 405 });
+  return new Response('Method not allowed', { 
+    status: 405,
+    headers: corsHeaders
+  });
 });
