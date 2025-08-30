@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { GloriousOracle } from "../GloriousOracle";
+import { EnhancedResourceOracle } from "../EnhancedResourceOracle";
 import { UserProfileEditor } from "../UserProfileEditor";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -20,7 +20,7 @@ interface BuilderDashboardProps {
   selectedRole: UserRole;
   builderId?: string;
   teamId?: string;
-  onSubmitUpdate?: (teamId: string, content: string, type: any, createdBy?: string) => void;
+  onSubmitUpdate?: (update: any) => void;
   onQueryRAG?: (query: string, role: UserRole) => void;
   ragResponse?: any;
   ragLoading?: boolean;
@@ -40,7 +40,7 @@ export const BuilderDashboard = ({
   ragLoading,
   onExit
 }: BuilderDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("oracle");
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Get builder's team data
   const builderTeam = teams.find(team => team.id === teamId);
@@ -318,15 +318,9 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="oracle">
-          <GloriousOracle 
+          <EnhancedResourceOracle 
             selectedRole="builder"
             teamId={teamId}
-            teams={teams}
-            members={members}
-            updates={updates}
-            teamStatuses={teamStatuses}
-            onSubmitUpdate={onSubmitUpdate}
-            onExit={() => setActiveTab("overview")}
           />
         </TabsContent>
 
