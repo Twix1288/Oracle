@@ -457,13 +457,17 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
             
             if (!error) {
               // Also update team status
-              await supabase
+              const { error: statusError } = await supabase
                 .from('team_status')
                 .upsert({
                   team_id: teamId,
                   current_status: updateContent.substring(0, 200),
                   last_update: new Date().toISOString()
                 });
+              
+              if (statusError) {
+                console.error('Failed to update team status:', statusError);
+              }
               
               return {
                 success: true,
@@ -494,11 +498,18 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
           }
           
           // Find the target user
-          const { data: targetUser } = await supabase
+          const { data: targetUser, error: userError } = await supabase
             .from('profiles')
             .select('id, full_name, role')
             .ilike('full_name', `%${targetMatch}%`)
-            .single();
+            .maybeSingle();
+          
+          if (userError) {
+            return {
+              success: false,
+              message: `❌ Error finding user: ${userError.message}`
+            };
+          }
           
           if (targetUser) {
             const { error } = await supabase
@@ -696,27 +707,36 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
   };
 
   const queryOracle = async (query: string) => {
-    const response = await supabase.functions.invoke('super-oracle', {
-      body: {
-        query,
-        role: selectedRole,
-        teamId,
-        userId: profile?.id,
-        userProfile: profile,
-        contextRequest: {
-          needsResources: true,
-          needsMentions: true, // Always request mentions for enhanced responses
-          needsTeamContext: true,
-          needsPersonalization: true
+    try {
+      const response = await supabase.functions.invoke('super-oracle', {
+        body: {
+          query,
+          role: selectedRole,
+          teamId,
+          userId: profile?.id,
+          userProfile: profile,
+          contextRequest: {
+            needsResources: true,
+            needsMentions: true, // Always request mentions for enhanced responses
+            needsTeamContext: true,
+            needsPersonalization: true
+          }
         }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Oracle function error');
       }
-    });
 
-    if (response.error) {
-      throw new Error(response.error.message);
+      if (!response.data) {
+        throw new Error('No response data from Oracle');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Oracle query error:', error);
+      throw error;
     }
-
-    return response.data;
   };
 
   const handleMentionSelect = (user: { full_name: string; role: string; id: string }) => {
@@ -849,10 +869,44 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
 
     } catch (error) {
       console.error('Oracle error:', error);
+      
+      // Create a more informative error message
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString() + '_error',
+        type: 'system',
+        content: `⚠️ **Oracle Temporarily Unavailable**
+
+I'm experiencing some technical difficulties, but don't worry - I'm working on it! 
+
+**🔧 What you can try:**
+• Rephrase your question in simpler terms
+• Try asking for specific resources like "I need React tutorials"
+• Use slash commands like \`/help\` or \`/resources python\`
+• Check back in a moment - I usually recover quickly
+
+**💡 The issue might be:**
+• Network connectivity
+• High server load
+• Temporary service maintenance
+
+I'll be back to full functionality soon! In the meantime, feel free to explore the available slash commands.`,
+        timestamp: new Date().toISOString(),
+        author: {
+          name: 'System',
+          role: 'guest' as UserRole,
+          avatar: '⚠️'
+        },
+        metadata: {
+          confidence: 0
+        }
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      
       toast({
-        title: "Oracle Connection Failed",
-        description: "The Oracle is temporarily unavailable. Please try again.",
-        variant: "destructive"
+        title: "Oracle Connection Issue",
+        description: "The Oracle is temporarily unavailable. Please try again in a moment.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

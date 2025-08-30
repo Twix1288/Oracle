@@ -6,6 +6,14 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
 
+// Check for required environment variables
+if (!openAIApiKey) {
+  console.error('Missing OPENAI_API_KEY environment variable');
+}
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase environment variables');
+}
+
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const corsHeaders = {
@@ -52,27 +60,47 @@ interface SuperOracleResponse {
 }
 
 async function getTeamContext(teamId: string, supabase: any) {
-  const { data: team } = await supabase
-    .from('teams')
-    .select(`
-      *,
-      team_status(*),
-      updates(content, type, created_at, created_by),
-      profiles!inner(full_name, skills, help_needed, experience_level)
-    `)
-    .eq('id', teamId)
-    .single();
+  try {
+    const { data: team, error } = await supabase
+      .from('teams')
+      .select(`
+        *,
+        team_status(*),
+        updates(content, type, created_at, created_by),
+        profiles!inner(full_name, skills, help_needed, experience_level)
+      `)
+      .eq('id', teamId)
+      .maybeSingle();
 
-  return team;
+    if (error) {
+      console.error('Error fetching team context:', error);
+      return null;
+    }
+
+    return team;
+  } catch (error) {
+    console.error('Exception in getTeamContext:', error);
+    return null;
+  }
 }
 
 async function getUsersWithSkills(skill: string, supabase: any) {
-  const { data: users } = await supabase
-    .from('profiles')
-    .select('full_name, role, skills, experience_level, help_needed, team_id, bio')
-    .or(`skills.cs.{${skill}},help_needed.cs.{${skill}}`);
+  try {
+    const { data: users, error } = await supabase
+      .from('profiles')
+      .select('full_name, role, skills, experience_level, help_needed, team_id, bio')
+      .or(`skills.cs.{${skill}},help_needed.cs.{${skill}}`);
 
-  return users || [];
+    if (error) {
+      console.error('Error fetching users with skills:', error);
+      return [];
+    }
+
+    return users || [];
+  } catch (error) {
+    console.error('Exception in getUsersWithSkills:', error);
+    return [];
+  }
 }
 
 async function findRelevantPeople(query: string, userProfile: any, userRole: string, supabase: any) {
@@ -274,56 +302,68 @@ async function detectMentions(query: string, supabase: any): Promise<any[]> {
   
   while ((match = mentionPattern.exec(query)) !== null) {
     const username = match[1];
-    // Try to find user by name and fetch their full profile
-    const { data: user } = await supabase
-      .from('profiles')
-      .select(`
-        id, full_name, role, skills, help_needed, bio, 
-        experience_level, team_id, project_vision,
-        availability, linkedin_url, github_url, portfolio_url
-      `)
-      .or(`full_name.ilike.%${username}%, full_name.ilike.${username}%`)
-      .single();
-    
-    if (user) {
-      // Also get their team information if they have one
-      let teamInfo = null;
-      if (user.team_id) {
-        const { data: team } = await supabase
-          .from('teams')
-          .select('name, stage, description')
-          .eq('id', user.team_id)
-          .single();
-        teamInfo = team;
+    try {
+      // Try to find user by name and fetch their full profile
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .select(`
+          id, full_name, role, skills, help_needed, bio, 
+          experience_level, team_id, project_vision,
+          availability, linkedin_url, github_url, portfolio_url
+        `)
+        .or(`full_name.ilike.%${username}%, full_name.ilike.${username}%`)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching mentioned user:', error);
+        continue;
       }
       
-      // Get their recent activity/updates
-      const { data: recentUpdates } = await supabase
-        .from('updates')
-        .select('content, created_at, type')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false })
-        .limit(3);
-      
-      mentionedUsers.push({
-        id: user.id,
-        full_name: user.full_name,
-        role: user.role,
-        skills: user.skills || [],
-        help_needed: user.help_needed || [],
-        bio: user.bio || '',
-        experience_level: user.experience_level || '',
-        team: teamInfo,
-        project_vision: user.project_vision || '',
-        availability: user.availability || '',
-        social_links: {
-          linkedin: user.linkedin_url,
-          github: user.github_url,
-          portfolio: user.portfolio_url
-        },
-        recent_activity: recentUpdates || [],
-        mention_text: match[0] // The original @username text
-      });
+      if (user) {
+        // Also get their team information if they have one
+        let teamInfo = null;
+        if (user.team_id) {
+          const { data: team, error: teamError } = await supabase
+            .from('teams')
+            .select('name, stage, description')
+            .eq('id', user.team_id)
+            .maybeSingle();
+          
+          if (!teamError) {
+            teamInfo = team;
+          }
+        }
+        
+        // Get their recent activity/updates
+        const { data: recentUpdates } = await supabase
+          .from('updates')
+          .select('content, created_at, type')
+          .eq('created_by', user.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        
+        mentionedUsers.push({
+          id: user.id,
+          full_name: user.full_name,
+          role: user.role,
+          skills: user.skills || [],
+          help_needed: user.help_needed || [],
+          bio: user.bio || '',
+          experience_level: user.experience_level || '',
+          team: teamInfo,
+          project_vision: user.project_vision || '',
+          availability: user.availability || '',
+          social_links: {
+            linkedin: user.linkedin_url,
+            github: user.github_url,
+            portfolio: user.portfolio_url
+          },
+          recent_activity: recentUpdates || [],
+          mention_text: match[0] // The original @username text
+        });
+      }
+    } catch (error) {
+      console.error(`Error processing mention for ${username}:`, error);
     }
   }
   
@@ -538,6 +578,19 @@ User Query: "${query}"
 
 Provide a response that perfectly matches your role's authority level and personality:`;
 
+  // Validate OpenAI API key before making request
+  if (!openAIApiKey) {
+    console.error('OpenAI API key not configured');
+    const fallbackResponses = {
+      guest: `Welcome to PieFi Oracle! 🛸 I'd love to help you explore the exciting projects our teams are working on. Unfortunately, my AI capabilities are not configured right now, but I can still share information about team activities, project stages, and what types of innovations are happening in our incubator. What would you like to know about our current projects?`,
+      builder: `Hey there! 🔧 I understand you're asking about "${query}". While my AI systems need configuration, I'm still here to help with your project development. As a builder, you have access to team collaboration tools and technical resources. What specific challenge are you working on?`,
+      mentor: `Hello! 🌟 I see you're inquiring about "${query}". Even though my AI capabilities need setup, I can still provide guidance. As a mentor, you have insight into team progress and can access comprehensive data about your mentees. How can I assist with your mentoring efforts?`,
+      lead: `Greetings! 👑 You're asking about "${query}". Despite needing AI configuration, I'm operational for strategic support. As a lead, you have full administrative access to all program data and analytics. What administrative or strategic insight do you need?`
+    };
+    
+    return fallbackResponses[role as keyof typeof fallbackResponses] || fallbackResponses.guest;
+  }
+
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -551,6 +604,10 @@ Provide a response that perfectly matches your role's authority level and person
           {
             role: 'system',
             content: contextPrompt
+          },
+          {
+            role: 'user',
+            content: query
           }
         ],
         max_completion_tokens: 800,
@@ -558,10 +615,17 @@ Provide a response that perfectly matches your role's authority level and person
     });
 
     if (!response.ok) {
+      const errorData = await response.text();
+      console.error(`OpenAI API error: ${response.status} - ${errorData}`);
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid response format from OpenAI API');
+    }
+    
     return data.choices[0].message.content;
   } catch (error) {
     console.error('Error generating intelligent response:', error);
@@ -595,6 +659,11 @@ serve(async (req) => {
     }: SuperOracleRequest = await req.json();
 
     console.log(`Super Oracle processing: ${query} for ${role}`);
+
+    // Validate required parameters
+    if (!query || !role) {
+      throw new Error('Missing required parameters: query and role');
+    }
 
     
     // Gather contextual information with people suggestions
@@ -643,16 +712,21 @@ serve(async (req) => {
     if (relevantPeople.length > 0) confidence += 10; // Boost for people connections
     if (mentionedUsers.length > 0) confidence += 15; // Higher boost for mentioned users with full context
 
-    // Log interaction for learning
-    await supabase.from('oracle_logs').insert({
-      user_role: role,
-      user_id: userId,
-      team_id: teamId,
-      query,
-      response: answer,
-      sources_count: resources.length,
-      processing_time_ms: Date.now() % 1000 // Simplified timing
-    });
+    // Log interaction for learning with error handling
+    try {
+      await supabase.from('oracle_logs').insert({
+        user_role: role,
+        user_id: userId,
+        team_id: teamId,
+        query,
+        response: answer.substring(0, 1000), // Limit length to prevent DB errors
+        sources_count: resources.length,
+        processing_time_ms: Date.now() % 10000 // Simplified timing
+      });
+    } catch (logError) {
+      console.error('Error logging Oracle interaction:', logError);
+      // Continue execution even if logging fails
+    }
 
     const response: SuperOracleResponse = {
       answer,
