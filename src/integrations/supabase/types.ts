@@ -929,6 +929,20 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_team_member_profiles: {
+        Args: { p_team_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          experience_level: string
+          full_name: string
+          github_url: string
+          id: string
+          portfolio_url: string
+          role: Database["public"]["Enums"]["user_role"]
+          skills: string[]
+        }[]
+      }
       get_user_role: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
