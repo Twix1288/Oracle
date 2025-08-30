@@ -8,8 +8,6 @@ export interface Team {
   stage: TeamStage;
   access_code: string | null;
   created_at: string;
-  updated_at: string;
-  is_archived: boolean;
   assigned_mentor_id: string | null;
 }
 
@@ -68,8 +66,7 @@ export const createTeam = async (
       description,
       stage,
       access_code,
-      created_by: leadId,
-      is_archived: false
+      created_by: leadId
     })
     .select()
     .single();
@@ -80,12 +77,29 @@ export const createTeam = async (
 
 // Delete a team (soft delete)
 export const deleteTeam = async (teamId: string): Promise<void> => {
+  // First, get the team data
+  const { data: team } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('id', teamId)
+    .single();
+
+  if (!team) throw new Error('Team not found');
+
+  // Create an archived copy in a separate table
+  const { error: archiveError } = await supabase
+    .from('archived_teams')
+    .insert({
+      ...team,
+      archived_at: new Date().toISOString()
+    });
+
+  if (archiveError) throw archiveError;
+
+  // Delete the team
   const { error } = await supabase
     .from('teams')
-    .update({ 
-      is_archived: true,
-      updated_at: new Date().toISOString()
-    })
+    .delete()
     .eq('id', teamId);
 
   if (error) throw error;
@@ -138,7 +152,6 @@ export const getActiveTeams = async (): Promise<Team[]> => {
   const { data, error } = await supabase
     .from('teams')
     .select('*')
-    .eq('is_archived', false)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
