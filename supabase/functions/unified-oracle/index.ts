@@ -1,68 +1,34 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+import { OPENAI_CONFIG, SUPABASE_CONFIG, ORACLE_CONFIG, validateEnvironment, OracleError } from './config.ts';
+import { retryWithFallbackModel } from './openai.ts';
+import { getContextualContent, getRelevantFrameworks, generateNextActions } from './stages.ts';
+import { validateOracleRequest, validateTeamId, validateUserId, validateBroadcastMessage, validateUpdateContent, validateStatusUpdate } from './validation.ts';
+import {
+  OracleRequest,
+  OracleResponse,
+  OracleResource,
+  CommandResult,
+  StageAnalysis,
+  Team,
+  Member,
+  Update,
+  Message,
+  Document,
+  TeamStage,
+  UserRole,
+  DatabaseResult
+} from './types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Types
-interface OracleRequest {
-  query: string;
-  role: 'builder' | 'mentor' | 'lead' | 'guest';
-  teamId?: string;
-  userId?: string;
-  userProfile?: any;
-  contextRequest?: {
-    needsResources?: boolean;
-    needsMentions?: boolean;
-    needsTeamContext?: boolean;
-    needsPersonalization?: boolean;
-    resourceTopic?: string;
-  };
-  commandExecuted?: boolean;
-  commandType?: string;
-  commandResult?: any;
-}
-
-interface OracleResponse {
-  answer: string;
-  sources: number;
-  context_used: boolean;
-  detected_stage?: string;
-  suggested_frameworks?: string[];
-  next_actions?: string[];
-  stage_confidence?: number;
-  sections?: {
-    update?: string;
-    progress?: string;
-    event?: string;
-  };
-  resources?: OracleResource[];
-  mentions?: string[];
-  team_updates?: any[];
-  task_assignments?: any[];
-}
-
-interface OracleResource {
-  title: string;
-  url: string;
-  type: 'youtube' | 'article' | 'documentation' | 'tutorial' | 'tool';
-  description: string;
-  relevance: number;
-}
-
-interface CommandResult {
-  executed: boolean;
-  type?: string;
-  message: string;
-  data?: any;
-}
-
 // Stage detection and analysis
-const analyzeUserStage = (teamUpdates: any[], teamInfo: any, query: string): { stage: string; confidence: number; reasoning: string } => {
-  const keywords = {
+const analyzeUserStage = (teamUpdates: Update[], teamInfo: Team | null, query: string): StageAnalysis => {
+  const keywords: Record<TeamStage | 'expansion', string[]> = {
     ideation: ['idea', 'validate', 'problem', 'market', 'customer', 'research', 'hypothesis'],
     development: ['build', 'code', 'feature', 'mvp', 'prototype', 'develop', 'implement'],
     testing: ['test', 'feedback', 'user', 'iterate', 'data', 'analytics', 'pivot'],
@@ -71,7 +37,7 @@ const analyzeUserStage = (teamUpdates: any[], teamInfo: any, query: string): { s
     expansion: ['expand', 'market', 'partnership', 'investment', 'new']
   };
 
-  let scores = { ideation: 0, development: 0, testing: 0, launch: 0, growth: 0, expansion: 0 };
+  let scores: Record<TeamStage | 'expansion', number> = { ideation: 0, development: 0, testing: 0, launch: 0, growth: 0, expansion: 0 };
   
   // Analyze query content
   const queryLower = query.toLowerCase();
@@ -127,7 +93,7 @@ async function parseIntentWithLLM(openaiKey: string, text: string): Promise<{
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: OPENAI_CONFIG.CHAT_MODEL,
         temperature: 0,
         messages: [
           {
@@ -193,6 +159,13 @@ async function executeCommand(query: string, role: string, teamId?: string, user
     if (intent && intent.action && intent.action !== 'none') {
       // Handle broadcast messages
       if (intent.action === 'broadcast' && intent.content) {
+        // Validate broadcast message
+        validateBroadcastMessage(
+          intent.content,
+          intent.broadcast_type || 'all',
+          intent.broadcast_type === 'team' ? teamId : undefined
+        );
+
         try {
           const broadcastMessage = {
             sender_id: userId || 'oracle',
@@ -257,6 +230,10 @@ async function executeCommand(query: string, role: string, teamId?: string, user
           if (!teamId) {
             return { executed: true, type: 'createUpdate', message: '❌ No team context provided for creating an update.' };
           }
+
+          // Validate update content
+          validateUpdateContent(text);
+
           const { error } = await supabase
             .from('updates')
             .insert({ team_id: teamId, content: text, type: 'daily', created_by: userId || 'oracle' });
@@ -292,6 +269,12 @@ serve(async (req) => {
   }
 
   try {
+    const request: OracleRequest = await req.json();
+    
+    // Validate request
+    validateOracleRequest(request);
+
+    // Extract request fields
     const { 
       query, 
       role, 
@@ -302,19 +285,45 @@ serve(async (req) => {
       commandExecuted,
       commandType,
       commandResult 
-    }: OracleRequest = await req.json();
+    } = request;
+
+    // Validate IDs if present
+    if (teamId) validateTeamId(teamId);
+    if (userId) validateUserId(userId);
 
     const startTime = Date.now();
 
+    // Validate environment variables
+    validateEnvironment();
+
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    const openaiOrgId = Deno.env.get('OPENAI_ORG_ID');
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new OracleError(
+        'Missing Supabase configuration',
+        'missing_supabase_config',
+        500,
+        { missing: !supabaseUrl ? 'SUPABASE_URL' : 'SUPABASE_SERVICE_ROLE_KEY' }
+      );
+    }
+
+    if (!openaiKey) {
+      throw new OracleError(
+        'Missing OpenAI API key',
+        'missing_openai_key',
+        500
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get team context
     let teamInfo = null;
-    let teamUpdates: any[] = [];
+    let teamUpdates: Update[] = [];
     
     if (teamId) {
       const { data: team } = await supabase
@@ -479,14 +488,16 @@ Begin responses with "🌟 Welcome to Nexus:" and maintain a friendly, helpful t
     const systemPrompt = rolePrompts[role] || rolePrompts.guest;
 
     // Generate enhanced response using OpenAI
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`${OPENAI_CONFIG.API_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiKey}`,
         'Content-Type': 'application/json',
+        'OpenAI-Organization': Deno.env.get('OPENAI_ORG_ID'),
+        'OpenAI-Beta': 'assistants=v1'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: OPENAI_CONFIG.CHAT_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { 
@@ -494,16 +505,41 @@ Begin responses with "🌟 Welcome to Nexus:" and maintain a friendly, helpful t
             content: `Context: ${context}\n\nStage Analysis: ${stageAnalysis.reasoning}\nConfidence: ${stageAnalysis.confidence}\nSuggested Frameworks: ${suggestedFrameworks.join(', ')}\n\nUser Query: ${query}` 
           }
         ],
-        max_tokens: 600,
-        temperature: 0.7,
+        max_tokens: OPENAI_CONFIG.CHAT_MAX_TOKENS,
+        temperature: OPENAI_CONFIG.CHAT_TEMPERATURE,
+        timeout: OPENAI_CONFIG.TIMEOUT_MS,
+        stream: false,
+        n: 1
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to generate response');
+      const error = await response.json();
+      const errorMessage = error.error?.message || 'Failed to generate response';
+      const errorCode = error.error?.code || 'unknown';
+      const status = response.status;
+
+      // Handle specific OpenAI errors
+      switch (errorCode) {
+        case 'invalid_api_key':
+          throw new OracleError(OPENAI_CONFIG.ERRORS.INVALID_API_KEY, errorCode, 401);
+        case 'model_overloaded':
+          // Try fallback model
+          return await retryWithFallbackModel(systemPrompt, query, context, stageAnalysis, suggestedFrameworks);
+        case 'context_length_exceeded':
+          throw new OracleError(OPENAI_CONFIG.ERRORS.CONTEXT_LENGTH_EXCEEDED, errorCode, 400);
+        case 'rate_limit_exceeded':
+          throw new OracleError(OPENAI_CONFIG.ERRORS.RATE_LIMIT_EXCEEDED, errorCode, 429);
+        default:
+          throw new OracleError(errorMessage, errorCode, status);
+      }
     }
 
     const data = await response.json();
+    if (!data.choices?.[0]?.message?.content) {
+      throw new OracleError('Invalid response format from OpenAI', 'invalid_response', 500);
+    }
+
     const journeyAnswer = data.choices[0].message.content;
 
     // Generate next actions based on stage
