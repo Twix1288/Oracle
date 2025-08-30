@@ -76,29 +76,45 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
 export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleProps) => {
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [responses, setResponses] = useState<JourneyResponse[]>([]);
+  const [responses, setResponses] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("chat");
   const { toast } = useToast();
 
   const permissions = rolePermissions[selectedRole];
-  const { queryJourney, journeyLoading, journeyStages, getStage } = useJourneyService(selectedRole);
 
-  // Natural language command patterns
-  const commandPatterns = {
-    logProgress: /^(log|update|record|add)\s+(today'?s?\s+)?(progress|update|work|status)[:.]?\s*(.*)/i,
-    sendMessage: /^(send|message|tell|notify)\s+(.*?)\s*[:.]?\s*(.*)/i,
-    getTeamStatus: /^(what|show|get|check)\s+(did|has|is)\s+(.*?)\s+(do|done|doing|update|status)/i,
-    broadcastUpdate: /^(broadcast|announce|send\s+to\s+all|tell\s+everyone)[:.]?\s*(.*)/i,
-    createReminder: /^(remind|schedule|set\s+reminder)\s+(.*?)\s+(at|on|in)\s+(.*)/i
-  };
-
-  const detectCommand = (text: string) => {
-    for (const [commandType, pattern] of Object.entries(commandPatterns)) {
-      const match = text.match(pattern);
-      if (match) {
-        return { type: commandType, match, hasPermission: checkCommandPermission(commandType) };
+  // Slash command patterns - the main Oracle commands
+  const detectSlashCommand = (text: string) => {
+    const trimmed = text.trim();
+    
+    // Guest can only use /motivation and /status
+    if (selectedRole === 'guest') {
+      if (trimmed.startsWith('/motivation')) {
+        return { type: 'motivation', query: trimmed.substring(11).trim() || 'motivation' };
       }
+      if (trimmed.startsWith('/status')) {
+        return { type: 'status', query: 'team status update' };
+      }
+      return null;
     }
+
+    // All roles can use these commands
+    if (trimmed.startsWith('/resources ')) {
+      return { type: 'resources', query: trimmed.substring(11).trim() };
+    }
+    if (trimmed.startsWith('/connect ') || trimmed.startsWith('/find ')) {
+      const query = trimmed.startsWith('/connect') ? trimmed.substring(9).trim() : trimmed.substring(6).trim();
+      return { type: 'connect', query };
+    }
+    if (trimmed.startsWith('/help')) {
+      return { type: 'help', query: 'help' };
+    }
+    if (trimmed.startsWith('/message ')) {
+      return { type: 'message', query: trimmed.substring(9).trim() };
+    }
+    if (trimmed.startsWith('/update ')) {
+      return { type: 'update', query: trimmed.substring(8).trim() };
+    }
+    
     return null;
   };
 
@@ -217,47 +233,79 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
     setIsLoading(true);
     
     try {
-      // Check for natural language commands
-      const command = detectCommand(query);
-      let commandResult = null;
-
-      if (command) {
-        if (!command.hasPermission) {
-          toast({
-            title: "Permission Denied",
-            description: `Your role (${selectedRole}) doesn't have permission to execute this command.`,
-            variant: "destructive"
-          });
-          setIsLoading(false);
-          return;
+      // Check for slash commands first
+      const slashCommand = detectSlashCommand(query);
+      
+      if (slashCommand) {
+        // Handle slash commands through enhanced-resource-oracle
+        let commandType = slashCommand.type;
+        
+        // Map motivation to resources for processing
+        if (commandType === 'motivation') {
+          commandType = 'resources';
+          slashCommand.query = 'motivation inspiration success stories';
+        }
+        if (commandType === 'status') {
+          commandType = 'chat';
+          slashCommand.query = 'show me the latest team updates and progress status';
         }
 
-        commandResult = await executeCommand(command.type, command.match, query);
-      }
-
-      // Send to enhanced journey-aware Oracle
-      queryJourney({
-        query,
-        role: selectedRole,
-        teamId,
-        userId,
-        commandExecuted: Boolean(commandResult),
-        commandType: command?.type,
-        commandResult
-      });
-
-      // Wait for response and add to history
-      if (journeyLoading) {
-        // Handle loading state
-        return;
-      }
-      setQuery("");
-
-      if (commandResult?.success) {
-        toast({
-          title: "Command Executed",
-          description: commandResult.message
+        const response = await supabase.functions.invoke('enhanced-resource-oracle', {
+          body: {
+            query: slashCommand.query,
+            type: commandType,
+            role: selectedRole,
+            teamId,
+            userId,
+            context: { hasTeam: Boolean(teamId) }
+          }
         });
+
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+
+        // Add response to history
+        const newResponse = {
+          ...response.data,
+          commandType: slashCommand.type,
+          query: query,
+          timestamp: new Date().toISOString()
+        };
+
+        setResponses(prev => [newResponse, ...prev]);
+        setQuery("");
+
+        toast({
+          title: `/${slashCommand.type} executed`,
+          description: `Found ${response.data.resources?.length || response.data.connections?.length || 0} results`,
+        });
+
+      } else {
+        // Handle regular conversational queries
+        const response = await supabase.functions.invoke('enhanced-resource-oracle', {
+          body: {
+            query,
+            type: 'chat',
+            role: selectedRole,
+            teamId,
+            userId,
+            context: { hasTeam: Boolean(teamId) }
+          }
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+
+        const newResponse = {
+          ...response.data,
+          query: query,
+          timestamp: new Date().toISOString()
+        };
+
+        setResponses(prev => [newResponse, ...prev]);
+        setQuery("");
       }
 
     } catch (error) {
@@ -272,120 +320,147 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
     }
   };
 
-  const naturalLanguageExamples = {
+  const commandExamples = {
     builder: [
-      "Log today's progress: completed user authentication",
-      "What blockers should I focus on today?",
-      "Show me my team's latest updates"
+      "/resources react hooks tutorials",
+      "/connect frontend developers",
+      "/find UI/UX designers",
+      "/update completed authentication system",
+      "/message mentors: need help with deployment"
     ],
     mentor: [
-      "What did Team Alpha do this week?", 
-      "Send message to John: great progress on the API",
-      "Which teams need the most attention?"
+      "/resources startup funding guides", 
+      "/connect experienced CTOs",
+      "/find blockchain experts",
+      "/message builders: great progress this week"
     ],
     lead: [
-      "Broadcast: submit presentations by Friday",
-      "What's the overall program health?",
-      "Log milestone: MVP development complete"
+      "/resources team management tools",
+      "/connect venture capitalists",
+      "/update milestone: all teams on track",
+      "/message all: weekly check-in tomorrow"
     ],
     guest: [
-      "What is this incubator program about?",
-      "How does the mentorship process work?",
-      "What types of teams are in the program?"
+      "/motivation startup success stories",
+      "/status show recent team updates"
     ]
   };
 
-  const renderResponse = (response: JourneyResponse, index: number) => (
+  const renderResponse = (response: any, index: number) => (
     <div key={index} className="space-y-4">
-      {/* Command Execution Result */}
-      {response.commandExecuted && response.commandResult && (
-        <Card className="glow-border bg-primary/5 border-primary/30">
+      {/* Query Display */}
+      <div className="text-sm text-muted-foreground mb-2">
+        <strong>You:</strong> {response.query}
+      </div>
+
+      {/* Resources Section */}
+      {response.resources && response.resources.length > 0 && (
+        <Card className="glow-border bg-blue-500/5 border-blue-500/30">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Command Executed</span>
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-blue-400" />
+              <span className="text-sm font-medium text-blue-400">📚 Resources Found</span>
+              <Badge variant="outline">{response.resources.length} results</Badge>
             </div>
-            <p className="text-sm">{response.commandResult.message}</p>
+            <div className="space-y-3">
+              {response.resources.slice(0, 5).map((resource: any, idx: number) => (
+                <div key={idx} className="p-3 rounded-lg bg-background/50 border border-blue-500/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-foreground mb-1">
+                        <a href={resource.url} target="_blank" rel="noopener noreferrer" 
+                           className="hover:text-blue-400 transition-colors">
+                          {resource.title}
+                        </a>
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-2">{resource.description}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{resource.type}</Badge>
+                        {resource.author && <span className="text-xs text-muted-foreground">by {resource.author}</span>}
+                        {resource.duration && <span className="text-xs text-muted-foreground">{resource.duration}</span>}
+                      </div>
+                    </div>
+                    <div className="text-xs text-green-400 font-medium">
+                      {Math.round((resource.relevance || 0.8) * 100)}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Structured Oracle Response */}
+      {/* Connections Section */}
+      {response.connections && response.connections.length > 0 && (
+        <Card className="glow-border bg-purple-500/5 border-purple-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-400">🤝 People to Connect With</span>
+              <Badge variant="outline">{response.connections.length} results</Badge>
+            </div>
+            <div className="space-y-3">
+              {response.connections.slice(0, 4).map((person: any, idx: number) => (
+                <div key={idx} className="p-3 rounded-lg bg-background/50 border border-purple-500/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-foreground mb-1">{person.name}</h4>
+                      <p className="text-xs text-muted-foreground mb-1">{person.title} at {person.company}</p>
+                      {person.expertise && (
+                        <p className="text-xs text-muted-foreground mb-2">{person.expertise}</p>
+                      )}
+                      {person.linkedin_url && (
+                        <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer"
+                           className="text-xs text-blue-400 hover:underline">
+                          Connect on LinkedIn →
+                        </a>
+                      )}
+                    </div>
+                    <div className="text-xs text-green-400 font-medium">
+                      {person.relevance || 85}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main Oracle Response */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-full bg-primary/20">
               <Sparkles className="h-3 w-3 text-primary" />
             </div>
-            <h4 className="font-semibold text-sm text-primary">Oracle Transmission</h4>
+            <h4 className="font-semibold text-sm text-primary">Oracle Response</h4>
             {response.sources > 0 && (
               <Badge variant="outline" className="text-xs">
                 {response.sources} sources
               </Badge>
             )}
           </div>
-
-          {/* Structured Sections */}
-          {(response.sections || response.commandResult?.sections) && (
-            <div className="space-y-3">
-              {(response.sections?.update || response.commandResult?.sections?.update) && (
-                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm font-medium text-blue-400">📝 Update</span>
-                  </div>
-                  <p className="text-sm">{response.sections?.update || response.commandResult?.sections?.update}</p>
-                </div>
-              )}
-
-              {(response.sections?.progress || response.commandResult?.sections?.progress) && (
-                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="h-4 w-4 text-green-400" />
-                    <span className="text-sm font-medium text-green-400">📊 Progress</span>
-                  </div>
-                  <p className="text-sm">{response.sections?.progress || response.commandResult?.sections?.progress}</p>
-                </div>
-              )}
-
-              {(response.sections?.event || response.commandResult?.sections?.event) && (
-                <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-400">📅 Event</span>
-                  </div>
-                  <p className="text-sm">{response.sections?.event || response.commandResult?.sections?.event}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Main Oracle Response */}
-          <div className="space-y-2">
-            <div className="p-4 rounded-lg bg-background/50 border border-primary/10">
-              <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
-                <ReactMarkdown
-                  components={{
-                    h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
-                    h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
-                    h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
-                    ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
-                    ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
-                    li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
-                    strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                    p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
-                    blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
-                    code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
-                  }}
-                >
-                  {response.answer.length > 800 ? `${response.answer.substring(0, 800)}...` : response.answer}
-                </ReactMarkdown>
-                {response.answer.length > 800 && (
-                  <Button variant="ghost" size="sm" className="text-xs text-primary">
-                    View Full Response
-                  </Button>
-                )}
-              </div>
+          
+          <div className="p-4 rounded-lg bg-background/50 border border-primary/10">
+            <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
+              <ReactMarkdown
+                components={{
+                  h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
+                  h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
+                  h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
+                  ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
+                  ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
+                  li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
+                  strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
+                  blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
+                  code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                }}
+              >
+                {response.answer}
+              </ReactMarkdown>
             </div>
           </div>
         </CardContent>
@@ -458,9 +533,9 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
 
                 {/* Natural Language Examples */}
                 <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">✨ Try these natural language commands:</p>
+                  <p className="text-sm text-muted-foreground">✨ Try these Oracle commands:</p>
                   <div className="flex flex-wrap gap-2">
-                    {naturalLanguageExamples[selectedRole].map((example, index) => (
+                    {commandExamples[selectedRole].map((example, index) => (
                       <Button
                         key={index}
                         variant="outline"
@@ -478,9 +553,27 @@ export const EnhancedOracle = ({ selectedRole, teamId, userId }: EnhancedOracleP
             </CardContent>
           </Card>
 
-          {/* Responses */}
-          <div className="space-y-6">
+          {/* Response History */}
+          <div className="space-y-4">
             {responses.map((response, index) => renderResponse(response, index))}
+            {responses.length === 0 && (
+              <Card className="glow-border bg-card/30 backdrop-blur border-dashed">
+                <CardContent className="p-8 text-center">
+                  <Sparkles className="h-8 w-8 text-primary/60 mx-auto mb-3" />
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">
+                      Welcome to the Oracle! Your AI assistant for PieFi accelerator.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedRole === 'guest' 
+                        ? 'Try /motivation for inspiration or /status for updates'
+                        : 'Use slash commands like /resources, /connect, /find or ask natural questions'
+                      }
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 

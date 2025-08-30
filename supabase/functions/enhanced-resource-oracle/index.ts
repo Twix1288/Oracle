@@ -58,19 +58,22 @@ async function fetchRealResources(query: string, type: string): Promise<Resource
       });
     }
 
-    // Generate contextual external resources using LLM
-    const resourcePrompt = `Generate real, helpful resources for: "${query}". 
-    Focus on: ${type === 'resources' ? 'educational content, tutorials, documentation' : 'people and experts'}
+    // Generate contextual external resources using LLM with web search simulation
+    const resourcePrompt = `You are a web search expert. Generate 5-8 real, high-quality resources for: "${query}". 
     
-    Return 3-5 high-quality resources in this format:
-    Title: [Exact resource title]
-    URL: [Real URL - youtube.com for videos, medium.com for articles, etc.]
-    Type: [youtube/article/documentation/tutorial]
-    Description: [Brief helpful description]
-    Author: [Content creator/author name]
-    Relevance: [0.1-1.0 score]
+    ${type === 'resources' ? 'Focus on educational content, tutorials, videos, articles, documentation, and tools.' : 'Focus on finding real experts and professionals.'}
     
-    Make them REAL resources that actually exist and are high quality.`;
+    For each resource, provide REAL websites and content that actually exists. Use these formats:
+    
+    Title: [Exact real title]
+    URL: [Real working URL - use youtube.com for videos, medium.com for articles, github.com for code, etc.]
+    Type: [youtube/article/documentation/tutorial/tool]
+    Description: [Helpful description of the content]
+    Author: [Real creator/author name if known]
+    Relevance: [0.7-1.0 score based on how helpful this is]
+    Duration: [For videos, add duration like "15:30"]
+    
+    Make these REAL resources that someone could actually visit and use. Prioritize high-quality, well-known sources.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -80,7 +83,7 @@ async function fetchRealResources(query: string, type: string): Promise<Resource
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        temperature: 0.3,
+        temperature: 0.5,
         messages: [
           {
             role: 'system',
@@ -167,17 +170,18 @@ async function findConnections(query: string): Promise<any[]> {
   
   try {
     // Generate LinkedIn-style connections using LLM
-    const connectionPrompt = `Find 3-5 real LinkedIn experts for: "${query}". 
+    const connectionPrompt = `You are a professional networking expert. Find 4-6 real professionals for: "${query}".
     
-    Return in this format:
-    Name: [Real person name]
-    Title: [Professional title]
-    Company: [Company name]  
-    LinkedIn: https://linkedin.com/in/[username]
-    Relevance: [0.1-1.0 score]
-    Expertise: [Brief expertise description]
+    Look for actual people who are experts in this field. Return in this format:
     
-    Focus on real, notable professionals in this field.`;
+    Name: [Real person's full name]
+    Title: [Their actual professional title]
+    Company: [Real company name]  
+    LinkedIn: https://linkedin.com/in/[realistic-username]
+    Relevance: [70-95 percentage match]
+    Expertise: [What they're known for, 1-2 sentences]
+    
+    Focus on real, notable professionals who would actually be helpful connections. Use names of actual industry leaders and experts when possible.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -187,7 +191,7 @@ async function findConnections(query: string): Promise<any[]> {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        temperature: 0.3,
+        temperature: 0.4,
         messages: [
           {
             role: 'system',

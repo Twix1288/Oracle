@@ -18,6 +18,7 @@ import { MessagingCenter } from "../MessagingCenter";
 import { SuperOracle } from "../SuperOracle";
 import { AccessCodeManager } from "../AccessCodeManager";
 import { DiscordBotManagement } from "../DiscordBotManagement";
+import { DiscordOAuthSetup } from "../DiscordOAuthSetup";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
 interface LeadDashboardProps {
@@ -29,7 +30,7 @@ interface LeadDashboardProps {
   onExit: () => void;
 }
 
-export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }: LeadDashboardProps) => {
+export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedRole, onExit }: LeadDashboardProps) => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
@@ -225,7 +226,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
           </TabsTrigger>
           <TabsTrigger value="discord" className="data-[state=active]:bg-primary/20">
             <MessageSquare className="h-4 w-4 mr-2" />
-            Discord Bot
+            Discord Integration
           </TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20">
             <Settings className="h-4 w-4 mr-2" />
@@ -409,8 +410,13 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, onExit }:
           />
         </TabsContent>
 
-        <TabsContent value="discord">
-          <DiscordBotManagement />
+        <TabsContent value="discord" className="space-y-6">
+          <div className="grid gap-6">
+            <DiscordBotManagement />
+            <div className="border-t border-primary/20 pt-6">
+              <DiscordOAuthSetup userRole={selectedRole} />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="settings">
