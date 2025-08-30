@@ -144,7 +144,8 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
           }
         });
       } catch (oracleError) {
-        console.log('Oracle notification failed:', oracleError);
+        // Oracle notification is optional, no need to show error to user
+        console.warn('Oracle notification failed:', oracleError);
       }
 
     } catch (error) {
