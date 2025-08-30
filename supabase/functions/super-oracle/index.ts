@@ -460,6 +460,9 @@ ${user.social_links.portfolio ? `• Portfolio: ${user.social_links.portfolio}` 
     }
   };
 
+  // Get role-specific personality settings
+  const rolePersonality = getRolePersonality(role);
+  
   const contextPrompt = `
 You are the PieFi Oracle, an extremely intelligent AI assistant for a startup incubator program. You provide deeply personalized, contextual responses based on WHO is asking.
 

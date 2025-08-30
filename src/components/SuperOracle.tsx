@@ -213,7 +213,23 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       type: 'oracle',
-      content: `🛸 **Welcome to the PieFi Oracle, ${profile?.full_name || 'Explorer'}!**\n\nI'm your intelligent AI companion, ready to help you navigate your journey. I can:\n\n✨ **Answer questions** with context about your team and progress\n🔍 **Find resources** tailored to your specific project and needs\n👥 **Connect you** with teammates based on skills and expertise\n⚡ **Execute commands** to update progress, send messages, and more\n\nTry asking me anything or use slash commands like \`/help\` to get started!`,
+      content: `🛸 **Welcome to the PieFi Oracle, ${profile?.full_name || 'Explorer'}!**
+
+I'm your intelligent AI companion, ready to help you navigate your journey. I can:
+
+✨ **Answer questions** with context about your team and progress
+🔍 **Find curated resources** tailored to your specific needs (try asking "I need resources for React" or "help me learn Python")
+👥 **Connect you** with teammates based on skills and expertise  
+⚡ **Execute commands** to update progress, send messages, and more
+
+**🎯 Try these examples:**
+• "I need resources for learning JavaScript"
+• "Help me with API development tutorials"
+• "Find me Python courses for beginners"
+• "/resources react hooks"
+• "/find someone who knows design"
+
+The Oracle has been enhanced and is ready to provide helpful resources for any technology or skill!`,
       timestamp: new Date().toISOString(),
       author: {
         name: 'Oracle',
@@ -398,26 +414,32 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
           // Generate contextual resources through Oracle
           const resourceResponse = await supabase.functions.invoke('super-oracle', {
             body: {
-              query: `Generate curated resources for: ${topic}`,
+              query: `I need curated resources and tutorials for: ${topic}`,
               role: selectedRole,
               teamId,
               userId: profile?.id,
-              contextRequest: { needsResources: true, resourceTopic: topic }
+              userProfile: profile,
+              contextRequest: { 
+                needsResources: true, 
+                resourceTopic: topic,
+                needsTeamContext: !!teamId,
+                needsPersonalization: true
+              }
             }
           });
           
-          if (resourceResponse.data?.resources) {
+          if (resourceResponse.data?.resources && resourceResponse.data.resources.length > 0) {
             const resources = resourceResponse.data.resources;
             return {
               success: true,
               message: `**📚 Curated Resources for "${topic}":**\n\n${resources.map((r: any, idx: number) => 
-                `${idx + 1}. **${r.title}** (${r.type})\n   ${r.description}\n   🔗 ${r.url}\n   ⭐ Relevance: ${Math.round(r.relevance * 100)}%`
-              ).join('\n\n')}\n\n💡 *These resources are personalized based on your role and project context.*`
+                `${idx + 1}. **[${r.title}](${r.url})** (${r.type})\n   ${r.description}\n   ⭐ Relevance: ${Math.round(r.relevance * 100)}%`
+              ).join('\n\n')}\n\n💡 *These resources are personalized based on your role, skills, and project context.*`
             };
           } else {
             return {
               success: true,
-              message: `🔍 No specific resources found for "${topic}". Try more specific terms or ask the Oracle for guidance.`
+              message: `🔍 No specific resources found for "${topic}". The Oracle is working on expanding the resource database. Try:\n\n• More specific technical terms (e.g., "React hooks" instead of "React")\n• Different variations ("API development", "REST APIs", "GraphQL")\n• Ask natural language questions like "How do I learn Python for data science?"`
             };
           }
 
