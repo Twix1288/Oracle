@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,6 +252,34 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
 
         // For other roles, proceed with project goal
         return (
+          <div className="space-y-6 fade-in-up">
+            <div className="text-center space-y-4">
+              <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
+                <Target className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-glow">What do you want to achieve?</h3>
+              <p className="text-muted-foreground text-lg">Tell the Oracle about your project vision and goals.</p>
+            </div>
+            
+            <div className="space-y-4">
+              <label className="text-sm font-medium high-contrast-text">Project Goal</label>
+              <Textarea
+                placeholder="Describe what you want to build and achieve with your project..."
+                value={formData.projectGoal}
+                onChange={(e) => setFormData({ ...formData, projectGoal: e.target.value })}
+                className="min-h-[120px] professional-input"
+              />
+            </div>
+
+            <Button 
+              onClick={handleNext} 
+              disabled={!formData.projectGoal.trim()}
+              className="w-full ufo-gradient hover:opacity-90 py-3 text-lg font-semibold"
+            >
+              Continue to Development Stage
+            </Button>
+          </div>
+        );
 
       case 2:
         // Team selection step for mentors and builders
@@ -328,7 +356,6 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
 
         // For other roles or if team is already selected, proceed with project goal
         return (
-        return (
           <div className="space-y-6 fade-in-up">
             <div className="text-center space-y-4">
               <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
@@ -358,63 +385,7 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
           </div>
         );
 
-      case 2:
-        return (
-          <div className="space-y-6 fade-in-up">
-            <div className="text-center space-y-4">
-              <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
-                <Rocket className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-2xl font-bold text-glow">Where are you in development?</h3>
-              <p className="text-muted-foreground text-lg">Select your current stage in the 5-phase journey.</p>
-            </div>
 
-            <div className="space-y-4">
-              {(Object.entries(stageInfo) as [TeamStage, typeof stageInfo.ideation][]).map(([stage, info]) => {
-                const Icon = stageIcons[stage];
-                return (
-                  <Card
-                    key={stage}
-                    className={`cursor-pointer transition-all interactive-card glass-card ${
-                      formData.currentStage === stage 
-                        ? 'glow-border border-primary/40 bg-primary/5' 
-                        : 'hover:glow-border'
-                    }`}
-                    onClick={() => setFormData({ ...formData, currentStage: stage })}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-lg ${info.color}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-semibold high-contrast-text">{info.title}</h4>
-                          <p className="text-sm readable-muted">{info.description}</p>
-                        </div>
-                        {formData.currentStage === stage && (
-                          <Badge className="bg-primary/20 text-primary border-primary/30 font-medium">
-                            Selected
-                          </Badge>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-4">
-              <BackButton 
-                onClick={handleBack}
-                text="Back"
-                className="flex-1 mb-0"
-              />
-              <Button onClick={handleNext} className="flex-1 ufo-gradient hover:opacity-90 font-semibold">
-                Continue to Mentorship
-              </Button>
-            </div>
-          </div>
-        );
 
       case 3:
         return (
