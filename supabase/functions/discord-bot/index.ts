@@ -192,37 +192,61 @@ const DISCORD_COMMANDS = [
 
 // Auto-register Discord commands
 async function registerDiscordCommands() {
+  console.log('=== Starting Discord Command Registration ===');
+  
   if (!DISCORD_BOT_TOKEN) {
-    console.error('No Discord bot token found');
+    console.error('❌ No Discord bot token found');
+    console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('DISCORD')));
     return false;
   }
+  console.log('✅ Discord bot token found');
 
   const APPLICATION_ID = Deno.env.get('DISCORD_APPLICATION_ID');
   if (!APPLICATION_ID) {
-    console.error('No Discord application ID found');
+    console.error('❌ No Discord application ID found');
+    console.log('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('DISCORD')));
     return false;
   }
+  console.log('✅ Discord application ID found:', APPLICATION_ID);
+
+  console.log('📝 Commands to register:', DISCORD_COMMANDS.length, 'commands');
+  console.log('Command names:', DISCORD_COMMANDS.map(cmd => cmd.name));
 
   try {
-    const response = await fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
+    const url = `https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`;
+    console.log('🌐 Making request to:', url);
+    
+    const headers = {
+      'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+      'Content-Type': 'application/json',
+    };
+    console.log('📋 Request headers set (token length:', DISCORD_BOT_TOKEN.length, ')');
+    
+    const body = JSON.stringify(DISCORD_COMMANDS);
+    console.log('📄 Request body length:', body.length);
+    
+    const response = await fetch(url, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(DISCORD_COMMANDS),
+      headers,
+      body,
     });
 
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response status text:', response.statusText);
+    
     if (response.ok) {
-      console.log('Discord commands registered successfully');
+      const result = await response.json();
+      console.log('✅ Commands registered successfully:', result);
       return true;
     } else {
-      const error = await response.text();
-      console.error('Failed to register Discord commands:', error);
+      const errorText = await response.text();
+      console.error('❌ Discord API error response:', errorText);
+      console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
       return false;
     }
   } catch (error) {
-    console.error('Error registering Discord commands:', error);
+    console.error('💥 Exception during registration:', error);
+    console.error('💥 Error stack:', error.stack);
     return false;
   }
 }
