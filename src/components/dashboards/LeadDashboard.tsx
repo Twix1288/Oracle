@@ -15,7 +15,7 @@ import { KeyRound, Users, Shield, UserCheck, MessageSquare, Activity, Settings, 
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
-import { GloriousOracle } from "../GloriousOracle";
+import { SuperOracle } from "../SuperOracle";
 import { AccessCodeManager } from "../AccessCodeManager";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -29,7 +29,7 @@ interface LeadDashboardProps {
 }
 
 export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedRole, onExit }: LeadDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("oracle");
+  const [activeTab, setActiveTab] = useState("overview");
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -201,10 +201,6 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
-            <Activity className="h-4 w-4 mr-2" />
-            Oracle Intelligence
-          </TabsTrigger>
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Eye className="h-4 w-4 mr-2" />
             Overview
@@ -217,13 +213,11 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
             <MessageSquare className="h-4 w-4 mr-2" />
             Messages
           </TabsTrigger>
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+            <Activity className="h-4 w-4 mr-2" />
+            Enhanced Oracle
+          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="oracle">
-          <GloriousOracle 
-            selectedRole="lead"
-          />
-        </TabsContent>
 
         <TabsContent value="overview">
           <TeamDashboard 
@@ -384,6 +378,12 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
 
         <TabsContent value="messages">
           <MessagingCenter userRole="lead" accessCode="lead-user" />
+        </TabsContent>
+
+        <TabsContent value="oracle">
+          <SuperOracle 
+            selectedRole="lead"
+          />
         </TabsContent>
       </Tabs>
       </div>

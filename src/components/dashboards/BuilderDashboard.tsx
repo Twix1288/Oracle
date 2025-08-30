@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { GloriousOracle } from "../GloriousOracle";
+import { EnhancedResourceOracle } from "../EnhancedResourceOracle";
 import { UserProfileEditor } from "../UserProfileEditor";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -20,7 +20,7 @@ interface BuilderDashboardProps {
   selectedRole: UserRole;
   builderId?: string;
   teamId?: string;
-  onSubmitUpdate?: (params: { teamId: string; content: string; type: any; createdBy?: string }) => void;
+  onSubmitUpdate?: (update: any) => void;
   onQueryRAG?: (query: string, role: UserRole) => void;
   ragResponse?: any;
   ragLoading?: boolean;
@@ -40,7 +40,7 @@ export const BuilderDashboard = ({
   ragLoading,
   onExit
 }: BuilderDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("oracle");
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Get builder's team data
   const builderTeam = teams.find(team => team.id === teamId);
@@ -192,10 +192,6 @@ export const BuilderDashboard = ({
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Oracle Intelligence
-          </TabsTrigger>
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Target className="h-4 w-4 mr-2" />
             Overview
@@ -203,6 +199,10 @@ export const BuilderDashboard = ({
           <TabsTrigger value="updates" className="data-[state=active]:bg-primary/20">
             <Plus className="h-4 w-4 mr-2" />
             Updates
+          </TabsTrigger>
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Oracle
           </TabsTrigger>
           <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20">
             <MessageSquare className="h-4 w-4 mr-2" />
@@ -213,14 +213,6 @@ export const BuilderDashboard = ({
             Team
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="oracle">
-          <GloriousOracle 
-            selectedRole="builder"
-            teamId={teamId}
-            onSubmitUpdate={onSubmitUpdate}
-          />
-        </TabsContent>
 
         <TabsContent value="overview">
           {builderTeam ? (
@@ -325,6 +317,12 @@ export const BuilderDashboard = ({
           )}
         </TabsContent>
 
+        <TabsContent value="oracle">
+          <EnhancedResourceOracle 
+            selectedRole="builder"
+            teamId={teamId}
+          />
+        </TabsContent>
 
         <TabsContent value="messages">
           <MessagingCenter userRole="builder" accessCode={builderId} teamId={teamId} />
