@@ -9,6 +9,7 @@ import { Loader2, UserCheck, Shield, Lightbulb, Users, Lock, ArrowRight } from "
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import type { UserRole } from "@/types/oracle";
 
 const roleOptions = {
   builder: {
@@ -54,7 +55,7 @@ interface RoleAssignmentProps {
 }
 
 export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [showAccessCode, setShowAccessCode] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [builderName, setBuilderName] = useState("");
@@ -62,14 +63,14 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
   const { toast } = useToast();
   const { user, updateProfile } = useAuth();
 
-  const handleRoleSelect = (role: string) => {
+  const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
     const roleConfig = roleOptions[role as keyof typeof roleOptions];
     
     if (role === 'guest') {
       // Assign guest role immediately
       handleGuestAssignment();
-    } else if (roleConfig.requiresAccessCode) {
+    } else if (roleConfig?.requiresAccessCode) {
       setShowAccessCode(true);
     }
   };
@@ -108,57 +109,28 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
 
     setIsProcessing(true);
     try {
-      // Validate access code first
-      const { data: validationData, error: validationError } = await supabase.rpc('validate_access_code', {
+      // Use the new access code function
+      const { data, error } = await supabase.rpc('use_access_code', {
+        p_user_id: user.id,
         p_code: accessCode.trim(),
-        p_role: selectedRole
+        p_builder_name: selectedRole === 'builder' ? builderName.trim() : null
       });
 
-      if (validationError) throw validationError;
-      if (!validationData || validationData.length === 0) {
-        throw new Error('Invalid or expired access code');
-      }
-
-      const codeData = validationData[0];
-
-      // Prepare role update
-      const updates: any = {
-        role: selectedRole,
-        onboarding_completed: true
-      };
-
-      if (selectedRole === 'builder') {
-        if (!builderName.trim()) {
-          throw new Error('Builder name is required');
-        }
-        updates.full_name = builderName.trim();
-        // Set team_id if provided by access code
-        if (codeData.team_id) {
-          updates.team_id = codeData.team_id;
-        }
-      }
-
-      // Update the profile
-      const { error: updateError } = await updateProfile(updates);
-      if (updateError) throw updateError;
-
-      // Increment access code usage
-      const { error: incrementError } = await supabase
-        .from('access_codes')
-        .update({ 
-          current_uses: (codeData.current_uses || 0) + 1,
-          updated_at: new Date().toISOString()
-        })
-        .eq('code', accessCode.trim());
-
-      if (incrementError) {
-        console.warn('Failed to increment access code usage:', incrementError);
+      if (error) throw error;
+      
+      // Type the response data properly
+      const responseData = data as any;
+      if (!responseData || typeof responseData !== 'object' || !responseData.success) {
+        const errorMessage = responseData && typeof responseData === 'object' && responseData.error 
+          ? responseData.error 
+          : 'Invalid or expired access code';
+        throw new Error(errorMessage);
       }
 
       const roleInfo = roleOptions[selectedRole as keyof typeof roleOptions];
       toast({
         title: "Role Assigned!",
-        description: `Welcome! You are now a ${roleInfo.label}.`
+        description: `Welcome! You are now a ${roleInfo?.label}.`
       });
 
       onRoleAssigned();
@@ -211,7 +183,7 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
               <Card
                 key={role}
                 className={`glow-border bg-gradient-to-br ${config.color} backdrop-blur hover:bg-opacity-80 transition-all duration-300 cursor-pointer`}
-                onClick={() => handleRoleSelect(role)}
+                onClick={() => handleRoleSelect(role as UserRole)}
               >
                 <CardHeader className="text-center">
                   <div className="p-3 rounded-full bg-primary/20 w-fit mx-auto mb-2">
@@ -251,7 +223,7 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
                 Enter Access Code
               </DialogTitle>
               <DialogDescription>
-                {selectedRole && (
+                {selectedRole && roleOptions[selectedRole as keyof typeof roleOptions] && (
                   <>
                     Please enter your access code to continue as{" "}
                     <strong>{roleOptions[selectedRole as keyof typeof roleOptions]?.label}</strong>

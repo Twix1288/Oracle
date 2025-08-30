@@ -931,6 +931,10 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      use_access_code: {
+        Args: { p_builder_name?: string; p_code: string; p_user_id: string }
+        Returns: Json
+      }
       validate_access_code: {
         Args: {
           p_code: string
