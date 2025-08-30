@@ -208,6 +208,54 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
     fetchUsers();
   }, []);
 
+  // Subscribe to broadcast messages
+  useEffect(() => {
+    const broadcastSubscription = supabase
+      .channel('broadcast-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `is_broadcast=eq.true`
+        },
+        async (payload) => {
+          const message = payload.new;
+          
+          // Check if broadcast is relevant for current user
+          if (
+            message.broadcast_type === 'all' ||
+            (message.broadcast_type === 'team' && message.broadcast_target === teamId) ||
+            (message.broadcast_type === 'role' && message.broadcast_target === selectedRole)
+          ) {
+            const broadcastMessage: ChatMessage = {
+              id: message.id,
+              type: 'system',
+              content: `📢 **Broadcast Message**\n\n${message.content}\n\n*From: ${message.sender_role}*`,
+              timestamp: message.created_at,
+              author: {
+                name: message.sender_role === selectedRole ? 'You' : `${message.sender_role} User`,
+                role: message.sender_role,
+                avatar: '📢'
+              },
+              metadata: {
+                broadcast_type: message.broadcast_type,
+                target: message.broadcast_target
+              }
+            };
+
+            setMessages(prev => [...prev, broadcastMessage]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(broadcastSubscription);
+    };
+  }, [teamId, selectedRole]);
+
   useEffect(() => {
     // Add welcome message
     const welcomeMessage: ChatMessage = {
@@ -805,6 +853,47 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
         avatar: profile?.avatar_url
       }
     };
+
+    // Check for broadcast command
+    const broadcastMatch = message.match(/^broadcast(?:\s+to\s+(all|team|role)\s+)?:\s*(.+)$/i);
+    if (broadcastMatch) {
+      const [_, targetType = 'all', content] = broadcastMatch;
+      try {
+        const { error } = await supabase.from('messages').insert({
+          sender_id: profile?.id || 'anonymous',
+          sender_role: selectedRole,
+          content: content.trim(),
+          is_broadcast: true,
+          broadcast_type: targetType.toLowerCase(),
+          broadcast_target: targetType === 'team' ? teamId : targetType === 'role' ? selectedRole : null
+        });
+
+        if (error) throw error;
+
+        const systemMessage: ChatMessage = {
+          id: Date.now().toString() + '_broadcast',
+          type: 'system',
+          content: `✅ Broadcast sent to ${targetType}: "${content.trim()}"`,
+          timestamp: new Date().toISOString(),
+          author: {
+            name: 'System',
+            role: 'guest',
+            avatar: '📢'
+          }
+        };
+
+        setMessages(prev => [...prev, userMessage, systemMessage]);
+        setMessage("");
+        return;
+      } catch (error) {
+        console.error('Broadcast error:', error);
+        toast({
+          title: "Broadcast Error",
+          description: "Failed to send broadcast message. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }
 
     setMessages(prev => [...prev, userMessage]);
     const currentMessage = message;

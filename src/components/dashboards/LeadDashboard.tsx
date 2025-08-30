@@ -29,7 +29,7 @@ interface LeadDashboardProps {
 }
 
 export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedRole, onExit }: LeadDashboardProps) => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("oracle");
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -74,6 +74,29 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       setSavingMentor(false);
     }
   };
+  const handleDeleteTeam = async (teamId: string, teamName: string) => {
+    if (!confirm(`Are you sure you want to delete team "${teamName}"? The team's data will be preserved in the database for reference.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("teams")
+        .delete()
+        .eq("id", teamId);
+
+      if (error) throw error;
+
+      toast.success(`Team "${teamName}" deleted successfully.`);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      queryClient.invalidateQueries({ queryKey: ["teamStatuses"] });
+    } catch (error: any) {
+      toast.error(`Failed to delete team: ${error.message}`);
+    }
+  };
+
   const handleCreateTeam = async () => {
     if (!teamName.trim()) {
       toast.error("Team name is required");
@@ -88,7 +111,8 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
           name: teamName,
           description: null, // Will be filled during member onboarding
           stage: 'ideation', // Default stage, will be updated during onboarding
-          tags: null // Will be filled during member onboarding
+          tags: null, // Will be filled during member onboarding
+          access_code: generateAccessCode() // Add access code for team
         })
         .select()
         .single();
@@ -201,6 +225,10 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
+          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
+            <Activity className="h-4 w-4 mr-2" />
+            Enhanced Oracle
+          </TabsTrigger>
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Eye className="h-4 w-4 mr-2" />
             Overview
@@ -212,10 +240,6 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
           <TabsTrigger value="messages" className="data-[state=active]:bg-primary/20">
             <MessageSquare className="h-4 w-4 mr-2" />
             Messages
-          </TabsTrigger>
-          <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
-            <Activity className="h-4 w-4 mr-2" />
-            Enhanced Oracle
           </TabsTrigger>
         </TabsList>
 
@@ -295,8 +319,40 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                             {team.description}
                           </p>
                         )}
-                        <div className="text-xs text-muted-foreground">
-                          Created: {new Date(team.created_at).toLocaleDateString()}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-xs text-muted-foreground">
+                            Created: {new Date(team.created_at).toLocaleDateString()}
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteTeam(team.id, team.name)}
+                            className="h-7"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs">
+                            <span className="text-muted-foreground">Access Code: </span>
+                            <span className="font-mono">{team.access_code}</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const newCode = await regenerateAccessCode(team.id, supabase);
+                                toast.success("Access code regenerated");
+                                queryClient.invalidateQueries({ queryKey: ["teams"] });
+                              } catch (error: any) {
+                                toast.error(`Failed to regenerate access code: ${error.message}`);
+                              }
+                            }}
+                            className="h-7"
+                          >
+                            Regenerate
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -308,6 +364,68 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                     <p>No teams created yet. Create your first team to get started!</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Unassigned Users */}
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-yellow-400" />
+                  Unassigned Users
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Users who haven't joined a team yet
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {members.filter(m => !m.team_id).map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-primary/20">
+                      <div>
+                        <div className="font-semibold">{member.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Role: {member.role}
+                        </div>
+                      </div>
+                      <Select
+                        value={member.team_id || ""}
+                        onValueChange={async (teamId) => {
+                          try {
+                            const { error } = await supabase
+                              .from("members")
+                              .update({ team_id: teamId })
+                              .eq("id", member.id);
+                            
+                            if (error) throw error;
+                            
+                            toast.success("User assigned to team successfully");
+                            queryClient.invalidateQueries({ queryKey: ["members"] });
+                          } catch (error: any) {
+                            toast.error(`Failed to assign user: ${error.message}`);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Assign to team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teams.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                  {members.filter(m => !m.team_id).length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>All users are assigned to teams!</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
