@@ -64,6 +64,47 @@ function hexToUint8Array(hex: string): Uint8Array {
   return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
 }
 
+// Auto-register Discord commands
+async function registerDiscordCommands() {
+  if (!DISCORD_BOT_TOKEN) {
+    console.error('No Discord bot token found');
+    return false;
+  }
+
+  const APPLICATION_ID = Deno.env.get('DISCORD_APPLICATION_ID');
+  if (!APPLICATION_ID) {
+    console.error('No Discord application ID found');
+    return false;
+  }
+
+  try {
+    const response = await fetch(`https://discord.com/api/v10/applications/${APPLICATION_ID}/commands`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'oracle',
+        description: 'PieFi Oracle - AI assistant for builders',
+        options: DISCORD_COMMANDS
+      }),
+    });
+
+    if (response.ok) {
+      console.log('Discord commands registered successfully');
+      return true;
+    } else {
+      const error = await response.text();
+      console.error('Failed to register Discord commands:', error);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error registering Discord commands:', error);
+    return false;
+  }
+}
+
 // Discord bot commands - mirror of Oracle commands
 const DISCORD_COMMANDS = [
   {
@@ -537,8 +578,19 @@ serve(async (req) => {
     }
   }
   
-  // Handle GET requests - bot status page
+  // Handle GET requests - bot status page and command registration
   if (req.method === 'GET') {
+    // Check if this is a command registration request
+    if (url.searchParams.get('register') === 'true') {
+      const success = await registerDiscordCommands();
+      return new Response(JSON.stringify({
+        success,
+        message: success ? 'Commands registered successfully!' : 'Failed to register commands. Check logs.'
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     return new Response(`
       <!DOCTYPE html>
       <html>
