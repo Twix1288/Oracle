@@ -317,6 +317,29 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                           </Button>
                         </div>
 
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs">
+                            <span className="text-muted-foreground">Access Code: </span>
+                            <span className="font-mono">{team.access_code}</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const newCode = await regenerateAccessCode(team.id);
+                                toast.success("Access code regenerated");
+                                queryClient.invalidateQueries({ queryKey: ["teams"] });
+                              } catch (error: any) {
+                                toast.error(`Failed to regenerate access code: ${error.message}`);
+                              }
+                            }}
+                            className="h-7"
+                          >
+                            Regenerate
+                          </Button>
+                        </div>
+
                       </CardContent>
                     </Card>
                   ))}
@@ -386,6 +409,68 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
               </CardContent>
             </Card>
 
+            {/* Master Access Code */}
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                  Master Access Code
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Simple access code system for assigning roles
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Builder Code */}
+                  <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="h-4 w-4 text-blue-400" />
+                      <h4 className="font-semibold text-blue-400">Builder Code</h4>
+                    </div>
+                    <div className="font-mono text-lg bg-background/50 p-2 rounded border text-center">
+                      BUILD2024
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Give this to team builders
+                    </p>
+                  </div>
+
+                  {/* Mentor Code */}
+                  <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <UserCheck className="h-4 w-4 text-green-400" />
+                      <h4 className="font-semibold text-green-400">Mentor Code</h4>
+                    </div>
+                    <div className="font-mono text-lg bg-background/50 p-2 rounded border text-center">
+                      MENTOR2024
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Give this to mentors
+                    </p>
+                  </div>
+
+                  {/* Lead Code */}
+                  <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="h-4 w-4 text-purple-400" />
+                      <h4 className="font-semibold text-purple-400">Lead Code</h4>
+                    </div>
+                    <div className="font-mono text-lg bg-background/50 p-2 rounded border text-center">
+                      LEAD2024
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      For program leaders
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>How it works:</strong> Users complete onboarding, join a team, then use these codes in their dashboard to get their role and access.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
           </div>
         </TabsContent>

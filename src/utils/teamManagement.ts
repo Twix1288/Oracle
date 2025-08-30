@@ -6,6 +6,7 @@ export interface Team {
   name: string;
   description: string | null;
   stage: TeamStage;
+  access_code: string | null;
   created_at: string;
   updated_at: string;
   is_archived: boolean;
@@ -23,6 +24,33 @@ export interface Member {
   updated_at: string;
 }
 
+// Generate a unique access code
+export const generateAccessCode = async (): Promise<string> => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code: string;
+  let isUnique = false;
+
+  while (!isUnique) {
+    // Generate a random 8-character code
+    code = Array.from({ length: 8 }, () => 
+      characters.charAt(Math.floor(Math.random() * characters.length))
+    ).join('');
+
+    // Check if code already exists
+    const { data } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('access_code', code);
+
+    if (!data || data.length === 0) {
+      isUnique = true;
+      return code;
+    }
+  }
+
+  throw new Error('Failed to generate unique access code');
+};
+
 // Create a new team
 export const createTeam = async (
   name: string,
@@ -30,12 +58,16 @@ export const createTeam = async (
   stage: TeamStage = 'ideation',
   leadId: string
 ): Promise<Team> => {
+  // Generate access code
+  const access_code = await generateAccessCode();
+
   const { data, error } = await supabase
     .from('teams')
     .insert({
       name,
       description,
       stage,
+      access_code,
       created_by: leadId,
       is_archived: false
     })
@@ -111,6 +143,19 @@ export const getActiveTeams = async (): Promise<Team[]> => {
 
   if (error) throw error;
   return data || [];
+};
+
+// Regenerate team access code
+export const regenerateAccessCode = async (teamId: string): Promise<string> => {
+  const newCode = await generateAccessCode();
+
+  const { error } = await supabase
+    .from('teams')
+    .update({ access_code: newCode })
+    .eq('id', teamId);
+
+  if (error) throw error;
+  return newCode;
 };
 
 // Get team updates
