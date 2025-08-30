@@ -20,7 +20,7 @@ export interface UserProfile {
   github_url?: string;
   portfolio_url?: string;
   team_id?: string;
-  role: 'builder' | 'mentor' | 'lead' | 'guest';
+  role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
   onboarding_completed: boolean;
   created_at: string;
   updated_at: string;

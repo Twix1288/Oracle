@@ -200,7 +200,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
 
       {/* Main Dashboard */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
+        <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Eye className="h-4 w-4 mr-2" />
             Overview
@@ -216,10 +216,6 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
           <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <Activity className="h-4 w-4 mr-2" />
             Enhanced Oracle
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20">
-            <Settings className="h-4 w-4 mr-2" />
-            Access Control
           </TabsTrigger>
         </TabsList>
 
@@ -388,11 +384,6 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
           <SuperOracle 
             selectedRole="lead"
           />
-        </TabsContent>
-
-
-        <TabsContent value="settings">
-          <AccessCodeManager />
         </TabsContent>
       </Tabs>
       </div>

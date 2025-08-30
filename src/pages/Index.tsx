@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AccessGate } from "@/components/AccessGate";
 import { BuilderAccessGate } from "@/components/BuilderAccessGate";
 import { RoleSelector } from "@/components/RoleSelector";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
@@ -15,7 +16,7 @@ import { toast } from "sonner";
 import type { UserRole, Team } from "@/types/oracle";
 
 function Index() {
-  const { user, signOut, loading: authLoading } = useAuth();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [builderInfo, setBuilderInfo] = useState<{
@@ -40,8 +41,11 @@ function Index() {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
+    } else if (profile && profile.role && profile.role !== 'unassigned') {
+      // Auto-set role if user has completed onboarding and has a role
+      setSelectedRole(profile.role);
     }
-  }, [user, authLoading, navigate]);
+  }, [user, profile, authLoading, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -70,10 +74,47 @@ function Index() {
     });
   };
 
+  const handleRoleAssigned = () => {
+    // Refresh the page to get updated profile data
+    window.location.reload();
+  };
+
   const handleLeaveTeam = () => {
     setBuilderInfo(null);
     setSelectedRole(null);
   };
+
+  // Show access gate if user is unassigned
+  if (profile && profile.role === 'unassigned') {
+    return (
+      <div className="min-h-screen bg-cosmic cosmic-sparkle">
+        {/* Logout header for unassigned users */}
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="w-5 h-5 text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {user?.email}
+                </span>
+              </div>
+              <Button 
+                onClick={handleLogout}
+                variant="outline"
+                size="sm"
+                className="bg-background hover:bg-muted/50 border-border"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        <AccessGate onRoleAssigned={handleRoleAssigned} />
+      </div>
+    );
+  }
 
   // Show loading while checking auth
   if (authLoading) {
@@ -96,8 +137,8 @@ function Index() {
     );
   }
 
-  // Show enhanced builder access gate for builders
-  if (!selectedRole || (selectedRole === 'builder' && !builderInfo)) {
+  // Show enhanced builder access gate for builders (legacy)
+  if (!selectedRole || (selectedRole === 'builder' && !builderInfo && profile?.role === 'builder')) {
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">
         {/* Logout header for role selection */}

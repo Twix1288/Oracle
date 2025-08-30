@@ -1,197 +1,174 @@
-import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Rocket, User, Shield, Eye, Lock, Sparkles } from "lucide-react";
-import type { UserRole } from "@/types/oracle";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { KeyRound, Users, UserCheck, Shield, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AccessGateProps {
-  onRoleSelected: (role: UserRole) => void;
+  onRoleAssigned: () => void;
 }
 
-const roleInfo = {
-  builder: {
-    label: "Builder",
-    description: "Team member developing products",
-    icon: Rocket,
-    color: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-    needsCode: true
-  },
-  mentor: {
-    label: "Mentor",
-    description: "Guide and advisor to teams",
-    icon: User,
-    color: "bg-green-500/20 text-green-300 border-green-500/30",
-    needsCode: true
-  },
-  lead: {
-    label: "Lead",
-    description: "Incubator program leader",
-    icon: Shield,
-    color: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-    needsCode: true
-  },
-  guest: {
-    label: "Guest",
-    description: "Public visitor access",
-    icon: Eye,
-    color: "bg-gray-500/20 text-gray-300 border-gray-500/30",
-    needsCode: false
-  }
-};
+export const AccessGate = ({ onRoleAssigned }: AccessGateProps) => {
+  const [accessCode, setAccessCode] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
+  const { user, updateProfile } = useAuth();
 
-export const AccessGate = ({ onRoleSelected }: AccessGateProps) => {
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
-  const [showCodeDialog, setShowCodeDialog] = useState(false);
+  const masterCodes = [
+    {
+      code: 'BUILD2024',
+      role: 'builder',
+      label: 'Builder',
+      description: 'Team member building products',
+      icon: Users,
+      color: 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+    },
+    {
+      code: 'MENTOR2024',
+      role: 'mentor',
+      label: 'Mentor',
+      description: 'Guide and advisor to teams',
+      icon: UserCheck,
+      color: 'bg-green-500/20 text-green-300 border-green-500/30'
+    },
+    {
+      code: 'LEAD2024',
+      role: 'lead',
+      label: 'Lead',
+      description: 'Program leader',
+      icon: Shield,
+      color: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+    },
+    {
+      code: 'GUEST2024',
+      role: 'guest',
+      label: 'Guest',
+      description: 'Public visitor access',
+      icon: User,
+      color: 'bg-gray-500/20 text-gray-300 border-gray-500/30'
+    }
+  ];
 
+  const handleSubmitCode = async () => {
+    if (!accessCode.trim() || !user) return;
 
-  const handleRoleClick = (role: UserRole) => {
-    setSelectedRole(role);
-    setError("");
-    
-    if (roleInfo[role].needsCode) {
-      setShowCodeDialog(true);
-    } else {
-      onRoleSelected(role);
+    setIsValidating(true);
+    try {
+      // Use the use_access_code function
+      const { data, error } = await supabase.rpc('use_access_code', {
+        p_user_id: user.id,
+        p_code: accessCode.trim().toUpperCase()
+      });
+
+      if (error) throw error;
+
+      if (data && typeof data === 'object' && 'success' in data && (data as any).success) {
+        toast.success(`Welcome! You are now assigned as ${(data as any).role}.`);
+        onRoleAssigned();
+      } else {
+        toast.error((data as any)?.error || 'Invalid access code');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to validate access code');
+    } finally {
+      setIsValidating(false);
     }
   };
 
-  const handleCodeSubmit = async () => {
-    if (!selectedRole || !code) return;
-
-    const { data, error } = await supabase.rpc('validate_access_code', {
-      p_code: code.trim(),
-      p_role: selectedRole,
-    });
-
-    if (error) {
-      setError("Validation failed. Please try again.");
-      return;
-    }
-
-    if (data && data.length > 0) {
-      onRoleSelected(selectedRole);
-      setShowCodeDialog(false);
-      setCode("");
-      setError("");
-    } else {
-      setError("Invalid access code. Please try again.");
-    }
+  const handleCodeClick = (code: string) => {
+    setAccessCode(code);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background relative overflow-hidden">
-      {/* Cosmic background effects */}
-      <div className="absolute inset-0 cosmic-sparkle opacity-20" />
-      <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-xl ufo-pulse" />
-      <div className="absolute bottom-20 right-10 w-48 h-48 bg-primary/5 rounded-full blur-2xl ufo-float" />
-
-      <div className="relative z-10 container mx-auto px-4 py-8 lg:py-12">
-        {/* Header */}
-        <div className="text-center mb-12 lg:mb-16">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 rounded-full bg-primary/10 ufo-glow">
-              <Sparkles className="w-8 h-8 text-primary" />
+    <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl bg-background/95 backdrop-blur-sm glow-border">
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+              <KeyRound className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-glow">
-              PieFi Oracle
-            </h1>
           </div>
-          <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-            Your AI-powered incubator assistant. Select your role to access personalized insights and tools.
+          <CardTitle className="text-2xl">Welcome to PieFi Oracle</CardTitle>
+          <p className="text-muted-foreground">
+            Enter your access code to get started with your role
           </p>
-        </div>
-
-        {/* Role Selection Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-12 lg:mb-16">
-          {Object.entries(roleInfo).map(([role, info]) => (
-            <Card 
-              key={role}
-              className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] lg:hover:scale-105 glow-border group ${
-                selectedRole === role ? 'ring-2 ring-primary shadow-lg ufo-glow' : ''
-              }`}
-              onClick={() => handleRoleClick(role as UserRole)}
-            >
-              <CardHeader className="text-center pb-3">
-                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${info.color} group-hover:scale-110 transition-transform duration-300`}>
-                  <info.icon className="w-6 h-6" />
-                </div>
-                <CardTitle className="text-lg font-semibold">{info.label}</CardTitle>
-                <CardDescription className="text-sm leading-relaxed">{info.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex flex-col gap-2">
-                  <Badge 
-                    variant={info.needsCode ? "destructive" : "secondary"} 
-                    className="self-center text-xs font-medium"
-                  >
-                    {info.needsCode ? (
-                      <>
-                        <Lock className="w-3 h-3 mr-1" />
-                        Access Code Required
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-3 h-3 mr-1" />
-                        Open Access
-                      </>
-                    )}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-        </div>
-      </div>
-
-      {/* Access Code Dialog */}
-      <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              Enter Access Code
-            </DialogTitle>
-            <DialogDescription>
-              Please enter your access code to continue as <strong>{selectedRole && roleInfo[selectedRole]?.label}</strong>
-            </DialogDescription>
-          </DialogHeader>
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          {/* Access Code Input */}
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="access-code" className="text-sm font-medium">Access Code</Label>
+            <div className="flex gap-2">
               <Input
-                id="access-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
                 placeholder="Enter your access code"
-                className="mt-2 font-mono"
-                autoFocus
+                className="font-mono text-center text-lg"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSubmitCode();
+                  }
+                }}
               />
-            </div>
-            {error && (
-              <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                <p className="text-sm text-destructive font-medium">{error}</p>
-              </div>
-            )}
-            <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => setShowCodeDialog(false)} className="px-6">
-                Cancel
-              </Button>
-              <Button onClick={handleCodeSubmit} disabled={!code.trim()} className="px-6">
-                Continue
+              <Button 
+                onClick={handleSubmitCode}
+                disabled={!accessCode.trim() || isValidating}
+                className="ufo-gradient px-6"
+              >
+                {isValidating ? 'Validating...' : 'Submit'}
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Available Codes Display */}
+          <div className="space-y-4">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                Available access codes:
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {masterCodes.map(({ code, role, label, description, icon: Icon, color }) => (
+                <Card
+                  key={code}
+                  className={`cursor-pointer transition-all hover:scale-105 ${
+                    accessCode === code 
+                      ? 'border-primary bg-primary/5' 
+                      : 'hover:border-primary/50'
+                  }`}
+                  onClick={() => handleCodeClick(code)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`p-2 rounded-lg ${color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{label}</h4>
+                        <p className="text-xs text-muted-foreground">{description}</p>
+                      </div>
+                    </div>
+                    <div className="font-mono text-sm bg-background/50 p-2 rounded border text-center">
+                      {code}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Information */}
+          <div className="p-4 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              <strong>How it works:</strong> Enter the access code provided by your program leader 
+              to get your role and access to the appropriate dashboard.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
