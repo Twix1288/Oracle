@@ -150,7 +150,36 @@ async function generatePersonalizedResources(query: string, userProfile: any, te
   const resources: OracleResource[] = [];
   const queryLower = query.toLowerCase();
   
-  // Enhanced technology-specific resources with real, working URLs
+  // FIRST: Check PieFi database for internal resources and knowledge
+  const pieFiResources: OracleResource[] = [];
+  
+  try {
+    const { data: dbResources, error } = await supabase
+      .from('documents')
+      .select('content, metadata, source_type')
+      .contains('role_visibility', [userRole])
+      .or(`content.ilike.%${queryLower}%, metadata->>title.ilike.%${queryLower}%`)
+      .limit(5);
+    
+    if (!error && dbResources) {
+      dbResources.forEach((doc, idx) => {
+        pieFiResources.push({
+          title: doc.metadata?.title || `PieFi Resource ${idx + 1}`,
+          url: doc.metadata?.url || '#',
+          type: 'documentation',
+          description: doc.content.substring(0, 150) + '...',
+          relevance: 0.95 // High relevance for internal resources
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching PieFi database resources:', error);
+  }
+  
+  // Add PieFi resources first to the final resources array
+  resources.push(...pieFiResources);
+  
+  // Enhanced technology-specific resources with real, working URLs (as fallback)
   const techResources = {
     'react': [
       { title: 'React Official Documentation', url: 'https://react.dev', type: 'documentation', description: 'Official React documentation with modern hooks and patterns', relevance: 95 },

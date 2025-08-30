@@ -296,95 +296,125 @@ ${profile ? `🔗 **Linked Account:** ${profile.full_name} (${role})` : '🚨 **
         const topic = options.find((opt: any) => opt.name === 'topic')?.value;
         if (!topic) return '❌ Please specify a topic for resources.';
         
-        // Call the same resource function as website
-        const resourceResponse = await supabase.functions.invoke('enhanced-resource-oracle', {
-          body: {
-            query: topic,
-            type: 'resources',
-            role: role,
-            teamId,
-            userId
-          }
-        });
+        // First check PieFi database for resources
+        const { data: dbResources } = await supabase
+          .from('documents')
+          .select('content, metadata, source_type')
+          .contains('role_visibility', [role])
+          .or(`content.ilike.%${topic}%, metadata->>title.ilike.%${topic}%`)
+          .limit(3);
         
-        if (resourceResponse.data?.resources) {
-          const resources = resourceResponse.data.resources;
-          let response = `📚 **Resources for "${topic}":**\n\n`;
+        let response = `📚 **Resources for "${topic}":**\n\n`;
+        
+        // Add PieFi database resources first
+        if (dbResources && dbResources.length > 0) {
+          response += `**🏠 PieFi Knowledge Base:**\n`;
+          dbResources.forEach((r: any, idx: number) => {
+            const title = r.metadata?.title || `Resource ${idx + 1}`;
+            const desc = r.content.substring(0, 100) + '...';
+            response += `${idx + 1}. **${title}**\n   ${desc}\n\n`;
+          });
+        }
+        
+        // Then call Oracle for additional external resources as fallback
+        try {
+          const resourceResponse = await supabase.functions.invoke('super-oracle', {
+            body: {
+              query: `I need curated resources and tutorials for: ${topic}`,
+              role: role,
+              teamId,
+              userId,
+              contextRequest: {
+                needsResources: true,
+                needsMentions: false,
+                needsTeamContext: false,
+                needsPersonalization: true,
+                resourceTopic: topic
+              }
+            }
+          });
           
-          // Prioritize PieFi resources
-          const pieFiResources = resources.filter((r: any) => r.type === 'piefi');
-          const externalResources = resources.filter((r: any) => r.type !== 'piefi');
-          
-          if (pieFiResources.length > 0) {
-            response += `**🏠 PieFi Resources:**\n`;
-            pieFiResources.slice(0, 2).forEach((r: any, idx: number) => {
-              response += `${idx + 1}. **${r.title}**\n   ${r.description}\n   🔗 ${r.url}\n\n`;
-            });
-          }
-          
-          if (externalResources.length > 0) {
-            response += `**🌐 External Resources:**\n`;
-            externalResources.slice(0, 3).forEach((r: any, idx: number) => {
-              const icon = r.type === 'youtube' ? '📺' : '📄';
+          if (resourceResponse.data?.resources) {
+            const resources = resourceResponse.data.resources;
+            response += `**🌐 Curated External Resources:**\n`;
+            resources.slice(0, 3).forEach((r: any, idx: number) => {
+              const icon = r.type === 'youtube' ? '📺' : r.type === 'tutorial' ? '🎓' : '📄';
               response += `${idx + 1}. ${icon} **${r.title}**\n   ${r.description}\n   🔗 ${r.url}\n\n`;
             });
           }
-          
-          response += `💡 *Also available on PieFi website Oracle!*`;
-          return response;
-        } else {
+        } catch (error) {
+          console.error('Oracle resource error:', error);
+          // Continue with just database resources
+        }
+        
+        if (!dbResources?.length && response.includes('🏠')) {
           return `🔍 No resources found for "${topic}". Try different keywords or check the website Oracle.`;
         }
+        
+        response += `💡 *More resources available on PieFi website Oracle!*`;
+        return response;
 
       case 'connect':
-        const challenge = options.find((opt: any) => opt.name === 'challenge')?.value;
-        if (!challenge) return '❌ Please specify what you need help with.';
+        const connectRole = options.find((opt: any) => opt.name === 'role')?.value;
+        const skills = options.find((opt: any) => opt.name === 'skills')?.value || '';
+        if (!connectRole) return '❌ Please specify the role (builder/mentor/team) you want to connect with.';
         
-        // First check PieFi users
-        const { data: pieFiUsers } = await supabase
-          .from('profiles')
-          .select('full_name, role, skills, bio, discord_id')
-          .not('skills', 'is', null);
+        let connectResponse = `🤝 **Connect with ${connectRole}s:**\n\n`;
         
-        let connectResponse = `🤝 **Connections for "${challenge}":**\n\n`;
-        
-        if (pieFiUsers) {
-          const relevantPeople = pieFiUsers.filter(p => 
-            p.skills?.some((skill: string) => 
-              challenge.toLowerCase().includes(skill.toLowerCase()) ||
-              skill.toLowerCase().includes(challenge.toLowerCase())
-            ) || 
-            p.bio?.toLowerCase().includes(challenge.toLowerCase())
-          ).slice(0, 2);
+        // PRIORITIZE PieFi database - search profiles first
+        const searchQuery = skills ? 
+          `skills.cs.{${skills}},help_needed.cs.{${skills}},bio.ilike.%${skills}%` :
+          `role.eq.${connectRole}`;
           
-          if (relevantPeople.length > 0) {
-            connectResponse += `**🏠 PieFi Community:**\n`;
-            relevantPeople.forEach((p, idx) => {
-              connectResponse += `${idx + 1}. **${p.full_name}** (${p.role})\n   💪 Skills: ${p.skills?.join(', ')}\n`;
-              if (p.discord_id) {
-                connectResponse += `   💬 <@${p.discord_id}>\n`;
-              }
-              connectResponse += `\n`;
-            });
-          }
+        const { data: pieFiPeople } = await supabase
+          .from('profiles')
+          .select('full_name, role, skills, bio, discord_id, help_needed, experience_level, availability')
+          .or(searchQuery)
+          .neq('id', userId) // Don't include the user themselves
+          .limit(4);
+        
+        if (pieFiPeople && pieFiPeople.length > 0) {
+          connectResponse += `**🏠 PieFi Community Members:**\n`;
+          pieFiPeople.forEach((p, idx) => {
+            connectResponse += `${idx + 1}. **${p.full_name}** (${p.role})\n`;
+            if (p.skills?.length) connectResponse += `   💪 Skills: ${p.skills.slice(0, 3).join(', ')}\n`;
+            if (p.help_needed?.length) connectResponse += `   🤝 Can help with: ${p.help_needed.slice(0, 2).join(', ')}\n`;
+            if (p.availability) connectResponse += `   ⏰ ${p.availability}\n`;
+            if (p.discord_id) {
+              connectResponse += `   💬 <@${p.discord_id}>\n`;
+            }
+            connectResponse += `\n`;
+          });
         }
         
-        // Then get external connections
-        const connectionResponse = await supabase.functions.invoke('enhanced-resource-oracle', {
-          body: {
-            query: challenge,
-            type: 'connect',
-            role: role,
-            teamId,
-            userId
+        // Only use external resources as fallback if no PieFi matches found
+        if (!pieFiPeople?.length) {
+          try {
+            const connectionResponse = await supabase.functions.invoke('super-oracle', {
+              body: {
+                query: `I need to connect with ${connectRole}s for ${skills || 'general collaboration'}`,
+                role: role,
+                teamId,
+                userId,
+                contextRequest: {
+                  needsResources: false,
+                  needsMentions: true,
+                  needsTeamContext: false,
+                  needsPersonalization: true
+                }
+              }
+            });
+            
+            if (connectionResponse.data?.answer) {
+              connectResponse += `**🌐 External Connections:**\n${connectionResponse.data.answer}\n\n`;
+            }
+          } catch (error) {
+            console.error('External connection search error:', error);
           }
-        });
-        
-        if (connectionResponse.data?.connections) {
-          connectResponse += `**🌐 LinkedIn Experts:**\n`;
-          connectionResponse.data.connections.slice(0, 2).forEach((c: any, idx: number) => {
-            connectResponse += `${idx + 1}. **${c.name}** - ${c.title}\n   🏢 ${c.company}\n   🔗 ${c.linkedin_url}\n\n`;
-          });
+          
+          connectResponse += `💡 *Join PieFi to connect with more builders and mentors in our community!*`;
+        } else {
+          connectResponse += `💡 *${pieFiPeople.length} community members found! Message them directly or use the website.*`;
         }
         
         return connectResponse;
@@ -624,20 +654,37 @@ serve(async (req) => {
         
         console.log(`Discord command: ${commandName} by ${user.username}`);
         
-        const response = await handleOracleCommand(
-          commandName, 
-          options, 
-          user, 
-          interaction.guild_id
-        );
+        // For quick commands, respond immediately
+        if (commandName === 'help' || commandName === 'link') {
+          const response = await handleOracleCommand(
+            commandName, 
+            options, 
+            user, 
+            interaction.guild_id
+          );
+          
+          await logBotInteraction(interaction, true);
+          
+          return new Response(JSON.stringify({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: response,
+              flags: 64 // Ephemeral - only visible to the user
+            }
+          }), {
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
         
-        await logBotInteraction(interaction, true);
-        
-        return new Response(JSON.stringify({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        // For resource-heavy commands, use deferred response
+        // Send immediate acknowledgment
+        const deferredResponse = new Response(JSON.stringify({
+          type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: response,
-            flags: 64 // Ephemeral - only visible to the user
+            flags: 64 // Ephemeral
           }
         }), {
           headers: { 
@@ -645,6 +692,50 @@ serve(async (req) => {
             ...corsHeaders
           }
         });
+        
+        // Process command in background
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            const response = await handleOracleCommand(
+              commandName, 
+              options, 
+              user, 
+              interaction.guild_id
+            );
+            
+            // Send follow-up message
+            await fetch(`https://discord.com/api/v10/webhooks/${Deno.env.get('DISCORD_APPLICATION_ID')}/${interaction.token}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                content: response,
+                flags: 64
+              }),
+            });
+            
+            await logBotInteraction(interaction, true);
+          } catch (error) {
+            console.error('Discord command background error:', error);
+            
+            // Send error follow-up
+            await fetch(`https://discord.com/api/v10/webhooks/${Deno.env.get('DISCORD_APPLICATION_ID')}/${interaction.token}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                content: '❌ An error occurred while processing your command. Please try again.',
+                flags: 64
+              }),
+            });
+            
+            await logBotInteraction(interaction, false, error.message);
+          }
+        })());
+        
+        return deferredResponse;
         
       } catch (error) {
         console.error('Discord command error:', error);
