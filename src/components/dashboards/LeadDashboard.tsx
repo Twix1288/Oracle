@@ -34,9 +34,6 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
   const [activeTab, setActiveTab] = useState("overview");
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
   const [teamName, setTeamName] = useState("");
-  const [teamDescription, setTeamDescription] = useState("");
-  const [teamStage, setTeamStage] = useState<"ideation" | "development" | "testing" | "launch" | "growth">("ideation");
-  const [teamTags, setTeamTags] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   // Mentor assignment helpers
@@ -87,28 +84,23 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
 
     setIsCreating(true);
     try {
-      const tagsArray = teamTags.split(",").map(tag => tag.trim()).filter(Boolean);
-      
       const { data, error } = await supabase
         .from("teams")
         .insert({
           name: teamName,
-          description: teamDescription || null,
-          stage: teamStage as "ideation" | "development" | "testing" | "launch" | "growth",
-          tags: tagsArray.length > 0 ? tagsArray : null
+          description: null, // Will be filled during member onboarding
+          stage: 'ideation', // Default stage, will be updated during onboarding
+          tags: null // Will be filled during member onboarding
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      toast.success(`Team "${teamName}" created successfully!`);
+      toast.success(`Team "${teamName}" created successfully! Team details will be completed when members join and complete onboarding.`);
       
       // Reset form
       setTeamName("");
-      setTeamDescription("");
-      setTeamStage("ideation");
-      setTeamTags("");
       setIsCreateTeamOpen(false);
       
       // Refresh page to show new team
@@ -268,39 +260,10 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
                         placeholder="Enter team name"
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="teamDescription">Description</Label>
-                      <Textarea
-                        id="teamDescription"
-                        value={teamDescription}
-                        onChange={(e) => setTeamDescription(e.target.value)}
-                        placeholder="Brief team description"
-                        rows={3}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="teamStage">Stage</Label>
-                      <Select value={teamStage} onValueChange={(value: any) => setTeamStage(value)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ideation">Ideation</SelectItem>
-                          <SelectItem value="development">Development</SelectItem>
-                          <SelectItem value="testing">Testing</SelectItem>
-                          <SelectItem value="launch">Launch</SelectItem>
-                          <SelectItem value="growth">Growth</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="teamTags">Tags</Label>
-                      <Input
-                        id="teamTags"
-                        value={teamTags}
-                        onChange={(e) => setTeamTags(e.target.value)}
-                        placeholder="ai, health, mobile (comma separated)"
-                      />
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">
+                        <strong>Note:</strong> Team details (description, stage, goals) will be completed automatically when team members complete their onboarding process.
+                      </p>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2">

@@ -82,12 +82,14 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      // Update team with onboarding data
+      // Update team with onboarding data - this is where team details get populated
       const { data: updatedTeam, error } = await supabase
         .from('teams')
         .update({
-          description: formData.description,
-          stage: formData.currentStage as TeamStage
+          description: formData.description || `${formData.projectGoal} | Stage: ${stageInfo[formData.currentStage as TeamStage].title}`,
+          stage: formData.currentStage as TeamStage,
+          // Add tags based on the project goal and stage
+          tags: [formData.currentStage, 'onboarded']
         })
         .eq('id', team.id)
         .select()
@@ -95,10 +97,10 @@ export const OnboardingFlow = ({ team, onComplete, builderName }: OnboardingFlow
 
       if (error) throw error;
 
-      // Create initial progress update
+      // Create comprehensive initial progress update with all onboarding info
       await supabase.from('updates').insert({
         team_id: team.id,
-        content: `🎯 Project Goal: ${formData.projectGoal}\n🧠 Mentorship Needs: ${formData.mentorshipNeeds}`,
+        content: `🎯 Project Goal: ${formData.projectGoal}\n🚀 Current Stage: ${stageInfo[formData.currentStage as TeamStage].title}\n🧠 Mentorship Needs: ${formData.mentorshipNeeds}\n\nTeam onboarded by: ${builderName}`,
         type: 'milestone',
         created_by: builderName
       });
