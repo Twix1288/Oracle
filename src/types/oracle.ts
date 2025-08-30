@@ -1,4 +1,4 @@
-export type UserRole = 'builder' | 'mentor' | 'lead' | 'guest';
+export type UserRole = 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
 
 export type TeamStage = 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
 

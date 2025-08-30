@@ -108,20 +108,20 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
 
     setIsProcessing(true);
     try {
-      // Validate access code and get role assignment
-      const { data, error } = await supabase.rpc('validate_access_code', {
+      // Validate access code first
+      const { data: validationData, error: validationError } = await supabase.rpc('validate_access_code', {
         p_code: accessCode.trim(),
         p_role: selectedRole
       });
 
-      if (error) throw error;
-      if (!data || data.length === 0) {
+      if (validationError) throw validationError;
+      if (!validationData || validationData.length === 0) {
         throw new Error('Invalid or expired access code');
       }
 
-      const codeData = data[0];
+      const codeData = validationData[0];
 
-      // For builders, also update with name
+      // Prepare role update
       const updates: any = {
         role: selectedRole,
         onboarding_completed: true
@@ -138,17 +138,22 @@ export const RoleAssignment = ({ onRoleAssigned }: RoleAssignmentProps) => {
         }
       }
 
+      // Update the profile
       const { error: updateError } = await updateProfile(updates);
       if (updateError) throw updateError;
 
       // Increment access code usage
-      await supabase
+      const { error: incrementError } = await supabase
         .from('access_codes')
         .update({ 
           current_uses: (codeData.current_uses || 0) + 1,
           updated_at: new Date().toISOString()
         })
-        .eq('id', codeData.id);
+        .eq('code', accessCode.trim());
+
+      if (incrementError) {
+        console.warn('Failed to increment access code usage:', incrementError);
+      }
 
       const roleInfo = roleOptions[selectedRole as keyof typeof roleOptions];
       toast({
