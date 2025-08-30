@@ -64,6 +64,132 @@ function hexToUint8Array(hex: string): Uint8Array {
   return new Uint8Array(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
 }
 
+// Discord bot commands - mirror of Oracle commands
+const DISCORD_COMMANDS = [
+  {
+    name: 'help',
+    description: 'Show all available Oracle commands',
+    type: 1
+  },
+  {
+    name: 'resources',
+    description: 'Find curated resources and tutorials',
+    type: 1,
+    options: [
+      {
+        name: 'topic',
+        description: 'The topic to search for',
+        type: 3,
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'connect',
+    description: 'Connect with other builders, mentors, or teams',
+    type: 1,
+    options: [
+      {
+        name: 'role',
+        description: 'Type of person to connect with',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'Builder', value: 'builder' },
+          { name: 'Mentor', value: 'mentor' },
+          { name: 'Team', value: 'team' }
+        ]
+      },
+      {
+        name: 'skills',
+        description: 'Skills or expertise area',
+        type: 3,
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'find',
+    description: 'Find specific people, teams, or resources',
+    type: 1,
+    options: [
+      {
+        name: 'type',
+        description: 'What to find',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'People', value: 'people' },
+          { name: 'Teams', value: 'teams' },
+          { name: 'Resources', value: 'resources' },
+          { name: 'Events', value: 'events' }
+        ]
+      },
+      {
+        name: 'query',
+        description: 'Search criteria',
+        type: 3,
+        required: false
+      }
+    ]
+  },
+  {
+    name: 'message',
+    description: 'Send a message to builders, mentors, or leads',
+    type: 1,
+    options: [
+      {
+        name: 'recipient',
+        description: 'Who to message',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'My Mentor', value: 'mentor' },
+          { name: 'My Team', value: 'team' },
+          { name: 'Leads', value: 'leads' },
+          { name: 'All Builders', value: 'builders' }
+        ]
+      },
+      {
+        name: 'message',
+        description: 'Your message',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'update',
+    description: 'Post an update about your progress',
+    type: 1,
+    options: [
+      {
+        name: 'type',
+        description: 'Type of update',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'Progress', value: 'progress' },
+          { name: 'Challenge', value: 'challenge' },
+          { name: 'Success', value: 'success' },
+          { name: 'Question', value: 'question' }
+        ]
+      },
+      {
+        name: 'content',
+        description: 'Your update content',
+        type: 3,
+        required: true
+      }
+    ]
+  },
+  {
+    name: 'link',
+    description: 'Link your Discord account to PieFi',
+    type: 1
+  }
+];
+
 // Auto-register Discord commands
 async function registerDiscordCommands() {
   if (!DISCORD_BOT_TOKEN) {
@@ -100,91 +226,6 @@ async function registerDiscordCommands() {
     return false;
   }
 }
-
-// Discord bot commands - mirror of Oracle commands
-const DISCORD_COMMANDS = [
-  {
-    name: 'help',
-    description: 'Show all available Oracle commands',
-    type: 1
-  },
-  {
-    name: 'resources',
-    description: 'Find curated resources and tutorials',
-    type: 1,
-    options: [
-      {
-        name: 'topic',
-        description: 'What topic do you need resources for?',
-        type: 3,
-        required: true
-      }
-    ]
-  },
-  {
-    name: 'connect',
-    description: 'Find people and experts to help with challenges',
-    type: 1,
-    options: [
-      {
-        name: 'challenge',
-        description: 'What challenge do you need help with?',
-        type: 3,
-        required: true
-      }
-    ]
-  },
-  {
-    name: 'find',
-    description: 'Search for team members by name or skills',
-    type: 1,
-    options: [
-      {
-        name: 'search',
-        description: 'Name or skill to search for',
-        type: 3,
-        required: true
-      }
-    ]
-  },
-  {
-    name: 'update',
-    description: 'Log progress update',
-    type: 1,
-    options: [
-      {
-        name: 'progress',
-        description: 'Describe your progress',
-        type: 3,
-        required: true
-      }
-    ]
-  },
-  {
-    name: 'message',
-    description: 'Send message to a user (cross-platform)',
-    type: 1,
-    options: [
-      {
-        name: 'user',
-        description: 'Username to message',
-        type: 3,
-        required: true
-      },
-      {
-        name: 'content',
-        description: 'Message content',
-        type: 3,
-        required: true
-      }
-    ]
-  },
-  {
-    name: 'link',
-    description: 'Link your Discord account to PieFi',
-    type: 1
-  }
-];
 
 // Enhanced Discord Oracle - mirrors website Oracle exactly
 async function handleOracleCommand(commandName: string, options: any, user: any, guildId?: string): Promise<string> {
