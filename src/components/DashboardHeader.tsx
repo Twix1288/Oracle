@@ -76,7 +76,7 @@ export const DashboardHeader = ({ role, userName, teamName, onExit, onHome }: Da
               Exit Dashboard
             </Button>
             
-            <LogoutButton />
+            <LogoutButton showDropdown />
           </div>
         </div>
       </div>

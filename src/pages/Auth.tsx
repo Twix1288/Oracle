@@ -64,6 +64,14 @@ export default function Auth() {
     setError('');
 
     try {
+      // First check if already signed in elsewhere
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        toast.info('Already signed in on this device');
+        navigate('/');
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,

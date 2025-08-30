@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export interface UserProfile {
   id: string;
@@ -79,8 +80,8 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = async (scope: 'local' | 'global' | 'others' = 'global') => {
+    await supabase.auth.signOut({ scope });
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -153,12 +154,18 @@ export const useAuth = () => {
     return data as any;
   };
 
+  const signOutAllSessions = async () => {
+    await supabase.auth.signOut({ scope: 'global' });
+    toast.success('Signed out from all devices');
+  };
+
   return {
     user,
     session,
     profile,
     loading,
     signOut,
+    signOutAllSessions,
     updateProfile,
     joinTeamWithCode,
     assignRole,
