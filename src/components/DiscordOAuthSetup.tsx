@@ -22,13 +22,18 @@ export const DiscordOAuthSetup = ({ userRole }: DiscordOAuthSetupProps) => {
 
   // Discord OAuth URLs for development and production
   const DISCORD_OAUTH_CONFIG = {
-    clientId: '1234567890123456789', // Replace with actual Discord Client ID
+    clientId: process.env.DISCORD_CLIENT_ID || '1234567890123456789', // Replace with actual Discord Client ID
     redirectUri: `${window.location.origin}/auth/discord/callback`,
     scope: 'identify',
     responseType: 'code'
   };
 
   const discordOAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_OAUTH_CONFIG.clientId}&redirect_uri=${encodeURIComponent(DISCORD_OAUTH_CONFIG.redirectUri)}&response_type=${DISCORD_OAUTH_CONFIG.responseType}&scope=${DISCORD_OAUTH_CONFIG.scope}`;
+
+  const handleDirectLink = async () => {
+    // For direct OAuth linking, redirect to Discord
+    window.location.href = discordOAuthUrl;
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -122,27 +127,46 @@ export const DiscordOAuthSetup = ({ userRole }: DiscordOAuthSetupProps) => {
               ) : (
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="link-code">Discord Link Code</Label>
+                    <Label htmlFor="link-code">Discord Link Code or Direct OAuth</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Use the /link command in Discord to get your link code, then enter it here.
+                      Enter a link code from Discord bot, or use direct OAuth below.
                     </p>
                     <div className="flex gap-2">
                       <Input
                         id="link-code"
                         value={linkCode}
                         onChange={(e) => setLinkCode(e.target.value)}
-                        placeholder="Enter your Discord link code..."
+                        placeholder="Enter Discord link code (optional)..."
                         className="bg-background/50 border-primary/20"
                       />
                       <Button 
                         onClick={handleLinkAccount}
                         disabled={isLoading || !linkCode.trim()}
-                        className="ufo-gradient"
+                        variant="outline"
                       >
-                        {isLoading ? "Linking..." : "Link Account"}
+                        {isLoading ? "Linking..." : "Link with Code"}
                       </Button>
                     </div>
                   </div>
+
+                  <div className="text-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleDirectLink}
+                    className="w-full ufo-gradient"
+                    disabled={isLoading}
+                  >
+                    Link with Discord OAuth
+                  </Button>
 
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
