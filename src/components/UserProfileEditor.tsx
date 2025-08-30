@@ -192,8 +192,10 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
         setLinkCode("");
         onProfileUpdate?.();
         
-        // Refresh profile data
-        window.location.reload();
+        // Invalidate auth queries to refresh profile data without full page reload
+        if (typeof onProfileUpdate === 'function') {
+          onProfileUpdate();
+        }
       } else {
         toast({
           title: "Link Failed",

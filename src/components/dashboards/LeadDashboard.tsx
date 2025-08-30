@@ -101,8 +101,9 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       setTeamName("");
       setIsCreateTeamOpen(false);
       
-      // Refresh page to show new team
-      window.location.reload();
+      // Invalidate queries to refresh data without full page reload
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      queryClient.invalidateQueries({ queryKey: ["teamStatuses"] });
     } catch (error: any) {
       toast.error(`Failed to create team: ${error.message}`);
     } finally {
@@ -117,8 +118,10 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       const { error } = await supabase.from("teams").update(payload).eq("id", teamId);
       if (error) throw error;
       toast.success("Mentor assignment updated");
-      // Simple refresh to sync all data sources and Oracle context
-      window.location.reload();
+      
+      // Invalidate queries to refresh data without full page reload
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      queryClient.invalidateQueries({ queryKey: ["teamStatuses"] });
     } catch (e: any) {
       toast.error(`Failed to update mentor: ${e.message}`);
     }
