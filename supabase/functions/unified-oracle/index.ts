@@ -67,10 +67,16 @@ const analyzeUserStage = (teamUpdates: Update[], teamInfo: Team | null, query: s
   const confidence = Math.min(0.95, 0.5 + (maxScore / 10));
 
   return {
-    stage: detectedStage,
+    stage: detectedStage as TeamStage,
     confidence,
     reasoning: `Based on keywords and context, team appears to be in ${detectedStage} stage`
   };
+};
+
+// Helper function to get stage index for comparison
+const getStageIndex = (stage: TeamStage): number => {
+  const stageOrder: TeamStage[] = ['ideation', 'development', 'testing', 'launch', 'growth'];
+  return stageOrder.indexOf(stage);
 };
 
 // Natural language intent parsing
@@ -329,7 +335,7 @@ serve(async (req) => {
     // Validate request
     validateOracleRequest(request);
 
-    // Extract request fields
+    // Extract request fields including action
     const { 
       query, 
       role, 
@@ -339,7 +345,8 @@ serve(async (req) => {
       contextRequest,
       commandExecuted,
       commandType,
-      commandResult 
+      commandResult,
+      action
     } = request;
 
     // Validate IDs if present
@@ -379,6 +386,8 @@ serve(async (req) => {
     // Get team context
     let teamInfo = null;
     let teamUpdates: Update[] = [];
+    let currentTeamStage: TeamStage = 'ideation';
+    let recentUpdates: Update[] = [];
     
     if (teamId) {
       const { data: team } = await supabase
@@ -387,18 +396,42 @@ serve(async (req) => {
         .eq('id', teamId)
         .single();
       teamInfo = team;
+      currentTeamStage = team?.stage || 'ideation';
 
       const { data: updates } = await supabase
         .from('updates')
         .select('*')
         .eq('team_id', teamId)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(20);
       teamUpdates = updates || [];
+      recentUpdates = teamUpdates;
     }
 
     // Analyze stage based on context
     const stageAnalysis = analyzeUserStage(teamUpdates, teamInfo, query);
+
+    // Handle stage assessment requests
+    if (action === 'stage_assessment') {
+      const shouldAdvance = stageAnalysis.confidence > 0.75 && 
+                           stageAnalysis.stage !== currentTeamStage && 
+                           getStageIndex(stageAnalysis.stage) > getStageIndex(currentTeamStage);
+      
+      return new Response(JSON.stringify({
+        recommendedStage: stageAnalysis.stage,
+        confidence: stageAnalysis.confidence,
+        reasoning: stageAnalysis.reasoning,
+        shouldAdvance,
+        currentStage: currentTeamStage,
+        answer: `Based on your recent activity, ${stageAnalysis.reasoning.toLowerCase()}. ${
+          shouldAdvance 
+            ? `I recommend advancing to the ${stageAnalysis.stage} stage with ${Math.round(stageAnalysis.confidence * 100)}% confidence.`
+            : `Your team appears to be progressing well in the current ${currentTeamStage} stage.`
+        }`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Get contextual content for the detected stage
     const stageContext = await getContextualContent(stageAnalysis.stage);

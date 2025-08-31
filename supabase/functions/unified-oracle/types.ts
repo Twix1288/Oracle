@@ -105,6 +105,7 @@ export interface OracleRequest {
   commandExecuted?: boolean;
   commandType?: string;
   commandResult?: any;
+  action?: string; // For specific Oracle actions like 'stage_assessment'
 }
 
 export interface OracleResponse {

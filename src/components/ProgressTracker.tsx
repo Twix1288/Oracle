@@ -25,6 +25,14 @@ interface ProgressTrackerProps {
   onStageUpdate?: (newStage: TeamStage) => void;
 }
 
+interface OracleStageRecommendation {
+  currentStage: TeamStage;
+  recommendedStage: TeamStage;
+  confidence: number;
+  reasoning: string;
+  shouldAdvance: boolean;
+}
+
 const stages: { 
   key: TeamStage; 
   title: string; 
@@ -110,6 +118,8 @@ const colorMap = {
 
 export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: ProgressTrackerProps) => {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isGettingRecommendation, setIsGettingRecommendation] = useState(false);
+  const [oracleRecommendation, setOracleRecommendation] = useState<OracleStageRecommendation | null>(null);
   const [stageProgress, setStageProgress] = useState<Record<TeamStage, number>>({
     ideation: 0,
     development: 0,
@@ -128,24 +138,42 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
       console.log('🔍 Analyzing progress for team:', team.name, 'Current stage:', team.stage);
       
       const stageUpdates = updates.filter(update => update.team_id === team.id);
-      const recentUpdates = stageUpdates.slice(0, 10);
+      const recentUpdates = stageUpdates.slice(0, 20);
+      const veryRecentUpdates = stageUpdates.filter(u => new Date(u.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000);
       
       const progressEstimates: Record<TeamStage, number> = {
         ideation: 100, // Always complete if past this stage
-        development: team.stage === 'ideation' ? 0 : Math.min(100, recentUpdates.length * 10),
-        testing: ['ideation', 'development'].includes(team.stage) ? 0 : Math.min(100, recentUpdates.length * 8),
-        launch: ['ideation', 'development', 'testing'].includes(team.stage) ? 0 : Math.min(100, recentUpdates.length * 6),
-        growth: team.stage === 'growth' ? Math.min(100, recentUpdates.length * 5) : 0
+        development: 0,
+        testing: 0,
+        launch: 0,
+        growth: 0
       };
 
-      // Mark completed stages as 100% and current stage with realistic progress
+      // Mark completed stages as 100%
       stages.forEach((stage, index) => {
         if (index < currentStageIndex) {
           progressEstimates[stage.key] = 100;
         } else if (index === currentStageIndex) {
-          // Current stage gets progress based on updates and time
-          const baseProgress = Math.max(25, Math.min(85, recentUpdates.length * 15));
-          progressEstimates[stage.key] = baseProgress;
+          // Current stage gets realistic progress based on activity
+          const activityScore = Math.min(100, 
+            (recentUpdates.length * 5) + 
+            (veryRecentUpdates.length * 10) + 
+            (Math.min(30, new Date().getTime() - new Date(team.created_at).getTime()) / (1000 * 60 * 60 * 24)) // Days since team creation
+          );
+          
+          // More realistic progress calculation
+          let stageProgress = Math.max(5, Math.min(95, activityScore));
+          
+          // Stage-specific adjustments
+          if (stage.key === 'development') {
+            const developmentKeywords = ['build', 'code', 'feature', 'mvp', 'prototype', 'implement'];
+            const devUpdates = recentUpdates.filter(u => 
+              developmentKeywords.some(keyword => u.content.toLowerCase().includes(keyword))
+            );
+            stageProgress = Math.max(10, Math.min(90, (devUpdates.length * 12) + (veryRecentUpdates.length * 8)));
+          }
+          
+          progressEstimates[stage.key] = stageProgress;
         }
       });
 
@@ -196,10 +224,52 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     }
   };
 
+  const getOracleStageRecommendation = async () => {
+    setIsGettingRecommendation(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('unified-oracle', {
+        body: {
+          query: `Analyze our team progress and recommend if we should advance from ${team.stage} stage. Recent updates: ${updates.slice(0, 10).map(u => u.content).join('. ')}`,
+          role: userRole,
+          teamId: team.id,
+          action: 'stage_assessment'
+        }
+      });
+
+      if (error) throw error;
+
+      const recommendation: OracleStageRecommendation = {
+        currentStage: team.stage,
+        recommendedStage: data.recommendedStage || team.stage,
+        confidence: data.confidence || 0.7,
+        reasoning: data.reasoning || 'Analysis based on recent team activity',
+        shouldAdvance: data.shouldAdvance || false
+      };
+
+      setOracleRecommendation(recommendation);
+      
+      toast({
+        title: recommendation.shouldAdvance ? "🚀 Ready to Advance!" : "📊 Stage Analysis Complete",
+        description: recommendation.reasoning,
+      });
+
+    } catch (error) {
+      console.error('Oracle recommendation error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Unable to get Oracle recommendation. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGettingRecommendation(false);
+    }
+  };
+
   const canAdvanceStage = () => {
     return (
       userRole === 'lead' || 
-      userRole === 'mentor'
+      userRole === 'mentor' ||
+      userRole === 'builder'
     ) && currentStageIndex < stages.length - 1;
   };
 
@@ -253,25 +323,73 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
             ))}
           </div>
 
-          {canAdvanceStage() && currentStageIndex < stages.length - 1 && (
+          {/* Oracle Recommendation */}
+          {oracleRecommendation && (
+            <div className={`p-4 rounded-lg border-2 mb-4 ${
+              oracleRecommendation.shouldAdvance 
+                ? 'bg-green-500/10 border-green-500/30' 
+                : 'bg-blue-500/10 border-blue-500/30'
+            }`}>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className={`h-4 w-4 ${
+                  oracleRecommendation.shouldAdvance ? 'text-green-400' : 'text-blue-400'
+                }`} />
+                <span className={`font-medium text-sm ${
+                  oracleRecommendation.shouldAdvance ? 'text-green-400' : 'text-blue-400'
+                }`}>
+                  Oracle Assessment ({Math.round(oracleRecommendation.confidence * 100)}% confidence)
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">{oracleRecommendation.reasoning}</p>
+              {oracleRecommendation.shouldAdvance && (
+                <div className="text-sm font-medium text-green-400">
+                  ✨ Recommended: Advance to {stages[currentStageIndex + 1]?.title}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Button
-              onClick={handleAdvanceStage}
-              disabled={isUpdating}
-              className="w-full ufo-gradient text-lg py-6 cosmic-sparkle-hover"
+              onClick={getOracleStageRecommendation}
+              disabled={isGettingRecommendation}
+              variant="outline"
+              className="text-sm py-3"
             >
-              {isUpdating ? (
+              {isGettingRecommendation ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  Advancing Stage...
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                  Analyzing...
                 </>
               ) : (
                 <>
-                  <Rocket className="mr-3 h-5 w-5" />
-                  Advance to {stages[currentStageIndex + 1]?.title}
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Get Oracle Assessment
                 </>
               )}
             </Button>
-          )}
+            
+            {canAdvanceStage() && currentStageIndex < stages.length - 1 && (
+              <Button
+                onClick={handleAdvanceStage}
+                disabled={isUpdating}
+                className="ufo-gradient text-sm py-3 cosmic-sparkle-hover"
+              >
+                {isUpdating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Advancing...
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="mr-2 h-4 w-4" />
+                    Advance to {stages[currentStageIndex + 1]?.title}
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
