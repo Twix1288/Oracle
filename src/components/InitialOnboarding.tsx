@@ -57,6 +57,7 @@ export const InitialOnboarding = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [availableTeams, setAvailableTeams] = useState([]);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   const totalSteps = 6;
   const progress = (step / totalSteps) * 100;
@@ -118,11 +119,14 @@ export const InitialOnboarding = () => {
 
       toast({
         title: "🎉 Onboarding Complete!",
-        description: `Your access code is: ${accessCode}. Use this to log in.`
+        description: `Your access code is: ${accessCode}. Your profile has been set up and the Oracle has been personalized for you.`
       });
 
-      // Redirect to login
-      window.location.href = '/login';
+      // Mark as completed and reload to show dashboard
+      setIsCompleted(true);
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -482,6 +486,30 @@ export const InitialOnboarding = () => {
         return null;
     }
   };
+
+  // Show completion state
+  if (isCompleted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center space-y-6">
+              <div className="p-6 rounded-full bg-green-500/20 w-fit mx-auto">
+                <Code className="h-16 w-16 text-green-500" />
+              </div>
+              <h1 className="text-4xl font-bold text-glow">🎉 Onboarding Complete!</h1>
+              <p className="text-xl text-muted-foreground">
+                Your profile has been set up and the Oracle has been personalized for you.
+              </p>
+              <p className="text-lg text-primary">
+                Redirecting to your dashboard...
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">

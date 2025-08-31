@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { AccessGate } from "@/components/AccessGate";
-import { BuilderAccessGate } from "@/components/BuilderAccessGate";
+import { InitialOnboarding } from "@/components/InitialOnboarding";
+
 import { RoleSelector } from "@/components/RoleSelector";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { BuilderDashboard } from "@/components/dashboards/BuilderDashboard";
@@ -111,7 +111,7 @@ function Index() {
           </div>
         </div>
         
-        <AccessGate onRoleAssigned={handleRoleAssigned} />
+        <InitialOnboarding />
       </div>
     );
   }
@@ -137,11 +137,11 @@ function Index() {
     );
   }
 
-  // Show enhanced builder access gate for builders (legacy)
-  if (!selectedRole || (selectedRole === 'builder' && !builderInfo && profile?.role === 'builder')) {
+  // Show onboarding for users without roles
+  if (!selectedRole || !profile?.role || profile?.role === 'unassigned') {
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">
-        {/* Logout header for role selection */}
+        {/* Logout header for onboarding */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
@@ -164,10 +164,7 @@ function Index() {
           </div>
         </div>
         
-        <BuilderAccessGate 
-          onBuilderAuthenticated={handleBuilderAuthenticated}
-          onRoleSelected={handleRoleSelect} 
-        />
+        <InitialOnboarding />
       </div>
     );
   }
