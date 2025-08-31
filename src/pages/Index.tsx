@@ -136,10 +136,37 @@ function Index() {
   }
 
   // ONBOARDING REQUIRED - Show for users without completed onboarding
-  if (user && (!profile?.onboarding_completed || !profile?.role || profile?.role === 'unassigned')) {
-    console.log('🎯 Showing onboarding for user');
-    return (
-      <div className="min-h-screen bg-cosmic cosmic-sparkle">
+  if (user && !authLoading) {
+    // If user exists but profile hasn't loaded yet, show loading
+    if (!profile) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
+          <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
+            <div className="ufo-pulse">
+              <svg width="120" height="120" viewBox="0 0 100 100" fill="currentColor" className="text-primary mx-auto">
+                <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
+                <ellipse cx="50" cy="45" rx="25" ry="20"/>
+                <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
+                <circle cx="50" cy="38" r="4" fill="white"/>
+                <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
+              </svg>
+            </div>
+            <h2 className="text-3xl font-semibold cosmic-text">Loading Profile...</h2>
+            <p className="text-muted-foreground text-lg high-contrast-text">Setting up your experience</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // If profile loaded but onboarding incomplete, show onboarding
+    if (!profile.onboarding_completed || !profile.role || profile.role === 'unassigned') {
+      console.log('🎯 Showing onboarding for user - incomplete profile:', {
+        onboarding_completed: profile.onboarding_completed,
+        role: profile.role,
+        user_id: user.id
+      });
+      return (
+        <div className="min-h-screen bg-cosmic cosmic-sparkle">
         {/* Logout header */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="container mx-auto px-4 py-4">
@@ -165,7 +192,8 @@ function Index() {
         
         <InitialOnboarding />
       </div>
-    );
+      );
+    }
   }
 
   // ORACLE LOADING
