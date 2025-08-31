@@ -189,7 +189,40 @@ export const InitialOnboarding = () => {
   }, [user]);
 
   const handleNext = async () => {
+    // Save progress on every step to ensure data persistence
+    await saveProgress();
     setStep(step + 1);
+  };
+
+  const saveProgress = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Save current form data to profile
+      await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || 'User',
+          skills: formData.skills,
+          experience_level: formData.experience,
+          availability: formData.availability,
+          bio: formData.stageDescription,
+          personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
+          project_vision: formData.projectIdea,
+          help_needed: formData.lookingFor ? [formData.lookingFor] : [],
+          role: (formData.role || 'unassigned') as any,
+          team_id: formData.selectedTeam || null,
+          onboarding_completed: false // Only set to true on final completion
+        })
+        .select()
+        .single();
+        
+      console.log('Progress saved successfully');
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
   };
 
   const handleBack = () => {
