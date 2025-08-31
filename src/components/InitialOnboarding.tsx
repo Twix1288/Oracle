@@ -108,11 +108,11 @@ export const InitialOnboarding = () => {
     teamName?: string;
   } | null>(null);
 
-  const handleContinueToDashboard = () => {
-    console.log('🚀 Continuing to dashboard after onboarding completion...');
-    // Force a complete page reload to ensure fresh auth state and profile reload
+  const handleContinueToGateway = () => {
+    console.log('🚀 Redirecting to gateway for access code login...');
+    // Redirect to gateway where user can use their access code
     setTimeout(() => {
-      window.location.href = '/';
+      window.location.href = '/gateway';
     }, 500);
   };
 
@@ -788,7 +788,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           accessCode={completionData.accessCode}
           role={formData.role}
           teamName={completionData.teamName}
-          onContinue={handleContinueToDashboard}
+          onContinue={handleContinueToGateway}
         />
       ) : (
         <div className="container mx-auto px-4 py-8">

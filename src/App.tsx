@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import Index from '@/pages/Index';
 import Auth from '@/pages/Auth';
+import Gateway from '@/pages/Gateway';
 import NotFound from '@/pages/NotFound';
 
 import { DetailedOnboarding } from '@/components/DetailedOnboarding';
@@ -58,6 +59,7 @@ function App() {
               } 
             />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/gateway" element={<Gateway />} />
             
             <Route path="/404" element={<NotFound />} />
             <Route path="*" element={<Navigate to="/404" replace />} />
