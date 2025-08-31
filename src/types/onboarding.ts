@@ -17,26 +17,33 @@ export type ExperienceLevel =
   | 'expert';
 
 export interface OnboardingData {
-  projectGoal: string;
-  currentStage: string;
-  mentorshipNeeds: string;
-  description: string;
-  accessCode: string;
-  skills?: UserSkill[];
-  experienceLevel?: ExperienceLevel;
-  interests?: string[];
-  preferredTechnologies?: string[];
+  // Basic Info
+  name: string;
+  bio: string;
   githubUsername?: string;
   portfolioUrl?: string;
-  learningGoals?: string[];
-}
 
-export interface InitialTask {
-  title: string;
-  description: string;
-  type: 'setup' | 'development' | 'learning' | 'documentation';
-  priority: 'low' | 'medium' | 'high';
-  estimatedHours: number;
-  dependencies?: string[];
-  resources?: string[];
+  // Skills & Experience
+  skills: UserSkill[];
+  experienceLevel: ExperienceLevel;
+  preferredTechnologies: string[];
+  learningGoals: string[];
+
+  // Role & Team
+  role: 'builder' | 'mentor' | 'lead' | 'guest';
+  teamId?: string;
+  projectGoal?: string;
+  mentorshipNeeds?: string;
+
+  // Additional Context
+  interests: string[];
+  communicationStyle: string;
+  workStyle: string;
+  availability: string;
+  timezone: string;
+
+  // System Fields
+  accessCode?: string;
+  onboardingCompleted: boolean;
+  lastUpdated: string;
 }
