@@ -21,7 +21,13 @@ const SKILLS = [
   { value: 'mobile', label: 'Mobile Dev', icon: '📱' },
   { value: 'ui_ux', label: 'UI/UX', icon: '🎨' },
   { value: 'devops', label: 'DevOps', icon: '🔄' },
-  { value: 'ai_ml', label: 'AI/ML', icon: '🤖' }
+  { value: 'ai_ml', label: 'AI/ML', icon: '🤖' },
+  { value: 'blockchain', label: 'Blockchain', icon: '⛓️' },
+  { value: 'cybersecurity', label: 'Cybersecurity', icon: '🔒' },
+  { value: 'data_analytics', label: 'Data Analytics', icon: '📊' },
+  { value: 'game_dev', label: 'Game Development', icon: '🎮' },
+  { value: 'iot', label: 'IoT', icon: '🌐' },
+  { value: 'quantum', label: 'Quantum Computing', icon: '⚛️' }
 ];
 
 const ROLES = [
@@ -37,13 +43,22 @@ export const InitialOnboarding = () => {
     lookingFor: '',
     experience: '',
     role: '',
-    selectedTeam: ''
+    selectedTeam: '',
+    // Additional fields for Oracle context
+    learningGoals: '',
+    preferredTechStack: '',
+    collaborationStyle: '',
+    availability: '',
+    mentorshipAreas: '',
+    projectTimeline: '',
+    targetAudience: '',
+    successMetrics: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [availableTeams, setAvailableTeams] = useState([]);
 
-  const totalSteps = 4;
+  const totalSteps = 6;
   const progress = (step / totalSteps) * 100;
 
   const handleNext = async () => {
@@ -65,7 +80,7 @@ export const InitialOnboarding = () => {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      // Create user profile
+      // Create user profile with comprehensive data for Oracle
       const { data: profile, error: profileError } = await supabase
         .from('members')
         .insert({
@@ -74,7 +89,16 @@ export const InitialOnboarding = () => {
           looking_for: formData.lookingFor,
           experience: formData.experience,
           role: formData.role,
-          team_id: formData.selectedTeam || null
+          team_id: formData.selectedTeam || null,
+          // Additional Oracle context fields
+          learning_goals: formData.learningGoals,
+          preferred_tech_stack: formData.preferredTechStack,
+          collaboration_style: formData.collaborationStyle,
+          availability: formData.availability,
+          mentorship_areas: formData.mentorshipAreas,
+          project_timeline: formData.projectTimeline,
+          target_audience: formData.targetAudience,
+          success_metrics: formData.successMetrics
         })
         .select()
         .single();
@@ -290,8 +314,162 @@ export const InitialOnboarding = () => {
                 Back
               </Button>
               <Button
+                onClick={handleNext}
+                disabled={!formData.selectedTeam}
+                className="flex-1 ufo-gradient"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 5:
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
+                <Target className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-glow">Project Details</h3>
+              <p className="text-muted-foreground text-lg">Help us understand your project better</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">What are your learning goals?</label>
+                <Textarea
+                  placeholder="e.g., Master React hooks, Learn AWS deployment, Understand blockchain..."
+                  value={formData.learningGoals}
+                  onChange={(e) => setFormData({ ...formData, learningGoals: e.target.value })}
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Preferred Tech Stack</label>
+                <Textarea
+                  placeholder="e.g., React + Node.js + PostgreSQL, Python + FastAPI + MongoDB..."
+                  value={formData.preferredTechStack}
+                  onChange={(e) => setFormData({ ...formData, preferredTechStack: e.target.value })}
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Collaboration Style</label>
+                <Select value={formData.collaborationStyle} onValueChange={(value) => setFormData({ ...formData, collaborationStyle: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your preference" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hands_on">Hands-on coding together</SelectItem>
+                    <SelectItem value="code_reviews">Code reviews and feedback</SelectItem>
+                    <SelectItem value="pair_programming">Pair programming sessions</SelectItem>
+                    <SelectItem value="mentorship">Regular mentorship meetings</SelectItem>
+                    <SelectItem value="independent">Independent work with guidance</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Weekly Availability</label>
+                <Select value={formData.availability} onValueChange={(value) => setFormData({ ...formData, availability: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your availability" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5_10_hours">5-10 hours</SelectItem>
+                    <SelectItem value="10_20_hours">10-20 hours</SelectItem>
+                    <SelectItem value="20_30_hours">20-30 hours</SelectItem>
+                    <SelectItem value="30_plus_hours">30+ hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBack} className="flex-1">
+                Back
+              </Button>
+              <Button
+                onClick={handleNext}
+                disabled={!formData.learningGoals || !formData.preferredTechStack || !formData.collaborationStyle || !formData.availability}
+                className="flex-1 ufo-gradient"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
+                <Code className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-2xl font-bold text-glow">Final Details</h3>
+              <p className="text-muted-foreground text-lg">Almost done! Just a few more questions</p>
+            </div>
+
+            <div className="space-y-4">
+              {formData.role === 'mentor' && (
+                <div>
+                  <label className="text-sm font-medium">What areas can you mentor in?</label>
+                  <Textarea
+                    placeholder="e.g., React development, Database design, DevOps practices, Business strategy..."
+                    value={formData.mentorshipAreas}
+                    onChange={(e) => setFormData({ ...formData, mentorshipAreas: e.target.value })}
+                    className="min-h-[80px]"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium">Project Timeline</label>
+                <Select value={formData.projectTimeline} onValueChange={(value) => setFormData({ ...formData, projectTimeline: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1_3_months">1-3 months</SelectItem>
+                    <SelectItem value="3_6_months">3-6 months</SelectItem>
+                    <SelectItem value="6_12_months">6-12 months</SelectItem>
+                    <SelectItem value="12_plus_months">12+ months</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Target Audience</label>
+                <Textarea
+                  placeholder="e.g., Small businesses, Students, Developers, Healthcare providers..."
+                  value={formData.targetAudience}
+                  onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Success Metrics</label>
+                <Textarea
+                  placeholder="e.g., User engagement, Revenue growth, Learning outcomes, Community impact..."
+                  value={formData.successMetrics}
+                  onChange={(e) => setFormData({ ...formData, successMetrics: e.target.value })}
+                  className="min-h-[80px]"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBack} className="flex-1">
+                Back
+              </Button>
+              <Button
                 onClick={handleComplete}
-                disabled={isLoading || !formData.selectedTeam}
+                disabled={isLoading || !formData.projectTimeline || !formData.targetAudience || !formData.successMetrics}
                 className="flex-1 ufo-gradient"
               >
                 {isLoading ? "Completing..." : "Complete & Get Access Code"}
