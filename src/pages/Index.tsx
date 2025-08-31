@@ -67,6 +67,11 @@ function Index() {
     }
   }, [user, profile, authLoading, navigate]);
 
+  const handleExitToGateway = () => {
+    console.log('🚪 Exiting to gateway...');
+    navigate('/gateway');
+  };
+
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
     try {
@@ -110,8 +115,10 @@ function Index() {
   };
 
   const handleLeaveTeam = () => {
+    console.log('🚪 Leaving team and going to gateway...');
     setBuilderInfo(null);
     setSelectedRole(null);
+    navigate('/gateway');
   };
 
   // LOADING STATE
@@ -231,7 +238,7 @@ function Index() {
           <GuestDashboard 
             teams={teams || []}
             updates={updates || []}
-            onExit={() => setSelectedRole(null)}
+            onExit={handleExitToGateway}
           />
         );
       case 'builder':
@@ -267,7 +274,7 @@ function Index() {
             onQueryRAG={(query: string, role: UserRole) => 
               queryRAG({ query, role })
             }
-            onExit={() => setSelectedRole(null)}
+            onExit={handleExitToGateway}
           />
         );
       case 'mentor':
@@ -279,7 +286,7 @@ function Index() {
             teamStatuses={teamStatuses}
             selectedRole={selectedRole}
             mentorId="current-mentor"
-            onExit={() => setSelectedRole(null)}
+            onExit={handleExitToGateway}
           />
         );
       case 'lead':
@@ -290,7 +297,7 @@ function Index() {
             updates={updates || []}
             teamStatuses={teamStatuses}
             selectedRole={selectedRole}
-            onExit={() => setSelectedRole(null)}
+            onExit={handleExitToGateway}
           />
         );
       default:
