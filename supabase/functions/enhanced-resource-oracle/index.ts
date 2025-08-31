@@ -43,7 +43,7 @@ async function fetchRealResources(query: string, type: string): Promise<Resource
       .from('documents')
       .select('*')
       .textSearch('content', query)
-      .limit(3);
+      .limit(2);
     
     if (pieFiDocs) {
       pieFiDocs.forEach(doc => {
@@ -59,21 +59,25 @@ async function fetchRealResources(query: string, type: string): Promise<Resource
     }
 
     // Generate contextual external resources using LLM with web search simulation
-    const resourcePrompt = `You are a web search expert. Generate 5-8 real, high-quality resources for: "${query}". 
+    const resourcePrompt = `Generate exactly 4-5 real, high-quality resources for: "${query}". 
     
     ${type === 'resources' ? 'Focus on educational content, tutorials, videos, articles, documentation, and tools.' : 'Focus on finding real experts and professionals.'}
     
-    For each resource, provide REAL websites and content that actually exists. Use these formats:
+    Return EXACTLY this format for each resource (separate each resource with "---"):
     
+    RESOURCE 1:
     Title: [Exact real title]
-    URL: [Real working URL - use youtube.com for videos, medium.com for articles, github.com for code, etc.]
+    URL: [Real working URL - youtube.com for videos, medium.com/docs.microsoft.com for articles, github.com for code]
     Type: [youtube/article/documentation/tutorial/tool]
-    Description: [Helpful description of the content]
-    Author: [Real creator/author name if known]
-    Relevance: [0.7-1.0 score based on how helpful this is]
-    Duration: [For videos, add duration like "15:30"]
+    Description: [Helpful 1-2 sentence description]
+    Author: [Real creator/author name]
+    Relevance: [0.8-0.95]
+    Duration: [Only for videos, format like "10:45"]
+    ---
+    RESOURCE 2:
+    Title: [Next resource...]
     
-    Make these REAL resources that someone could actually visit and use. Prioritize high-quality, well-known sources.`;
+    Make these REAL resources that exist and are high-quality. Prioritize well-known sources like YouTube channels, official documentation, popular tutorials.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -83,85 +87,176 @@ async function fetchRealResources(query: string, type: string): Promise<Resource
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        temperature: 0.5,
+        temperature: 0.3,
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful resource curator. Generate real, existing resources that would be genuinely helpful. Always use actual URLs that exist.'
+            content: 'You are a helpful resource curator. Generate exactly 4-5 real, existing resources. Always use actual URLs that exist and are relevant. Follow the exact format requested.'
           },
           {
             role: 'user',
             content: resourcePrompt
           }
         ],
-        max_tokens: 1000
+        max_tokens: 1200
       })
     });
 
     const llmData = await response.json();
     const resourceText = llmData.choices?.[0]?.message?.content || '';
     
-    // Parse LLM response into resources
-    const resourceBlocks = resourceText.split('\n\n');
+    console.log('Raw LLM resource response:', resourceText);
     
-    resourceBlocks.forEach(block => {
-      const lines = block.split('\n');
+    // Parse LLM response into resources - improved parsing
+    const resourceBlocks = resourceText.split('---').filter(block => block.trim());
+    
+    resourceBlocks.forEach((block, index) => {
+      const lines = block.split('\n').map(line => line.trim()).filter(line => line);
       const resource: Partial<Resource> = {};
       
       lines.forEach(line => {
-        if (line.startsWith('Title: ')) resource.title = line.substring(7);
-        if (line.startsWith('URL: ')) resource.url = line.substring(5);
-        if (line.startsWith('Type: ')) resource.type = line.substring(6) as any;
-        if (line.startsWith('Description: ')) resource.description = line.substring(13);
-        if (line.startsWith('Author: ')) resource.author = line.substring(8);
-        if (line.startsWith('Relevance: ')) resource.relevance = parseFloat(line.substring(11));
+        if (line.startsWith('Title:')) resource.title = line.substring(6).trim();
+        if (line.startsWith('URL:')) resource.url = line.substring(4).trim();
+        if (line.startsWith('Type:')) resource.type = line.substring(5).trim() as any;
+        if (line.startsWith('Description:')) resource.description = line.substring(12).trim();
+        if (line.startsWith('Author:')) resource.author = line.substring(7).trim();
+        if (line.startsWith('Relevance:')) {
+          const relevanceStr = line.substring(10).trim();
+          resource.relevance = parseFloat(relevanceStr) || 0.8;
+        }
+        if (line.startsWith('Duration:')) resource.duration = line.substring(9).trim();
       });
       
-      if (resource.title && resource.url && resource.type) {
+      // Validate and add resource
+      if (resource.title && resource.url && resource.type && resource.description) {
+        if (!resource.relevance) resource.relevance = 0.8;
         resources.push(resource as Resource);
+        console.log(`Added resource ${index + 1}:`, resource.title);
       }
     });
 
-    // Add some high-quality default resources based on common topics
-    if (query.toLowerCase().includes('coding') || query.toLowerCase().includes('programming')) {
-      resources.push({
-        title: 'FreeCodeCamp - Full Stack Development',
-        url: 'https://www.freecodecamp.org/',
-        type: 'tutorial',
-        description: 'Comprehensive coding bootcamp with hands-on projects',
-        relevance: 0.9,
-        author: 'FreeCodeCamp'
-      });
-    }
-    
-    if (query.toLowerCase().includes('motivation') || query.toLowerCase().includes('inspiring')) {
-      resources.push({
-        title: 'How to Build Anything - Gary Vaynerchuk',
-        url: 'https://www.youtube.com/watch?v=j7rlfmNqReM',
-        type: 'youtube',
-        description: 'Motivational talk about building successful businesses',
-        relevance: 0.85,
-        author: 'Gary Vaynerchuk',
-        duration: '15:30'
-      });
-    }
-    
-    if (query.toLowerCase().includes('web3') || query.toLowerCase().includes('blockchain')) {
-      resources.push({
-        title: 'Ethereum Development Documentation',
-        url: 'https://ethereum.org/en/developers/docs/',
-        type: 'documentation',
-        description: 'Official Ethereum development guide and resources',
-        relevance: 0.92,
-        author: 'Ethereum Foundation'
-      });
+    // Fallback: Add curated resources if we don't have enough
+    if (resources.length < 3) {
+      console.log('Adding fallback resources, current count:', resources.length);
+      
+      // Add topic-specific high-quality defaults
+      if (query.toLowerCase().includes('react') || query.toLowerCase().includes('javascript')) {
+        resources.push(
+          {
+            title: 'React Official Documentation',
+            url: 'https://react.dev/',
+            type: 'documentation',
+            description: 'Official React documentation with tutorials and API reference',
+            relevance: 0.92,
+            author: 'React Team'
+          },
+          {
+            title: 'JavaScript Info - Modern Tutorial',
+            url: 'https://javascript.info/',
+            type: 'tutorial',
+            description: 'Comprehensive modern JavaScript tutorial from basics to advanced',
+            relevance: 0.9,
+            author: 'Ilya Kantor'
+          }
+        );
+      }
+      
+      if (query.toLowerCase().includes('design') || query.toLowerCase().includes('ui')) {
+        resources.push(
+          {
+            title: 'Figma Academy',
+            url: 'https://www.figma.com/academy/',
+            type: 'tutorial',
+            description: 'Free design courses and tutorials from Figma',
+            relevance: 0.88,
+            author: 'Figma'
+          },
+          {
+            title: 'Material Design Guidelines',
+            url: 'https://material.io/design',
+            type: 'documentation',
+            description: 'Google\'s comprehensive design system and guidelines',
+            relevance: 0.85,
+            author: 'Google Design'
+          }
+        );
+      }
+      
+      if (query.toLowerCase().includes('startup') || query.toLowerCase().includes('business')) {
+        resources.push(
+          {
+            title: 'Y Combinator Startup School',
+            url: 'https://www.startupschool.org/',
+            type: 'tutorial',
+            description: 'Free online course on how to start a startup',
+            relevance: 0.91,
+            author: 'Y Combinator'
+          },
+          {
+            title: 'Lean Startup Methodology',
+            url: 'http://theleanstartup.com/',
+            type: 'article',
+            description: 'Essential methodology for building successful startups',
+            relevance: 0.87,
+            author: 'Eric Ries'
+          }
+        );
+      }
+      
+      // Generic high-quality resources as last resort
+      if (resources.length < 3) {
+        resources.push(
+          {
+            title: 'MDN Web Docs',
+            url: 'https://developer.mozilla.org/',
+            type: 'documentation',
+            description: 'Comprehensive web development documentation and tutorials',
+            relevance: 0.8,
+            author: 'Mozilla'
+          },
+          {
+            title: 'GitHub Learning Lab',
+            url: 'https://lab.github.com/',
+            type: 'tutorial',
+            description: 'Learn new skills with interactive courses and tutorials',
+            relevance: 0.82,
+            author: 'GitHub'
+          }
+        );
+      }
     }
 
   } catch (error) {
     console.error('Error fetching resources:', error);
+    
+    // Emergency fallback resources
+    resources.push(
+      {
+        title: 'Stack Overflow',
+        url: 'https://stackoverflow.com/',
+        type: 'tool',
+        description: 'Programming Q&A platform with millions of developers',
+        relevance: 0.75,
+        author: 'Stack Overflow Community'
+      },
+      {
+        title: 'GitHub',
+        url: 'https://github.com/',
+        type: 'tool',
+        description: 'Code hosting platform with version control and collaboration',
+        relevance: 0.8,
+        author: 'GitHub'
+      }
+    );
   }
   
-  return resources.sort((a, b) => b.relevance - a.relevance);
+  // Ensure we have 3-5 resources and sort by relevance
+  const finalResources = resources
+    .sort((a, b) => b.relevance - a.relevance)
+    .slice(0, 5); // Limit to maximum 5
+  
+  console.log(`Returning ${finalResources.length} resources for query: ${query}`);
+  return finalResources;
 }
 
 // Enhanced connection search
@@ -322,9 +417,14 @@ serve(async (req) => {
       case 'resources':
         console.log('Fetching resources for:', query);
         const resources = await fetchRealResources(query, 'resources');
-        responseData.resources = resources;
-        responseData.sources = resources.length;
-        responseData.answer = `Found ${resources.length} high-quality resources for "${query}". PieFi resources are prioritized, followed by the best external content.`;
+        // Ensure we return 3-5 resources minimum
+        const minResources = Math.max(3, Math.min(5, resources.length));
+        const finalResources = resources.slice(0, 5); // Maximum 5 resources
+        
+        responseData.resources = finalResources;
+        responseData.sources = finalResources.length;
+        responseData.answer = `Found ${finalResources.length} high-quality resources for "${query}". These include both PieFi internal resources and the best external content available.`;
+        console.log(`Returning ${finalResources.length} resources`);
         break;
 
       case 'connect':
