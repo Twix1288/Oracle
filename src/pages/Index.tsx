@@ -62,17 +62,21 @@ function Index() {
         console.log('✅ Setting role:', profile.role);
         setSelectedRole(profile.role);
         
-        // If user is a builder with a team, set up builder info
+        // If user is a builder with a team, set up builder info for ALL teams
         if (profile.role === 'builder' && profile.team_id && teams?.length > 0) {
           const userTeam = teams.find((team: any) => team.id === profile.team_id);
           if (userTeam) {
-            console.log('✅ Setting up builder info for team:', userTeam.name);
+            console.log('✅ Setting up builder info for team:', userTeam.name, 'Team ID:', profile.team_id);
             setBuilderInfo({
               name: profile.full_name || 'Builder',
               teamId: profile.team_id,
               team: userTeam
             });
+          } else {
+            console.log('⚠️ User has team_id but team not found in available teams:', profile.team_id);
           }
+        } else if (profile.role === 'builder' && !profile.team_id) {
+          console.log('⚠️ Builder user has no team assigned');
         }
       } else {
         console.log('🔄 User needs onboarding - clearing role');
@@ -256,6 +260,8 @@ function Index() {
           />
         );
       case 'builder':
+        // ALWAYS use EnhancedBuilderDashboard for builders with team info
+        // This ensures ALL teams get the proper team-specific dashboard
         return builderInfo ? (
           <EnhancedBuilderDashboard
             team={builderInfo.team}
@@ -274,22 +280,19 @@ function Index() {
             onLeaveTeam={handleLeaveTeam}
           />
         ) : (
-          <BuilderDashboard
-            teams={teams || []}
-            members={members || []}
-            updates={updates || []}
-            teamStatuses={teamStatuses}
-            selectedRole={selectedRole}
-            builderId="current-builder"
-            teamId={teams?.[0]?.id}
-            onSubmitUpdate={(update: any) => 
-              submitUpdate(update)
-            }
-            onQueryRAG={(query: string, role: UserRole) => 
-              queryRAG({ query, role })
-            }
-            onExit={handleExitToGateway}
-          />
+          // Fallback for builders without proper team setup
+          <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
+            <div className="text-center space-y-6 p-8 ufo-card rounded-xl max-w-md">
+              <h2 className="text-2xl font-semibold cosmic-text">Team Setup Required</h2>
+              <p className="text-muted-foreground">
+                You're registered as a builder but don't have a team assigned. 
+                Please use your access code to join a team.
+              </p>
+              <Button onClick={handleExitToGateway} className="ufo-gradient">
+                Go to Gateway
+              </Button>
+            </div>
+          </div>
         );
       case 'mentor':
         return (
