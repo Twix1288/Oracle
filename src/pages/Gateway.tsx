@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Key, Sparkles, ArrowLeft } from 'lucide-react';
+import { Loader2, Key, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { LogoutButton } from '@/components/LogoutButton';
 
 export default function Gateway() {
   const [accessCode, setAccessCode] = useState('');
@@ -129,14 +130,12 @@ export default function Gateway() {
           </form>
 
           <div className="mt-6 pt-4 border-t border-border">
-            <Button 
+            <LogoutButton 
               variant="ghost" 
-              className="w-full" 
-              onClick={() => navigate('/auth')}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Login
-            </Button>
+              className="w-full"
+              showText={true}
+              showIcon={true}
+            />
           </div>
           
           <div className="mt-4 text-center text-sm text-muted-foreground">
