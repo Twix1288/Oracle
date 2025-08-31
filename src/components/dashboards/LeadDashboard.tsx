@@ -104,6 +104,17 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('No authenticated user');
       
+      // Check if user has lead role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userData.user.id)
+        .single();
+      
+      if (!profile || profile.role !== 'lead') {
+        throw new Error('You must have lead role to create teams');
+      }
+      
       const team = await createTeam(teamName.trim());
 
       toast.success(`Team "${teamName}" created successfully! Team details will be completed when members join and complete onboarding.`);
