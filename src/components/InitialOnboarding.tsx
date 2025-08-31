@@ -293,6 +293,23 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         }
 
         console.log('Team updated with project info');
+
+        // CRITICAL FIX: Create member record for proper team tracking
+        const { error: memberError } = await supabase
+          .from('members')
+          .insert({
+            name: profile.full_name || '',
+            role: formData.role as any,
+            team_id: formData.selectedTeam,
+            assigned_by: 'onboarding'
+          });
+
+        if (memberError) {
+          console.error('Member creation error:', memberError);
+          // Don't fail onboarding for this, but log it
+        } else {
+          console.log('Member record created successfully');
+        }
       }
 
       // Store user context for Oracle learning

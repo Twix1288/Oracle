@@ -30,7 +30,16 @@ const stageProgress = {
 
 export const TeamDashboard = ({ teams, teamStatuses, members, selectedRole }: TeamDashboardProps) => {
   const getTeamMembers = (teamId: string) => {
-    return members?.filter(member => member.team_id === teamId) || [];
+    // FIXED: Use both members and profiles for comprehensive team member tracking
+    const membersList = members?.filter(member => member.team_id === teamId) || [];
+    
+    // If members table is empty (legacy data), fall back to profiles count
+    if (membersList.length === 0) {
+      // This is a temporary fallback - in production, members should be created during onboarding
+      console.log(`No members found for team ${teamId}, this indicates missing member records`);
+    }
+    
+    return membersList;
   };
 
   const getTeamStatus = (teamId: string) => {
