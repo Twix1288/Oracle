@@ -108,50 +108,65 @@ export const InitialOnboarding = () => {
   // Load teams immediately when component mounts
   useEffect(() => {
     const loadTeams = async () => {
+      console.log('=== TEAM LOADING DEBUG ===');
       console.log('Loading teams...');
       console.log('Current user:', user);
+      console.log('Supabase URL:', supabase.supabaseUrl);
       
-      if (!user) {
-        console.log('No user authenticated, trying to load teams anyway...');
-      }
-      
-      // First, check if we can access the teams table at all
-      try {
-        const { data: teams, error, count } = await supabase
-          .from('teams')
-          .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false });
-        
-        console.log('Teams response:', { teams, error, count });
-        console.log('Teams data type:', typeof teams);
-        console.log('Teams length:', teams?.length);
-        
-        if (error) {
-          console.error('Supabase error:', error);
-          console.error('Error code:', error.code);
-          console.error('Error message:', error.message);
-          console.error('Error details:', error.details);
+              // Test basic connection first
+        try {
+          console.log('Testing basic connection...');
           
-          // Try a simpler query to see if it's a permissions issue
-          console.log('Trying simpler query...');
-          const { data: simpleTeams, error: simpleError } = await supabase
+          // Test 1: Simple count
+          const { data: testData, error: testError } = await supabase
+            .from('teams')
+            .select('*', { count: 'exact', head: true });
+          
+          console.log('Basic connection test:', { testData, testError });
+          
+          // Test 2: Try to get just one team
+          const { data: singleTeam, error: singleError } = await supabase
             .from('teams')
             .select('id, name')
             .limit(1);
           
-          console.log('Simple query result:', { simpleTeams, simpleError });
+          console.log('Single team test:', { singleTeam, singleError });
           
-          toast({
-            title: "Database Error",
-            description: `Failed to load teams: ${error.message}`,
-            variant: "destructive"
-          });
-        } else {
-          console.log('Setting teams:', teams);
-          setAvailableTeams(teams || []);
-        }
+          // Test 3: Check if we can access the table at all
+          const { data: tableTest, error: tableTestError } = await supabase
+            .from('teams')
+            .select('*');
+          
+          console.log('Table access test:', { tableTest, tableTestError });
+          
+          if (tableTestError) {
+            console.error('Cannot access teams table:', tableTestError);
+            toast({
+              title: "Access Denied",
+              description: `Cannot access teams table: ${tableTestError.message}`,
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          // If we get here, we can access the table
+          console.log('Successfully accessed teams table');
+          console.log('Teams found:', tableTest?.length || 0);
+          
+          if (tableTest && tableTest.length > 0) {
+            console.log('Setting teams:', tableTest);
+            setAvailableTeams(tableTest);
+          } else {
+            console.log('No teams found in database');
+            toast({
+              title: "No Teams Found",
+              description: "No teams are currently available in the database.",
+              variant: "destructive"
+            });
+          }
       } catch (err) {
         console.error('Unexpected error:', err);
+        console.error('Error stack:', err.stack);
         toast({
           title: "Unexpected Error",
           description: "Failed to load teams due to unexpected error",
