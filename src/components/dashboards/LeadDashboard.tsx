@@ -104,7 +104,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('No authenticated user');
       
-      const team = await createTeam(teamName.trim(), null, 'ideation', userData.user.id);
+      const team = await createTeam(teamName.trim());
 
       toast.success(`Team "${teamName}" created successfully! Team details will be completed when members join and complete onboarding.`);
       

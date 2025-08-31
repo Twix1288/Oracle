@@ -35,15 +35,14 @@ export const createTeam = async (
   name: string,
   description: string | null = null,
   stage: TeamStage = 'ideation',
-  leadId: string
+  leadId?: string
 ): Promise<Team> => {
   const { data, error } = await supabase
     .from('teams')
     .insert({
       name,
       description,
-      stage,
-      created_by: leadId
+      stage
     })
     .select()
     .single();
