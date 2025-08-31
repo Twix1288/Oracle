@@ -79,13 +79,8 @@ function Index() {
       
       toast.success("✅ Logged out successfully");
       
-      // Force redirect to auth page
-      navigate('/auth', { replace: true });
-      
-      // Force page reload to clear any cached state
-      setTimeout(() => {
-        window.location.href = '/auth';
-      }, 100);
+      // Force complete page reload to reset all state
+      window.location.href = '/auth';
       
     } catch (error) {
       console.error('❌ Logout error:', error);

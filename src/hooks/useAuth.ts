@@ -107,15 +107,30 @@ export const useAuth = () => {
   const signOut = async (scope: 'local' | 'global' | 'others' = 'global') => {
     console.log('🚪 Signing out with scope:', scope);
     
-    // Clear local state first
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    
-    // Sign out from Supabase
-    await supabase.auth.signOut({ scope });
-    
-    console.log('✅ Signed out successfully');
+    try {
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut({ scope });
+      
+      console.log('✅ Signed out successfully');
+      
+      // Force clear any cached auth data
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      // Even if logout fails, clear local state
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+    }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {

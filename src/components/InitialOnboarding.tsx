@@ -334,10 +334,9 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         // Don't fail onboarding for this
       }
 
-      // Generate access code based on role
-      const accessCode = formData.role === 'mentor' ? 'MENTOR2024' : 
-                        formData.role === 'lead' ? 'LEAD2024' :
-                        'BUILD2024';
+      // Generate access code using utility function
+      const { assignAccessCode } = await import('@/utils/accessCodes');
+      const accessCode = await assignAccessCode(user.id, formData.role, formData.selectedTeam);
 
       console.log('Onboarding completed successfully');
 
