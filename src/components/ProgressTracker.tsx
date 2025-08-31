@@ -15,7 +15,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import type { Team, TeamStage, Update, UserRole } from "@/types/oracle";
 
 interface ProgressTrackerProps {
@@ -117,16 +117,16 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     launch: 0,
     growth: 0
   });
-
   const { toast } = useToast();
 
   const currentStageIndex = stages.findIndex(stage => stage.key === team.stage);
   const currentStage = stages[currentStageIndex];
 
-  // Calculate progress based on updates and AI analysis
+  // Calculate progress based on updates and AI analysis with real-time updates
   useEffect(() => {
     const analyzeProgress = async () => {
-      // Simple heuristic analysis - in production, this would use the Oracle's NLP
+      console.log('🔍 Analyzing progress for team:', team.name, 'Current stage:', team.stage);
+      
       const stageUpdates = updates.filter(update => update.team_id === team.id);
       const recentUpdates = stageUpdates.slice(0, 10);
       
@@ -138,18 +138,23 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
         growth: team.stage === 'growth' ? Math.min(100, recentUpdates.length * 5) : 0
       };
 
-      // Mark completed stages as 100%
+      // Mark completed stages as 100% and current stage with realistic progress
       stages.forEach((stage, index) => {
         if (index < currentStageIndex) {
           progressEstimates[stage.key] = 100;
+        } else if (index === currentStageIndex) {
+          // Current stage gets progress based on updates and time
+          const baseProgress = Math.max(25, Math.min(85, recentUpdates.length * 15));
+          progressEstimates[stage.key] = baseProgress;
         }
       });
 
+      console.log('📊 Progress estimates:', progressEstimates);
       setStageProgress(progressEstimates);
     };
 
     analyzeProgress();
-  }, [updates, team.stage, currentStageIndex]);
+  }, [team, updates, currentStageIndex]);
 
   const handleAdvanceStage = async () => {
     if (currentStageIndex >= stages.length - 1) return;
@@ -198,7 +203,8 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     ) && currentStageIndex < stages.length - 1;
   };
 
-  const getStageStatus = (stageIndex: number) => {
+  const getStageStatus = (stageKey: TeamStage) => {
+    const stageIndex = stages.findIndex(stage => stage.key === stageKey);
     if (stageIndex < currentStageIndex) return 'completed';
     if (stageIndex === currentStageIndex) return 'current';
     return 'upcoming';
@@ -206,121 +212,152 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
 
   return (
     <div className="space-y-6">
-      {/* Current Stage Header */}
-      <Card className="glow-border bg-gradient-to-r from-primary/10 to-primary/5">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      {/* Current Stage Card - Enhanced Visual Design */}
+      <Card className="glow-border bg-gradient-to-br from-card/80 to-primary/5 backdrop-blur-sm border-primary/30 overflow-hidden">
+        <CardContent className="p-8">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-full ${colorMap[currentStage.color].bg}`}>
-                <currentStage.icon className={`h-6 w-6 ${colorMap[currentStage.color].text}`} />
+              <div className={`p-4 rounded-xl ${colorMap[currentStage.color].bg} ${colorMap[currentStage.color].border} border-2 shadow-lg`}>
+                <currentStage.icon className={`h-8 w-8 ${colorMap[currentStage.color].text}`} />
               </div>
               <div>
-                <CardTitle className="text-xl text-glow">{currentStage.title}</CardTitle>
-                <p className="text-muted-foreground">{currentStage.description}</p>
+                <h3 className="text-2xl font-bold cosmic-text mb-1">{currentStage.title}</h3>
+                <p className="text-muted-foreground text-lg">{currentStage.description}</p>
               </div>
             </div>
-            {canAdvanceStage() && (
-              <Button
-                onClick={handleAdvanceStage}
-                disabled={isUpdating}
-                className="ufo-gradient hover:opacity-90"
-              >
-                {isUpdating ? "Updating..." : "Advance Stage"}
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Stage Progress</span>
-              <span>{Math.round(stageProgress[currentStage.key])}%</span>
-            </div>
-            <Progress value={stageProgress[currentStage.key]} className="h-2" />
-          </div>
-          
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Key Metrics:</p>
-            <div className="flex flex-wrap gap-2">
-              {currentStage.metrics.map((metric, index) => (
-                <Badge 
-                  key={index}
-                  className={colorMap[currentStage.color].badge}
-                >
-                  {metric}
-                </Badge>
-              ))}
+            <div className="text-right">
+              <div className="text-3xl font-bold cosmic-text mb-1">
+                {Math.round(stageProgress[currentStage.key])}%
+              </div>
+              <div className="text-sm text-muted-foreground">Complete</div>
             </div>
           </div>
+
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-medium cosmic-text">Stage Progress</span>
+              <span className="text-sm text-muted-foreground">{Math.round(stageProgress[currentStage.key])}%</span>
+            </div>
+            <Progress 
+              value={stageProgress[currentStage.key]} 
+              className="h-3 glow-border"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {currentStage.metrics.map((metric, index) => (
+              <div key={index} className="text-center p-3 bg-background/50 rounded-lg border border-primary/20">
+                <div className="text-sm font-medium cosmic-text">{metric}</div>
+                <div className="text-xs text-muted-foreground mt-1">In Progress</div>
+              </div>
+            ))}
+          </div>
+
+          {canAdvanceStage() && currentStageIndex < stages.length - 1 && (
+            <Button
+              onClick={handleAdvanceStage}
+              disabled={isUpdating}
+              className="w-full ufo-gradient text-lg py-6 cosmic-sparkle-hover"
+            >
+              {isUpdating ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                  Advancing Stage...
+                </>
+              ) : (
+                <>
+                  <Rocket className="mr-3 h-5 w-5" />
+                  Advance to {stages[currentStageIndex + 1]?.title}
+                </>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
-      {/* Stage Timeline */}
-      <Card className="glow-border bg-card/50">
+      {/* Timeline View - Enhanced */}
+      <Card className="glow-border bg-card/50 backdrop-blur">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Target className="h-5 w-5 text-primary" />
             5-Stage Development Journey
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {stages.map((stage, index) => {
-              const status = getStageStatus(index);
-              const colors = colorMap[stage.color];
-              const Icon = stage.icon;
-              const progress = stageProgress[stage.key];
-
+              const status = getStageStatus(stage.key);
+              const isActive = stage.key === team.stage;
+              const progress = stageProgress[stage.key] || 0;
+              
               return (
                 <div key={stage.key} className="relative">
-                  <div className={`flex items-center gap-4 p-4 rounded-lg border transition-all ${
-                    status === 'current' 
-                      ? `${colors.bg} ${colors.border}` 
-                      : status === 'completed'
-                      ? 'bg-green-500/10 border-green-500/20'
-                      : 'bg-muted/30 border-border'
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-300 ${
+                    isActive 
+                      ? `${colorMap[stage.color].bg} ${colorMap[stage.color].border} shadow-lg transform scale-[1.02]`
+                      : status === 'completed' 
+                        ? 'bg-green-500/10 border-green-500/30' 
+                        : 'bg-background/30 border-muted hover:border-primary/20'
                   }`}>
                     
-                    {/* Stage Icon & Status */}
-                    <div className="flex items-center gap-3">
+                    {/* Stage Icon */}
+                    <div className={`p-3 rounded-lg border-2 ${
+                      isActive 
+                        ? `${colorMap[stage.color].border} ${colorMap[stage.color].bg}`
+                        : status === 'completed'
+                          ? 'border-green-500/30 bg-green-500/20'
+                          : 'border-muted bg-background/50'
+                    }`}>
                       {status === 'completed' ? (
                         <CheckCircle className="h-6 w-6 text-green-400" />
-                      ) : status === 'current' ? (
-                        <div className={`p-2 rounded-full ${colors.bg}`}>
-                          <Icon className={`h-4 w-4 ${colors.text}`} />
-                        </div>
                       ) : (
-                        <Circle className="h-6 w-6 text-muted-foreground" />
+                        <stage.icon className={`h-6 w-6 ${
+                          isActive ? colorMap[stage.color].text : 'text-muted-foreground'
+                        }`} />
                       )}
-                      
-                      <div className="flex-1">
-                        <h4 className={`font-semibold ${
-                          status === 'current' ? colors.text : 
-                          status === 'completed' ? 'text-green-400' : 
-                          'text-muted-foreground'
-                        }`}>
+                    </div>
+
+                    {/* Stage Info */}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className={`font-bold text-lg ${isActive ? 'cosmic-text' : ''}`}>
                           {stage.title}
                         </h4>
-                        <p className="text-sm text-muted-foreground">{stage.description}</p>
+                        {isActive && (
+                          <Badge variant="outline" className={colorMap[stage.color].badge}>
+                            Current
+                          </Badge>
+                        )}
+                      </div>
+                      <p className={`text-sm ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {stage.description}
+                      </p>
+                      
+                      {/* Progress Bar */}
+                      <div className="mt-3">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs font-medium">Progress</span>
+                          <span className="text-xs">{Math.round(progress)}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    {status !== 'upcoming' && (
-                      <div className="w-32">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-muted-foreground">Progress</span>
-                          <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                        </div>
-                        <Progress value={progress} className="h-1" />
-                      </div>
-                    )}
+                    {/* Stage Number */}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      isActive 
+                        ? `${colorMap[stage.color].bg} ${colorMap[stage.color].text} border-2 ${colorMap[stage.color].border}`
+                        : status === 'completed'
+                          ? 'bg-green-500/20 text-green-400 border-2 border-green-500/30'
+                          : 'bg-background text-muted-foreground border-2 border-muted'
+                    }`}>
+                      {index + 1}
+                    </div>
                   </div>
 
-                  {/* Connection Line */}
+                  {/* Connecting Line */}
                   {index < stages.length - 1 && (
-                    <div className="absolute left-7 top-full h-4 w-0.5 bg-border" />
+                    <div className="ml-8 h-6 w-0.5 bg-gradient-to-b from-primary/50 to-muted"></div>
                   )}
                 </div>
               );
@@ -329,14 +366,17 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
         </CardContent>
       </Card>
 
-      {/* Stage Insights */}
-      <Card className="glow-border bg-card/50">
+      {/* Oracle Insights */}
+      <Card className="glow-border bg-card/50 backdrop-blur">
         <CardHeader>
-          <CardTitle>Oracle Insights</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Oracle Insights
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
               <p className="text-sm">
                 <span className="font-medium text-blue-400">🛸 Oracle Analysis:</span> 
                 {' '}Team {team.name} is progressing well through the {currentStage.title} stage. 
@@ -345,7 +385,7 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
             </div>
             
             {currentStageIndex < stages.length - 1 && (
-              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
                 <p className="text-sm">
                   <span className="font-medium text-purple-400">🔮 Next Stage Preview:</span>
                   {' '}Preparing for {stages[currentStageIndex + 1].title} - {stages[currentStageIndex + 1].description.toLowerCase()}.

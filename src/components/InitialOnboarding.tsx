@@ -267,11 +267,13 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
 
         console.log('Team update created successfully');
 
-        // Update team with comprehensive data from onboarding
+        // Update team with comprehensive data from onboarding  
         const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
         const teamStage = validStages.includes(formData.projectStage as any) 
           ? (formData.projectStage as typeof validStages[number])
           : 'ideation';
+        
+        console.log('🎯 Updating team stage to:', teamStage, 'for team:', formData.selectedTeam);
         
         const { error: teamUpdateError } = await supabase
           .from('teams')
@@ -282,8 +284,14 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           .eq('id', formData.selectedTeam);
 
         if (teamUpdateError) {
-          console.error('Team update error:', teamUpdateError);
-          // Don't throw here, this is not critical
+          console.error('❌ Team update error:', teamUpdateError);
+          toast({
+            title: "Warning",
+            description: `Team stage update failed: ${teamUpdateError.message}. Contact support if this persists.`,
+            variant: "destructive"
+          });
+        } else {
+          console.log('✅ Team stage successfully updated to:', teamStage);
         }
 
         console.log('Team updated with project info');
