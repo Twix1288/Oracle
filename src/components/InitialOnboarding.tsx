@@ -45,32 +45,26 @@ const PROJECT_STAGES = [
     color: 'bg-purple-500/20 text-purple-400 border-purple-500/20'
   },
   { 
-    id: 'validation', 
-    label: 'Stage 2: Validation', 
-    description: 'Testing assumptions, user interviews, MVP planning',
-    color: 'bg-blue-500/20 text-blue-400 border-blue-500/20'
-  },
-  { 
     id: 'development', 
-    label: 'Stage 3: Development', 
+    label: 'Stage 2: Development', 
     description: 'Building MVP, coding, technical implementation',
     color: 'bg-green-500/20 text-green-400 border-green-500/20'
   },
   { 
     id: 'testing', 
-    label: 'Stage 4: Testing', 
+    label: 'Stage 3: Testing', 
     description: 'User testing, bug fixes, performance optimization',
     color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
   },
   { 
     id: 'launch', 
-    label: 'Stage 5: Launch', 
+    label: 'Stage 4: Launch', 
     description: 'Product release, marketing, user acquisition',
     color: 'bg-orange-500/20 text-orange-400 border-orange-500/20'
   },
   { 
     id: 'growth', 
-    label: 'Stage 6: Growth', 
+    label: 'Stage 5: Growth', 
     description: 'Scaling, new features, market expansion',
     color: 'bg-pink-500/20 text-pink-400 border-pink-500/20'
   }
@@ -274,7 +268,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         console.log('Team update created successfully');
 
         // Update team with comprehensive data from onboarding
-        const validStages = ['ideation', 'validation', 'development', 'testing', 'launch', 'growth'] as const;
+        const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
         const teamStage = validStages.includes(formData.projectStage as any) 
           ? (formData.projectStage as typeof validStages[number])
           : 'ideation';

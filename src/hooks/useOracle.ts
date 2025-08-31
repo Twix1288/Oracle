@@ -6,7 +6,7 @@ import type { Team, Member, Update, Event, TeamStatus, UserRole, UpdateType } fr
 export const useOracle = (selectedRole: UserRole) => {
   const queryClient = useQueryClient();
 
-  // Fetch teams
+  // Fetch teams with real-time polling for multi-user support
   const { data: teams, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams'],
     queryFn: async () => {
@@ -17,9 +17,10 @@ export const useOracle = (selectedRole: UserRole) => {
       if (error) throw error;
       return data as Team[];
     },
+    refetchInterval: 5000, // Poll every 5 seconds for real-time updates
   });
 
-  // Fetch members
+  // Fetch members with real-time polling for accurate member counts
   const { data: members, isLoading: membersLoading } = useQuery({
     queryKey: ['members'],
     queryFn: async () => {
@@ -30,6 +31,7 @@ export const useOracle = (selectedRole: UserRole) => {
       if (error) throw error;
       return data as Member[];
     },
+    refetchInterval: 3000, // Faster polling for member changes
   });
 
   // Fetch updates with team information

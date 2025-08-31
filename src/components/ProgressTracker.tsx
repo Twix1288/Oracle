@@ -117,6 +117,7 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     launch: 0,
     growth: 0
   });
+
   const { toast } = useToast();
 
   const currentStageIndex = stages.findIndex(stage => stage.key === team.stage);
