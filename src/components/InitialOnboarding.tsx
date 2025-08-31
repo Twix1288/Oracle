@@ -10,6 +10,7 @@ import { Code, Briefcase, Target, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { generateTeamAccessCode } from "@/utils/teamAccess";
+import { useAuth } from "@/hooks/useAuth";
 
 const SKILLS = [
   { value: 'react', label: 'React', icon: '⚛️' },
@@ -97,6 +98,7 @@ export const InitialOnboarding = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
   const [availableTeams, setAvailableTeams] = useState([]);
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -107,28 +109,59 @@ export const InitialOnboarding = () => {
   useEffect(() => {
     const loadTeams = async () => {
       console.log('Loading teams...');
-      const { data: teams, error } = await supabase
-        .from('teams')
-        .select('*')
-        .order('created_at', { ascending: false });
+      console.log('Current user:', user);
       
-      console.log('Teams response:', { teams, error });
+      if (!user) {
+        console.log('No user authenticated, trying to load teams anyway...');
+      }
       
-      if (error) {
-        console.error('Error loading teams:', error);
+      // First, check if we can access the teams table at all
+      try {
+        const { data: teams, error, count } = await supabase
+          .from('teams')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false });
+        
+        console.log('Teams response:', { teams, error, count });
+        console.log('Teams data type:', typeof teams);
+        console.log('Teams length:', teams?.length);
+        
+        if (error) {
+          console.error('Supabase error:', error);
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          console.error('Error details:', error.details);
+          
+          // Try a simpler query to see if it's a permissions issue
+          console.log('Trying simpler query...');
+          const { data: simpleTeams, error: simpleError } = await supabase
+            .from('teams')
+            .select('id, name')
+            .limit(1);
+          
+          console.log('Simple query result:', { simpleTeams, simpleError });
+          
+          toast({
+            title: "Database Error",
+            description: `Failed to load teams: ${error.message}`,
+            variant: "destructive"
+          });
+        } else {
+          console.log('Setting teams:', teams);
+          setAvailableTeams(teams || []);
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
         toast({
-          title: "Error",
-          description: "Failed to load teams. Please refresh the page.",
+          title: "Unexpected Error",
+          description: "Failed to load teams due to unexpected error",
           variant: "destructive"
         });
-      } else {
-        console.log('Setting teams:', teams);
-        setAvailableTeams(teams || []);
       }
     };
 
     loadTeams();
-  }, []);
+  }, [user]);
 
   const handleNext = async () => {
     setStep(step + 1);
