@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,15 +103,34 @@ export const InitialOnboarding = () => {
   const totalSteps = 7;
   const progress = (step / totalSteps) * 100;
 
-  const handleNext = async () => {
-    if (step === 3 && formData.role) {
-      // Fetch available teams when role is selected
-      const { data: teams } = await supabase
+  // Load teams immediately when component mounts
+  useEffect(() => {
+    const loadTeams = async () => {
+      console.log('Loading teams...');
+      const { data: teams, error } = await supabase
         .from('teams')
         .select('*')
         .order('created_at', { ascending: false });
-      setAvailableTeams(teams || []);
-    }
+      
+      console.log('Teams response:', { teams, error });
+      
+      if (error) {
+        console.error('Error loading teams:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load teams. Please refresh the page.",
+          variant: "destructive"
+        });
+      } else {
+        console.log('Setting teams:', teams);
+        setAvailableTeams(teams || []);
+      }
+    };
+
+    loadTeams();
+  }, []);
+
+  const handleNext = async () => {
     setStep(step + 1);
   };
 
@@ -374,23 +393,31 @@ export const InitialOnboarding = () => {
             </div>
 
             <div className="space-y-3">
-              {availableTeams.map((team: any) => (
-                <div
-                  key={team.id}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                    formData.selectedTeam === team.id
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted hover:border-primary/50'
-                  }`}
-                  onClick={() => setFormData({ ...formData, selectedTeam: team.id })}
-                >
-                  <h4 className="font-semibold">{team.name}</h4>
-                  <p className="text-sm text-muted-foreground">{team.description}</p>
-                  {formData.selectedTeam === team.id && (
-                    <Badge className="mt-2">Selected</Badge>
-                  )}
+              {availableTeams.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading teams...</p>
+                  <p className="text-xs text-muted-foreground mt-2">Found {availableTeams.length} teams</p>
                 </div>
-              ))}
+              ) : (
+                availableTeams.map((team: any) => (
+                  <div
+                    key={team.id}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                      formData.selectedTeam === team.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-muted hover:border-primary/50'
+                    }`}
+                    onClick={() => setFormData({ ...formData, selectedTeam: team.id })}
+                  >
+                    <h4 className="font-semibold">{team.name}</h4>
+                    <p className="text-sm text-muted-foreground">{team.description}</p>
+                    {formData.selectedTeam === team.id && (
+                      <Badge className="mt-2">Selected</Badge>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="flex gap-3">
