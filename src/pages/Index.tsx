@@ -41,9 +41,14 @@ function Index() {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
-    } else if (profile && profile.role && profile.role !== 'unassigned') {
-      // Auto-set role if user has completed onboarding and has a role
+    } else if (profile && profile.onboarding_completed && profile.role && profile.role !== 'unassigned') {
+      // Only auto-set role if user has COMPLETED onboarding and has a valid role
+      console.log('Auto-setting role for completed user:', profile.role);
       setSelectedRole(profile.role);
+    } else if (profile && !profile.onboarding_completed) {
+      // User exists but hasn't completed onboarding - they should see onboarding
+      console.log('User needs to complete onboarding:', profile);
+      setSelectedRole(null);
     }
   }, [user, profile, authLoading, navigate]);
 
@@ -137,8 +142,8 @@ function Index() {
     );
   }
 
-  // Show onboarding for users without roles
-  if (!selectedRole || !profile?.role || profile?.role === 'unassigned') {
+  // Show onboarding for users who haven't completed it or don't have roles
+  if (!selectedRole || !profile?.onboarding_completed || !profile?.role || profile?.role === 'unassigned') {
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">
         {/* Logout header for onboarding */}

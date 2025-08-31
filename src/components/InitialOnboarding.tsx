@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Code, Briefcase, Target, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { AccessCodeDisplay } from "./AccessCodeDisplay";
 import { storeUserContext } from "@/utils/oracleContext";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -101,6 +102,27 @@ export const InitialOnboarding = () => {
   const { user } = useAuth();
   const [availableTeams, setAvailableTeams] = useState([]);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [completionData, setCompletionData] = useState<{
+    accessCode: string;
+    teamName?: string;
+  } | null>(null);
+
+  const handleContinueToDashboard = () => {
+    // Trigger a page reload to get fresh data and show the appropriate dashboard
+    window.location.reload();
+  };
+
+  // Show access code display after completion
+  if (isCompleted && completionData) {
+    return (
+      <AccessCodeDisplay
+        accessCode={completionData.accessCode}
+        role={formData.role}
+        teamName={completionData.teamName}
+        onContinue={handleContinueToDashboard}
+      />
+    );
+  }
 
   const totalSteps = 7;
   const progress = (step / totalSteps) * 100;
@@ -316,18 +338,18 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
                         formData.role === 'lead' ? 'LEAD2024' :
                         'BUILD2024';
 
-      toast({
-        title: "🎉 Onboarding Complete!",
-        description: `Welcome to ${formData.selectedTeam ? 'your team' : 'PieFi Oracle'}! Your access code is: ${accessCode}. ${formData.selectedTeam ? 'You are now a member of the selected team.' : ''}`
-      });
-
       console.log('Onboarding completed successfully');
 
-      // Mark as completed and reload to show dashboard
+      // Get team name for display
+      const selectedTeam = availableTeams.find((team: any) => team.id === formData.selectedTeam);
+      
+      // Set completion data to show access code screen
+      setCompletionData({
+        accessCode,
+        teamName: selectedTeam?.name
+      });
       setIsCompleted(true);
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+
     } catch (error: any) {
       console.error('Onboarding completion error:', error);
       toast({
@@ -768,30 +790,6 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         return null;
     }
   };
-
-  // Show completion state
-  if (isCompleted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-center space-y-6">
-              <div className="p-6 rounded-full bg-green-500/20 w-fit mx-auto">
-                <Code className="h-16 w-16 text-green-500" />
-              </div>
-              <h1 className="text-4xl font-bold text-glow">🎉 Onboarding Complete!</h1>
-              <p className="text-xl text-muted-foreground">
-                Your profile has been set up and the Oracle has been personalized for you.
-              </p>
-              <p className="text-lg text-primary">
-                Redirecting to your dashboard...
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
