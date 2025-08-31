@@ -113,18 +113,6 @@ export const InitialOnboarding = () => {
     window.location.href = '/';
   };
 
-  // Show access code display after completion
-  if (isCompleted && completionData) {
-    return (
-      <AccessCodeDisplay
-        accessCode={completionData.accessCode}
-        role={formData.role}
-        teamName={completionData.teamName}
-        onContinue={handleContinueToDashboard}
-      />
-    );
-  }
-
   const totalSteps = 7;
   const progress = (step / totalSteps) * 100;
 
@@ -795,33 +783,42 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-glow mb-4">Welcome to PieFi Oracle</h1>
-            <p className="text-lg text-muted-foreground">
-              Let's get to know you better
-            </p>
-          </div>
-
-          {/* Progress */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm font-medium text-foreground">Step {step} of {totalSteps}</span>
-              <span className="text-sm text-muted-foreground">{Math.round(progress)}% complete</span>
+      {isCompleted && completionData ? (
+        <AccessCodeDisplay
+          accessCode={completionData.accessCode}
+          role={formData.role}
+          teamName={completionData.teamName}
+          onContinue={handleContinueToDashboard}
+        />
+      ) : (
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-glow mb-4">Welcome to PieFi Oracle</h1>
+              <p className="text-lg text-muted-foreground">
+                Let's get to know you better
+              </p>
             </div>
-            <Progress value={progress} className="h-2" />
-          </div>
 
-          {/* Content */}
-          <Card className="glow-border bg-card/50 backdrop-blur">
-            <CardContent className="p-8">
-              {renderStep()}
-            </CardContent>
-          </Card>
+            {/* Progress */}
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm font-medium text-foreground">Step {step} of {totalSteps}</span>
+                <span className="text-sm text-muted-foreground">{Math.round(progress)}% complete</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+
+            {/* Content */}
+            <Card className="glow-border bg-card/50 backdrop-blur">
+              <CardContent className="p-8">
+                {renderStep()}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
