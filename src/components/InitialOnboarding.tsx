@@ -108,8 +108,9 @@ export const InitialOnboarding = () => {
   } | null>(null);
 
   const handleContinueToDashboard = () => {
-    // Trigger a page reload to get fresh data and show the appropriate dashboard
-    window.location.reload();
+    console.log('🚀 Continuing to dashboard after onboarding completion...');
+    // Force a complete page reload to ensure fresh auth state
+    window.location.href = '/';
   };
 
   // Show access code display after completion
@@ -349,6 +350,8 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         teamName: selectedTeam?.name
       });
       setIsCompleted(true);
+
+      console.log('🎉 Onboarding completed! Access code:', accessCode);
 
     } catch (error: any) {
       console.error('Onboarding completion error:', error);

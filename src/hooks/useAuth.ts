@@ -33,24 +33,36 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔐 Setting up auth state listener...');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        console.log('🔄 Auth state changed:', event, session?.user?.id);
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
+          // Fetch user profile with delay to avoid deadlock
           setTimeout(async () => {
-            const { data: profileData } = await supabase
+            console.log('👤 Fetching user profile...');
+            const { data: profileData, error } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
             
-            setProfile(profileData);
+            if (error) {
+              console.error('❌ Profile fetch error:', error);
+              setProfile(null);
+            } else {
+              console.log('✅ Profile loaded:', profileData);
+              setProfile(profileData);
+            }
           }, 0);
         } else {
+          console.log('👤 No user session, clearing profile');
           setProfile(null);
         }
         setLoading(false);
@@ -59,29 +71,51 @@ export const useAuth = () => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔍 Checking existing session:', session?.user?.id);
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Fetch user profile
+        // Fetch user profile with delay to avoid deadlock
         setTimeout(async () => {
-          const { data: profileData } = await supabase
+          console.log('👤 Fetching existing user profile...');
+          const { data: profileData, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
           
-          setProfile(profileData);
+          if (error) {
+            console.error('❌ Existing profile fetch error:', error);
+            setProfile(null);
+          } else {
+            console.log('✅ Existing profile loaded:', profileData);
+            setProfile(profileData);
+          }
         }, 0);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('🧹 Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async (scope: 'local' | 'global' | 'others' = 'global') => {
+    console.log('🚪 Signing out with scope:', scope);
+    
+    // Clear local state first
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    
+    // Sign out from Supabase
     await supabase.auth.signOut({ scope });
+    
+    console.log('✅ Signed out successfully');
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {

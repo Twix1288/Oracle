@@ -38,31 +38,65 @@ function Index() {
     ragLoading
   } = useOracle(selectedRole);
 
+  // AUTHENTICATION GUARD - BULLETPROOF
   useEffect(() => {
+    console.log('=== AUTH GUARD DEBUG ===');
+    console.log('User:', user?.id);
+    console.log('Profile:', profile);
+    console.log('Auth Loading:', authLoading);
+    
     if (!authLoading && !user) {
+      console.log('❌ Not authenticated - redirecting to auth');
       navigate('/auth');
-    } else if (profile && profile.onboarding_completed && profile.role && profile.role !== 'unassigned') {
-      // Only auto-set role if user has COMPLETED onboarding and has a valid role
-      console.log('Auto-setting role for completed user:', profile.role);
-      setSelectedRole(profile.role);
-    } else if (profile && !profile.onboarding_completed) {
-      // User exists but hasn't completed onboarding - they should see onboarding
-      console.log('User needs to complete onboarding:', profile);
-      setSelectedRole(null);
+      return;
+    }
+
+    if (user && profile) {
+      console.log('✅ User authenticated with profile');
+      console.log('Profile onboarding completed:', profile.onboarding_completed);
+      console.log('Profile role:', profile.role);
+      
+      // Only set role if user has completed onboarding AND has a valid role
+      if (profile.onboarding_completed && profile.role && profile.role !== 'unassigned') {
+        console.log('✅ Setting role:', profile.role);
+        setSelectedRole(profile.role);
+      } else {
+        console.log('🔄 User needs onboarding - clearing role');
+        setSelectedRole(null);
+      }
     }
   }, [user, profile, authLoading, navigate]);
 
   const handleLogout = async () => {
+    console.log('🚪 Logging out...');
     try {
+      // Clear all local state first
+      setSelectedRole(null);
+      setBuilderInfo(null);
+      
+      // Sign out from Supabase
       await signOut();
-      toast.success("Logged out successfully");
-      navigate('/auth');
+      
+      toast.success("✅ Logged out successfully");
+      
+      // Force redirect to auth page
+      navigate('/auth', { replace: true });
+      
+      // Force page reload to clear any cached state
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 100);
+      
     } catch (error) {
+      console.error('❌ Logout error:', error);
       toast.error("Failed to log out");
+      // Force redirect anyway
+      window.location.href = '/auth';
     }
   };
 
   const handleRoleSelect = (role: UserRole) => {
+    console.log('🎭 Role selected:', role);
     setSelectedRole(role);
     // Reset builder info when switching roles
     if (role !== 'builder') {
@@ -71,6 +105,7 @@ function Index() {
   };
 
   const handleBuilderAuthenticated = (builderName: string, teamId: string, teamInfo: Team) => {
+    console.log('🏗️ Builder authenticated:', builderName, teamId);
     setSelectedRole('builder');
     setBuilderInfo({
       name: builderName,
@@ -79,49 +114,12 @@ function Index() {
     });
   };
 
-  const handleRoleAssigned = () => {
-    // Refresh the page to get updated profile data
-    window.location.reload();
-  };
-
   const handleLeaveTeam = () => {
     setBuilderInfo(null);
     setSelectedRole(null);
   };
 
-  // Show access gate if user is unassigned
-  if (profile && profile.role === 'unassigned') {
-    return (
-      <div className="min-h-screen bg-cosmic cosmic-sparkle">
-        {/* Logout header for unassigned users */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  Welcome, {user?.email}
-                </span>
-              </div>
-              <Button 
-                onClick={handleLogout}
-                variant="outline"
-                size="sm"
-                className="bg-background hover:bg-muted/50 border-border"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-        
-        <InitialOnboarding />
-      </div>
-    );
-  }
-
-  // Show loading while checking auth
+  // LOADING STATE
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
@@ -142,11 +140,12 @@ function Index() {
     );
   }
 
-  // Show onboarding for users who haven't completed it or don't have roles
-  if (!selectedRole || !profile?.onboarding_completed || !profile?.role || profile?.role === 'unassigned') {
+  // ONBOARDING REQUIRED - Show for users without completed onboarding
+  if (user && (!profile?.onboarding_completed || !profile?.role || profile?.role === 'unassigned')) {
+    console.log('🎯 Showing onboarding for user');
     return (
       <div className="min-h-screen bg-cosmic cosmic-sparkle">
-        {/* Logout header for onboarding */}
+        {/* Logout header */}
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
@@ -174,6 +173,7 @@ function Index() {
     );
   }
 
+  // ORACLE LOADING
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
@@ -198,7 +198,10 @@ function Index() {
     queryRAG({ query, role });
   };
 
+  // DASHBOARD ROUTING - Only for completed users with valid roles
   const renderDashboard = () => {
+    console.log('🎯 Rendering dashboard for role:', selectedRole);
+    
     switch (selectedRole) {
       case 'guest':
         return (
@@ -268,7 +271,16 @@ function Index() {
           />
         );
       default:
-        return <InitialOnboarding />;
+        // This should never happen with bulletproof routing
+        console.log('❓ No valid role selected - this should not happen');
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
+            <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
+              <h2 className="text-2xl font-semibold cosmic-text">Loading...</h2>
+              <p className="text-muted-foreground">Setting up your dashboard...</p>
+            </div>
+          </div>
+        );
     }
   };
 
