@@ -55,17 +55,31 @@ function Index() {
       console.log('✅ User authenticated with profile');
       console.log('Profile onboarding completed:', profile.onboarding_completed);
       console.log('Profile role:', profile.role);
+      console.log('Profile team_id:', profile.team_id);
       
       // Only set role if user has completed onboarding AND has a valid role
       if (profile.onboarding_completed && profile.role && profile.role !== 'unassigned') {
         console.log('✅ Setting role:', profile.role);
         setSelectedRole(profile.role);
+        
+        // If user is a builder with a team, set up builder info
+        if (profile.role === 'builder' && profile.team_id && teams?.length > 0) {
+          const userTeam = teams.find((team: any) => team.id === profile.team_id);
+          if (userTeam) {
+            console.log('✅ Setting up builder info for team:', userTeam.name);
+            setBuilderInfo({
+              name: profile.full_name || 'Builder',
+              teamId: profile.team_id,
+              team: userTeam
+            });
+          }
+        }
       } else {
         console.log('🔄 User needs onboarding - clearing role');
         setSelectedRole(null);
       }
     }
-  }, [user, profile, authLoading, navigate]);
+  }, [user, profile, authLoading, navigate, teams]);
 
   const handleExitToGateway = () => {
     console.log('🚪 Exiting to gateway...');
