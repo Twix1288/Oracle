@@ -218,17 +218,13 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `is_broadcast=eq.true`
+          filter: `sender_role=eq.lead`
         },
         async (payload) => {
           const message = payload.new;
           
-          // Check if broadcast is relevant for current user
-          if (
-            message.broadcast_type === 'all' ||
-            (message.broadcast_type === 'team' && message.broadcast_target === teamId) ||
-            (message.broadcast_type === 'role' && message.broadcast_target === selectedRole)
-          ) {
+          // Check if message is a broadcast (simple check for broadcast prefix)
+          if (message.content?.startsWith('📢 BROADCAST')) {
             const broadcastMessage: ChatMessage = {
               id: message.id,
               type: 'system',
@@ -240,8 +236,9 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
                 avatar: '📢'
               },
               metadata: {
-                broadcast_type: message.broadcast_type,
-                target: message.broadcast_target
+                command: message.command,
+                sources: message.sources,
+                resources: message.resources
               }
             };
 
@@ -862,10 +859,9 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
         const { error } = await supabase.from('messages').insert({
           sender_id: profile?.id || 'anonymous',
           sender_role: selectedRole,
-          content: content.trim(),
-          is_broadcast: true,
-          broadcast_type: targetType.toLowerCase(),
-          broadcast_target: targetType === 'team' ? teamId : targetType === 'role' ? selectedRole : null
+          receiver_role: 'guest', // Send to all as guest role for broadcasts
+          content: `📢 BROADCAST (${targetType}): ${content.trim()}`,
+          team_id: targetType === 'team' ? teamId : null
         });
 
         if (error) throw error;

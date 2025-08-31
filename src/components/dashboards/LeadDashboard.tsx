@@ -101,7 +101,10 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
 
     setIsCreating(true);
     try {
-      const team = await createTeam(teamName.trim());
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error('No authenticated user');
+      
+      const team = await createTeam(teamName.trim(), null, 'ideation', userData.user.id);
 
       toast.success(`Team "${teamName}" created successfully! Team details will be completed when members join and complete onboarding.`);
       
@@ -319,25 +322,9 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
 
                         <div className="flex items-center justify-between">
                           <div className="text-xs">
-                            <span className="text-muted-foreground">Access Code: </span>
-                            <span className="font-mono">{team.access_code}</span>
+                            <span className="text-muted-foreground">Created: </span>
+                            <span className="font-mono">{new Date(team.created_at).toLocaleDateString()}</span>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const newCode = await regenerateAccessCode(team.id);
-                                toast.success("Access code regenerated");
-                                queryClient.invalidateQueries({ queryKey: ["teams"] });
-                              } catch (error: any) {
-                                toast.error(`Failed to regenerate access code: ${error.message}`);
-                              }
-                            }}
-                            className="h-7"
-                          >
-                            Regenerate
-                          </Button>
                         </div>
 
                       </CardContent>

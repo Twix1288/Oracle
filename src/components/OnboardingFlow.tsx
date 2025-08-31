@@ -189,14 +189,8 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
     if (code === 'MENTOR2024' && role === 'mentor') return true;
     if (code === 'LEAD2024' && role === 'lead') return true;
 
-    // Check if it's a team access code
-    const { data: team } = await supabase
-      .from('teams')
-      .select('*')
-      .eq('access_code', code)
-      .single();
-
-    return !!team;
+    // For now, return false for any other codes since access_code column doesn't exist
+    return false;
   };
 
   const renderStep = () => {

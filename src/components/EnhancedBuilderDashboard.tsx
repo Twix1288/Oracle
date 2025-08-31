@@ -407,6 +407,7 @@ Investment Opportunity & Funding Needs`;
       <OnboardingFlow 
         team={currentTeam}
         builderName={builderName}
+        role="builder"
         onComplete={handleOnboardingComplete}
       />
     );

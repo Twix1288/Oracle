@@ -1,4 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { InitialTask } from "@/types/onboarding";
 import type { UserSkill, ExperienceLevel } from "@/types/onboarding";
 
@@ -20,7 +19,7 @@ export const generateInitialTasks = async (
     estimatedHours: 2,
     resources: [
       "Project README.md",
-      "Development Environment Guide",
+      "Development Environment Guide", 
       "Team Best Practices"
     ]
   });
@@ -75,116 +74,64 @@ export const generateInitialTasks = async (
     }
   }
 
-  // Save tasks to database
-  const { error } = await supabase.from('tasks').insert(
-    tasks.map(task => ({
-      ...task,
-      team_id: teamId,
-      status: 'todo',
-      created_at: new Date().toISOString()
-    }))
-  );
-
-  if (error) throw error;
+  // TODO: Implement task storage when tasks table is created
+  // For now, return the tasks without saving to database
+  console.log('Generated tasks for team:', teamId, tasks);
   return tasks;
 };
 
-// Get task suggestions based on progress
-export const getTaskSuggestions = async (
-  userId: string,
-  teamId: string,
-  role: string
-): Promise<string[]> => {
-  // Get completed tasks
-  const { data: completedTasks } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('team_id', teamId)
-    .eq('assigned_to', userId)
-    .eq('status', 'completed');
-
-  // Get in-progress tasks
-  const { data: inProgressTasks } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('team_id', teamId)
-    .eq('assigned_to', userId)
-    .eq('status', 'in_progress');
-
-  const suggestions: string[] = [];
-
-  // If no tasks completed yet
-  if (!completedTasks?.length) {
-    suggestions.push("Start with the environment setup task to get your development environment ready.");
-    suggestions.push("Review the project documentation to understand the architecture and workflows.");
-  }
-
-  // If setup complete but no development tasks started
-  if (completedTasks?.some(t => t.type === 'setup') && !inProgressTasks?.length) {
-    suggestions.push("Pick a development task from your backlog to start contributing.");
-    suggestions.push("Consider pairing with a team member on their task to learn the codebase.");
-  }
-
-  // If multiple tasks in progress
-  if (inProgressTasks && inProgressTasks.length > 2) {
-    suggestions.push("You have multiple tasks in progress. Consider focusing on completing one task before starting another.");
-  }
-
-  return suggestions;
+// Task management functions (stubbed until tasks table is created)
+export const getTasksForTeam = async (teamId: string): Promise<any[]> => {
+  console.log('Getting tasks for team:', teamId);
+  return [];
 };
 
-// Track task progress
-export const updateTaskProgress = async (
-  taskId: string,
-  status: 'todo' | 'in_progress' | 'completed',
-  progress: number,
-  notes?: string
-): Promise<void> => {
-  const { error } = await supabase
-    .from('tasks')
-    .update({
-      status,
-      progress,
-      notes,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', taskId);
-
-  if (error) throw error;
+export const updateTaskStatus = async (taskId: string, status: string): Promise<void> => {
+  console.log('Updating task status:', taskId, status);
 };
 
-// Get task metrics
-export const getTaskMetrics = async (
-  userId: string,
-  teamId: string
-): Promise<{
-  totalTasks: number;
-  completedTasks: number;
-  inProgressTasks: number;
-  completionRate: number;
-}> => {
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('team_id', teamId)
-    .eq('assigned_to', userId);
-
-  if (!tasks) return {
+export const getTeamProgress = async (teamId: string): Promise<any> => {
+  console.log('Getting team progress for:', teamId);
+  return {
     totalTasks: 0,
     completedTasks: 0,
     inProgressTasks: 0,
-    completionRate: 0
+    completionPercentage: 0,
+    currentFocus: 'Planning'
   };
+};
 
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-  const completionRate = totalTasks ? (completedTasks / totalTasks) * 100 : 0;
+export const assignTaskToMember = async (taskId: string, memberId: string): Promise<void> => {
+  console.log('Assigning task to member:', taskId, memberId);
+};
 
+export const createCustomTask = async (task: any): Promise<any> => {
+  console.log('Creating custom task:', task);
   return {
-    totalTasks,
-    completedTasks,
-    inProgressTasks,
-    completionRate
+    ...task,
+    id: `temp-${Date.now()}`,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+};
+
+export const deleteTask = async (taskId: string): Promise<void> => {
+  console.log('Deleting task:', taskId);
+};
+
+export const getTasksByMember = async (memberId: string): Promise<any[]> => {
+  console.log('Getting tasks for member:', memberId);
+  return [];
+};
+
+export const getMemberProgress = async (memberId: string): Promise<any> => {
+  console.log('Getting member progress for:', memberId);
+  return {
+    memberId,
+    memberName: 'Unknown',
+    totalTasks: 0,
+    completedTasks: 0,
+    completionPercentage: 0,
+    currentTask: null
   };
 };

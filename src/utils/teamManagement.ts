@@ -6,7 +6,6 @@ export interface Team {
   name: string;
   description: string | null;
   stage: TeamStage;
-  access_code: string | null;
   created_at: string;
   assigned_mentor_id: string | null;
 }
@@ -16,37 +15,19 @@ export type TeamStage = 'ideation' | 'development' | 'testing' | 'launch' | 'gro
 export interface Member {
   id: string;
   name: string;
-  role: 'builder' | 'mentor' | 'lead' | 'guest';
+  role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
   team_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
-// Generate a unique access code
+// Generate a unique access code (removed - not used in current schema)
 export const generateAccessCode = async (): Promise<string> => {
+  // Generate a simple code for backward compatibility
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code: string;
-  let isUnique = false;
-
-  while (!isUnique) {
-    // Generate a random 8-character code
-    code = Array.from({ length: 8 }, () => 
-      characters.charAt(Math.floor(Math.random() * characters.length))
-    ).join('');
-
-    // Check if code already exists
-    const { data } = await supabase
-      .from('teams')
-      .select('id')
-      .eq('access_code', code);
-
-    if (!data || data.length === 0) {
-      isUnique = true;
-      return code;
-    }
-  }
-
-  throw new Error('Failed to generate unique access code');
+  return Array.from({ length: 8 }, () => 
+    characters.charAt(Math.floor(Math.random() * characters.length))
+  ).join('');
 };
 
 // Create a new team
@@ -56,16 +37,12 @@ export const createTeam = async (
   stage: TeamStage = 'ideation',
   leadId: string
 ): Promise<Team> => {
-  // Generate access code
-  const access_code = await generateAccessCode();
-
   const { data, error } = await supabase
     .from('teams')
     .insert({
       name,
       description,
       stage,
-      access_code,
       created_by: leadId
     })
     .select()
@@ -75,28 +52,9 @@ export const createTeam = async (
   return data;
 };
 
-// Delete a team (soft delete)
+// Delete a team (simple delete)
 export const deleteTeam = async (teamId: string): Promise<void> => {
-  // First, get the team data
-  const { data: team } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('id', teamId)
-    .single();
-
-  if (!team) throw new Error('Team not found');
-
-  // Create an archived copy in a separate table
-  const { error: archiveError } = await supabase
-    .from('archived_teams')
-    .insert({
-      ...team,
-      archived_at: new Date().toISOString()
-    });
-
-  if (archiveError) throw archiveError;
-
-  // Delete the team
+  // Delete the team directly
   const { error } = await supabase
     .from('teams')
     .delete()
@@ -158,17 +116,10 @@ export const getActiveTeams = async (): Promise<Team[]> => {
   return data || [];
 };
 
-// Regenerate team access code
+// Regenerate team access code (removed - not used in current schema)
 export const regenerateAccessCode = async (teamId: string): Promise<string> => {
-  const newCode = await generateAccessCode();
-
-  const { error } = await supabase
-    .from('teams')
-    .update({ access_code: newCode })
-    .eq('id', teamId);
-
-  if (error) throw error;
-  return newCode;
+  console.log('Regenerate access code requested for team:', teamId);
+  return 'TEMP-' + teamId.slice(0, 4);
 };
 
 // Get team updates
