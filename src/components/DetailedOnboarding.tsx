@@ -517,7 +517,7 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
                     <SelectValue placeholder="Select a team (leave blank if not sure)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No team selected</SelectItem>
+                    <SelectItem value="">No team selected</SelectItem>
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
                         <div className="flex items-center gap-2">
