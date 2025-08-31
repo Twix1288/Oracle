@@ -77,6 +77,7 @@ const PROJECT_STAGES = [
 ];
 
 export const InitialOnboarding = () => {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     skills: [] as string[],
@@ -109,8 +110,10 @@ export const InitialOnboarding = () => {
 
   const handleContinueToDashboard = () => {
     console.log('🚀 Continuing to dashboard after onboarding completion...');
-    // Force a complete page reload to ensure fresh auth state
-    window.location.href = '/';
+    // Force a complete page reload to ensure fresh auth state and profile reload
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 500);
   };
 
   const totalSteps = 7;
@@ -215,8 +218,8 @@ export const InitialOnboarding = () => {
         .upsert({
           id: user.id, // Ensure user ID is set
           email: user.email || '',
-          full_name: user.user_metadata?.full_name || `${formData.role} User`,
-          role: formData.role as any,
+          full_name: user.user_metadata?.full_name || formData.role.charAt(0).toUpperCase() + formData.role.slice(1) + ' User',
+          role: formData.role as any, // Ensure proper role is set
           team_id: formData.selectedTeam || null,
           skills: formData.skills,
           experience_level: formData.experience,
@@ -225,7 +228,7 @@ export const InitialOnboarding = () => {
           personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
           project_vision: formData.projectIdea,
           help_needed: formData.lookingFor ? [formData.lookingFor] : [],
-          onboarding_completed: true
+          onboarding_completed: true // CRITICAL: This must be set to true
         })
         .select()
         .single();
@@ -269,29 +272,26 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
 
         console.log('Team update created successfully');
 
-        // Update team stage based on project stage
-        const stageMap = {
-          'ideation': 'ideation',
-          'validation': 'ideation', 
-          'development': 'development',
-          'testing': 'testing',
-          'launch': 'launch',
-          'growth': 'growth'
-        } as const;
-
-        const teamStage = stageMap[formData.projectStage as keyof typeof stageMap] || 'ideation';
+        // Update team with comprehensive data from onboarding
+        const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
+        const teamStage = validStages.includes(formData.projectStage as any) 
+          ? (formData.projectStage as typeof validStages[number])
+          : 'ideation';
         
         const { error: teamUpdateError } = await supabase
           .from('teams')
-          .update({ stage: teamStage })
+          .update({ 
+            stage: teamStage,
+            description: formData.projectIdea || 'Team project in development'
+          })
           .eq('id', formData.selectedTeam);
 
         if (teamUpdateError) {
-          console.error('Team stage update error:', teamUpdateError);
+          console.error('Team update error:', teamUpdateError);
           // Don't throw here, this is not critical
         }
 
-        console.log('Team stage updated to:', teamStage);
+        console.log('Team updated with project info');
       }
 
       // Store user context for Oracle learning
