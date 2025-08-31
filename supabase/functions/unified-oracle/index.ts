@@ -433,6 +433,9 @@ serve(async (req) => {
       });
     }
 
+    // Enhanced command detection and processing
+    const commandIntent = await parseIntentWithLLM(openaiKey, query);
+
     // Get contextual content for the detected stage
     const stageContext = await getContextualContent(stageAnalysis.stage);
     
