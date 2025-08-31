@@ -84,6 +84,7 @@ export const InitialOnboarding = () => {
     projectIdea: '',
     lookingFor: '',
     experience: '',
+    bio: '',
     role: '',
     selectedTeam: '',
     projectStage: '',
@@ -224,7 +225,7 @@ export const InitialOnboarding = () => {
           skills: formData.skills,
           experience_level: formData.experience,
           availability: formData.availability,
-          bio: formData.stageDescription,
+          bio: formData.bio,
           personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
           project_vision: formData.projectIdea,
           help_needed: formData.lookingFor ? [formData.lookingFor] : [],
@@ -425,6 +426,13 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
                 className="min-h-[120px]"
               />
 
+              <Textarea
+                placeholder="Tell us about yourself - your background, interests, what drives you..."
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                className="min-h-[100px]"
+              />
+
               <Input
                 placeholder="Years of experience"
                 type="number"
@@ -439,7 +447,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
               </Button>
               <Button
                 onClick={handleNext}
-                disabled={!formData.projectIdea || !formData.lookingFor || !formData.experience}
+                disabled={!formData.projectIdea || !formData.lookingFor || !formData.bio || !formData.experience}
                 className="flex-1 ufo-gradient"
               >
                 Continue
