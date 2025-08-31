@@ -35,6 +35,45 @@ const ROLES = [
   { id: 'mentor', label: 'Mentor', description: 'Guide and support builder teams' }
 ];
 
+const PROJECT_STAGES = [
+  { 
+    id: 'ideation', 
+    label: 'Stage 1: Ideation', 
+    description: 'Brainstorming ideas, validating concepts, market research',
+    color: 'bg-purple-500/20 text-purple-400 border-purple-500/20'
+  },
+  { 
+    id: 'validation', 
+    label: 'Stage 2: Validation', 
+    description: 'Testing assumptions, user interviews, MVP planning',
+    color: 'bg-blue-500/20 text-blue-400 border-blue-500/20'
+  },
+  { 
+    id: 'development', 
+    label: 'Stage 3: Development', 
+    description: 'Building MVP, coding, technical implementation',
+    color: 'bg-green-500/20 text-green-400 border-green-500/20'
+  },
+  { 
+    id: 'testing', 
+    label: 'Stage 4: Testing', 
+    description: 'User testing, bug fixes, performance optimization',
+    color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
+  },
+  { 
+    id: 'launch', 
+    label: 'Stage 5: Launch', 
+    description: 'Product release, marketing, user acquisition',
+    color: 'bg-orange-500/20 text-orange-400 border-orange-500/20'
+  },
+  { 
+    id: 'growth', 
+    label: 'Stage 6: Growth', 
+    description: 'Scaling, new features, market expansion',
+    color: 'bg-pink-500/20 text-pink-400 border-pink-500/20'
+  }
+];
+
 export const InitialOnboarding = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -44,6 +83,8 @@ export const InitialOnboarding = () => {
     experience: '',
     role: '',
     selectedTeam: '',
+    projectStage: '',
+    stageDescription: '',
     // Additional fields for Oracle context
     learningGoals: '',
     preferredTechStack: '',
@@ -59,7 +100,7 @@ export const InitialOnboarding = () => {
   const [availableTeams, setAvailableTeams] = useState([]);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  const totalSteps = 6;
+  const totalSteps = 7;
   const progress = (step / totalSteps) * 100;
 
   const handleNext = async () => {
@@ -91,6 +132,8 @@ export const InitialOnboarding = () => {
           experience: formData.experience,
           role: formData.role,
           team_id: formData.selectedTeam || null,
+          project_stage: formData.projectStage,
+          stage_description: formData.stageDescription,
           // Additional Oracle context fields
           learning_goals: formData.learningGoals,
           preferred_tech_stack: formData.preferredTechStack,
@@ -105,6 +148,43 @@ export const InitialOnboarding = () => {
         .single();
 
       if (profileError) throw profileError;
+
+      // If user selected a team, update team information and create first update
+      if (formData.selectedTeam) {
+        // Create the user's first project update (stage description)
+        const { error: updateError } = await supabase
+          .from('updates')
+          .insert({
+            team_id: formData.selectedTeam,
+            content: `New member joined: ${formData.projectIdea ? `Working on: ${formData.projectIdea}. ` : ''}Current stage: ${PROJECT_STAGES.find(s => s.id === formData.projectStage)?.label}. Progress: ${formData.stageDescription}`,
+            type: 'milestone',
+            created_by: profile.id
+          });
+
+        if (updateError) throw updateError;
+
+        // Update team's overall stage to the highest stage among members
+        const { data: teamMembers } = await supabase
+          .from('members')
+          .select('project_stage')
+          .eq('team_id', formData.selectedTeam)
+          .not('project_stage', 'is', null);
+
+        if (teamMembers && teamMembers.length > 0) {
+          const stageOrder = ['ideation', 'validation', 'development', 'testing', 'launch', 'growth'];
+          const highestStage = teamMembers.reduce((highest, member) => {
+            const currentIndex = stageOrder.indexOf(member.project_stage);
+            const highestIndex = stageOrder.indexOf(highest);
+            return currentIndex > highestIndex ? member.project_stage : highest;
+          }, 'ideation');
+
+          // Update team stage
+          await supabase
+            .from('teams')
+            .update({ stage: highestStage })
+            .eq('id', formData.selectedTeam);
+        }
+      }
 
       // Generate access code based on role and team
       const accessCode = formData.role === 'mentor' ? 'MENTOR2024' : 
@@ -335,6 +415,79 @@ export const InitialOnboarding = () => {
               <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
                 <Target className="h-8 w-8 text-primary" />
               </div>
+              <h3 className="text-2xl font-bold text-glow">What Stage is Your Project In?</h3>
+              <p className="text-muted-foreground text-lg">Select your current stage and describe your progress</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium high-contrast-text mb-3 block">Select Your Project Stage</label>
+                <div className="grid grid-cols-1 gap-3">
+                  {PROJECT_STAGES.map((stage) => (
+                    <div
+                      key={stage.id}
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                        formData.projectStage === stage.id
+                          ? 'border-primary bg-primary/10'
+                          : 'border-muted hover:border-primary/50'
+                      }`}
+                      onClick={() => setFormData({ ...formData, projectStage: stage.id })}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${stage.color}`}>
+                          <Target className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold high-contrast-text">{stage.label}</h4>
+                          <p className="text-sm readable-muted">{stage.description}</p>
+                        </div>
+                        {formData.projectStage === stage.id && (
+                          <Badge className="bg-primary/20 text-primary border-primary/30 font-medium">
+                            Selected
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium high-contrast-text mt-4 block">Describe Your Current Progress</label>
+                <Textarea
+                  placeholder="Tell us about your current progress, what you've accomplished, and what you're working on next..."
+                  value={formData.stageDescription}
+                  onChange={(e) => setFormData({ ...formData, stageDescription: e.target.value })}
+                  className="min-h-[120px] professional-input"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  This will be your first project update for the team!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleBack} className="flex-1">
+                Back
+              </Button>
+              <Button
+                onClick={handleNext}
+                disabled={!formData.projectStage || !formData.stageDescription}
+                className="flex-1 ufo-gradient"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 6:
+        return (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
+                <Target className="h-8 w-8 text-primary" />
+              </div>
               <h3 className="text-2xl font-bold text-glow">Project Details</h3>
               <p className="text-muted-foreground text-lg">Help us understand your project better</p>
             </div>
@@ -407,7 +560,7 @@ export const InitialOnboarding = () => {
           </div>
         );
 
-      case 6:
+      case 7:
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">

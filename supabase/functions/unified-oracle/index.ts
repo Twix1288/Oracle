@@ -111,6 +111,10 @@ async function parseIntentWithLLM(openaiKey: string, text: string): Promise<{
 - "Assign Alex to Team Beta" → Handle member assignment
 - "Find someone who knows AWS" → Search for AWS experience
 - "Post that we hit 50% progress" → Create progress update
+- "Who is in the ideation stage?" → Show team members in ideation phase
+- "What stage is our team in?" → Display current team stage and member stages
+- "Show me validation stage members" → List members working on validation
+- "Update team stage to development" → Update team's overall stage
 
 **Available Actions:**
 - "search_members": Find members by skills, experience, or role
