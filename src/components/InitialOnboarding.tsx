@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Code, Briefcase, Target, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { generateTeamAccessCode } from "@/utils/teamAccess";
+import { storeUserContext } from "@/utils/oracleContext";
 import { useAuth } from "@/hooks/useAuth";
 
 const SKILLS = [
@@ -188,13 +188,23 @@ export const InitialOnboarding = () => {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
+      console.log('Starting onboarding completion...', { 
+        userId: user?.id, 
+        selectedTeam: formData.selectedTeam,
+        role: formData.role 
+      });
+
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
       // Create/update user profile with comprehensive data for Oracle
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .upsert({
-          id: user?.id,
-          email: user?.email || '',
-          full_name: user?.user_metadata?.full_name || `${formData.role} User`,
+          id: user.id, // Ensure user ID is set
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || `${formData.role} User`,
           role: formData.role as any,
           team_id: formData.selectedTeam || null,
           skills: formData.skills,
@@ -209,21 +219,44 @@ export const InitialOnboarding = () => {
         .select()
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        throw profileError;
+      }
 
-      // If user selected a team, update team information and create first update
-      if (formData.selectedTeam) {
-        // Create the user's first project update (stage description)
+      console.log('Profile created successfully:', profile);
+
+      // If user selected a team, create team update and establish relationship
+      if (formData.selectedTeam && profile) {
+        console.log('Creating team update and establishing team relationship...');
+        
+        // Create the user's first project update (stage description) - this serves as the initial Oracle context
+        const updateContent = `🎯 New member ${profile.full_name} joined the team!
+        
+📋 Profile Summary:
+${formData.projectIdea ? `• Project Focus: ${formData.projectIdea}` : ''}
+• Current Stage: ${PROJECT_STAGES.find(s => s.id === formData.projectStage)?.label || 'Ideation'}
+• Experience Level: ${formData.experience} years
+• Skills: ${formData.skills.join(', ')}
+${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''}
+
+🚀 Progress Update: ${formData.stageDescription}`;
+
         const { error: updateError } = await supabase
           .from('updates')
           .insert({
             team_id: formData.selectedTeam,
-            content: `New member joined: ${formData.projectIdea ? `Working on: ${formData.projectIdea}. ` : ''}Current stage: ${PROJECT_STAGES.find(s => s.id === formData.projectStage)?.label}. Progress: ${formData.stageDescription}`,
+            content: updateContent,
             type: 'milestone',
-            created_by: profile.id
+            created_by: user.id // Use string user ID directly
           });
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Update creation error:', updateError);
+          throw updateError;
+        }
+
+        console.log('Team update created successfully');
 
         // Update team stage based on project stage
         const stageMap = {
@@ -233,12 +266,49 @@ export const InitialOnboarding = () => {
           'testing': 'testing',
           'launch': 'launch',
           'growth': 'growth'
-        };
+        } as const;
 
-        await supabase
+        const teamStage = stageMap[formData.projectStage as keyof typeof stageMap] || 'ideation';
+        
+        const { error: teamUpdateError } = await supabase
           .from('teams')
-          .update({ stage: (stageMap[formData.projectStage as keyof typeof stageMap] || 'ideation') as any })
+          .update({ stage: teamStage })
           .eq('id', formData.selectedTeam);
+
+        if (teamUpdateError) {
+          console.error('Team stage update error:', teamUpdateError);
+          // Don't throw here, this is not critical
+        }
+
+        console.log('Team stage updated to:', teamStage);
+      }
+
+      // Store user context for Oracle learning
+      try {
+        await storeUserContext(user.id, {
+          name: profile.full_name || '',
+          bio: formData.stageDescription,
+          skills: formData.skills.filter(skill => 
+            ['frontend', 'backend', 'fullstack', 'ui_ux', 'devops', 'mobile', 'data', 'ai_ml', 'blockchain', 'security'].includes(skill)
+          ) as any,
+          experienceLevel: formData.experience as any,
+          preferredTechnologies: formData.skills,
+          learningGoals: [formData.learningGoals, formData.lookingFor].filter(Boolean),
+          role: formData.role as any,
+          teamId: formData.selectedTeam,
+          projectGoal: formData.projectIdea,
+          interests: formData.skills,
+          communicationStyle: 'collaborative',
+          workStyle: 'flexible',
+          availability: formData.availability,
+          timezone: 'UTC',
+          onboardingCompleted: true,
+          lastUpdated: new Date().toISOString()
+        });
+        console.log('User context stored for Oracle');
+      } catch (contextError) {
+        console.error('Error storing user context:', contextError);
+        // Don't fail onboarding for this
       }
 
       // Generate access code based on role
@@ -248,19 +318,21 @@ export const InitialOnboarding = () => {
 
       toast({
         title: "🎉 Onboarding Complete!",
-        description: `Your access code is: ${accessCode}. Your profile has been set up and the Oracle has been personalized for you.`
+        description: `Welcome to ${formData.selectedTeam ? 'your team' : 'PieFi Oracle'}! Your access code is: ${accessCode}. ${formData.selectedTeam ? 'You are now a member of the selected team.' : ''}`
       });
+
+      console.log('Onboarding completed successfully');
 
       // Mark as completed and reload to show dashboard
       setIsCompleted(true);
       setTimeout(() => {
         window.location.reload();
       }, 2000);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Onboarding completion error:', error);
       toast({
         title: "Error",
-        description: "Failed to complete onboarding. Please try again.",
+        description: `Failed to complete onboarding: ${error.message}. Please try again.`,
         variant: "destructive"
       });
     } finally {
