@@ -14,17 +14,19 @@ interface TeamDashboardProps {
 
 const stageColors = {
   ideation: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
-  development: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  validation: "bg-blue-500/20 text-blue-300 border-blue-500/30", 
+  development: "bg-green-500/20 text-green-300 border-green-500/30",
   testing: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  launch: "bg-green-500/20 text-green-300 border-green-500/30",
-  growth: "bg-purple-500/20 text-purple-300 border-purple-500/30"
+  launch: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  growth: "bg-pink-500/20 text-pink-300 border-pink-500/30"
 };
 
 const stageProgress = {
-  ideation: 20,
-  development: 40,
-  testing: 60,
-  launch: 80,
+  ideation: 15,
+  validation: 30,
+  development: 50,
+  testing: 70,
+  launch: 85,
   growth: 100
 };
 

@@ -274,7 +274,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         console.log('Team update created successfully');
 
         // Update team with comprehensive data from onboarding
-        const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
+        const validStages = ['ideation', 'validation', 'development', 'testing', 'launch', 'growth'] as const;
         const teamStage = validStages.includes(formData.projectStage as any) 
           ? (formData.projectStage as typeof validStages[number])
           : 'ideation';
