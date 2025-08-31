@@ -381,7 +381,7 @@ async function executeCommand(query: string, role: string, teamId?: string, user
 
   return { executed: false, message: '' };
 }
-
+//new launch
 
 // Stage detection using contextual analysis
 const analyzeUserStage = (teamUpdates: any[], teamInfo: any, query: string): { stage: string; confidence: number; reasoning: string } => {
@@ -446,6 +446,7 @@ const getContextualContent = async (stageId: string) => {
   contextString += `Frameworks: ${stageInfo.frameworks?.join(', ')}\n`;
   contextString += `CAC Focus: ${stageInfo.cac_focus}\n`;
 
+  
   return contextString;
 };
 
