@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/a5a2806c-21e0-4b45-a8bf-0e3d1ce736f8
+**URL**: www.piefioracle.co
 
 ## How can I edit this code?
 
