@@ -22,13 +22,18 @@ export const generateTeamAccessCode = async (teamId: string): Promise<string> =>
 
     const accessCode = `${teamPrefix}-${randomNum}`;
 
-    // Update team with access code
-    const { error } = await supabase
-      .from('teams')
-      .update({ access_code: accessCode })
-      .eq('id', teamId);
+    // Create access code record
+    const { error: codeError } = await supabase
+      .from('access_codes')
+      .insert({
+        code: accessCode,
+        role: 'builder',
+        team_id: teamId,
+        description: `Team access code for ${team.name}`,
+        generated_by: 'system'
+      });
 
-    if (error) throw error;
+    if (codeError) throw codeError;
 
     return accessCode;
   } catch (error) {

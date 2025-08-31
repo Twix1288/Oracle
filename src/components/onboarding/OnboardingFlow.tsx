@@ -72,11 +72,9 @@ export const OnboardingFlow = ({ userId, initialData, onComplete }: OnboardingFl
   const saveProgress = async (final: boolean = false) => {
     try {
       const { error } = await supabase
-        .from('members')
+        .from('profiles')
         .update({
-          onboarding_data: formData,
-          onboarding_completed: final,
-          last_updated: new Date().toISOString()
+          onboarding_completed: final
         })
         .eq('id', userId);
 

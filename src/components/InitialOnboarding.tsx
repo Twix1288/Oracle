@@ -111,7 +111,6 @@ export const InitialOnboarding = () => {
       console.log('=== TEAM LOADING DEBUG ===');
       console.log('Loading teams...');
       console.log('Current user:', user);
-      console.log('Supabase URL:', supabase.supabaseUrl);
       
               // Test basic connection first
         try {
@@ -189,27 +188,23 @@ export const InitialOnboarding = () => {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      // Create user profile with comprehensive data for Oracle
+      // Create/update user profile with comprehensive data for Oracle
       const { data: profile, error: profileError } = await supabase
-        .from('members')
-        .insert({
-          skills: formData.skills,
-          project_idea: formData.projectIdea,
-          looking_for: formData.lookingFor,
-          experience: formData.experience,
-          role: formData.role,
+        .from('profiles')
+        .upsert({
+          id: user?.id,
+          email: user?.email || '',
+          full_name: user?.user_metadata?.full_name || `${formData.role} User`,
+          role: formData.role as any,
           team_id: formData.selectedTeam || null,
-          project_stage: formData.projectStage,
-          stage_description: formData.stageDescription,
-          // Additional Oracle context fields
-          learning_goals: formData.learningGoals,
-          preferred_tech_stack: formData.preferredTechStack,
-          collaboration_style: formData.collaborationStyle,
+          skills: formData.skills,
+          experience_level: formData.experience,
           availability: formData.availability,
-          mentorship_areas: formData.mentorshipAreas,
-          project_timeline: formData.projectTimeline,
-          target_audience: formData.targetAudience,
-          success_metrics: formData.successMetrics
+          bio: formData.stageDescription,
+          personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
+          project_vision: formData.projectIdea,
+          help_needed: formData.lookingFor ? [formData.lookingFor] : [],
+          onboarding_completed: true
         })
         .select()
         .single();
@@ -230,39 +225,26 @@ export const InitialOnboarding = () => {
 
         if (updateError) throw updateError;
 
-        // Update team's overall stage to the highest stage among members
-        const { data: teamMembers } = await supabase
-          .from('members')
-          .select('project_stage')
-          .eq('team_id', formData.selectedTeam)
-          .not('project_stage', 'is', null);
+        // Update team stage based on project stage
+        const stageMap = {
+          'ideation': 'ideation',
+          'validation': 'ideation', 
+          'development': 'development',
+          'testing': 'testing',
+          'launch': 'launch',
+          'growth': 'growth'
+        };
 
-        if (teamMembers && teamMembers.length > 0) {
-          const stageOrder = ['ideation', 'validation', 'development', 'testing', 'launch', 'growth'];
-          const highestStage = teamMembers.reduce((highest, member) => {
-            const currentIndex = stageOrder.indexOf(member.project_stage);
-            const highestIndex = stageOrder.indexOf(highest);
-            return currentIndex > highestIndex ? member.project_stage : highest;
-          }, 'ideation');
-
-          // Update team stage
-          await supabase
-            .from('teams')
-            .update({ stage: highestStage })
-            .eq('id', formData.selectedTeam);
-        }
+        await supabase
+          .from('teams')
+          .update({ stage: (stageMap[formData.projectStage as keyof typeof stageMap] || 'ideation') as any })
+          .eq('id', formData.selectedTeam);
       }
 
-      // Generate access code based on role and team
+      // Generate access code based on role
       const accessCode = formData.role === 'mentor' ? 'MENTOR2024' : 
-                        formData.selectedTeam ? await generateTeamAccessCode(formData.selectedTeam) :
+                        formData.role === 'lead' ? 'LEAD2024' :
                         'BUILD2024';
-
-      // Update profile with access code
-      await supabase
-        .from('members')
-        .update({ access_code: accessCode })
-        .eq('id', profile.id);
 
       toast({
         title: "🎉 Onboarding Complete!",

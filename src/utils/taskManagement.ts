@@ -1,5 +1,15 @@
-import type { InitialTask } from "@/types/onboarding";
 import type { UserSkill, ExperienceLevel } from "@/types/onboarding";
+
+// Interface for initial task (since it doesn't exist in types)
+interface InitialTask {
+  title: string;
+  description: string;
+  type: string;
+  priority: string;
+  estimatedHours: number;
+  resources?: string[];
+  dependencies?: string[];
+}
 
 // Generate initial tasks based on role and skills
 export const generateInitialTasks = async (

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { OnboardingData } from "@/types/onboarding";
+import type { OnboardingData, UserSkill, ExperienceLevel } from "@/types/onboarding";
 
 // Convert onboarding data to a context string for embedding
 const createContextString = (data: OnboardingData): string => {
@@ -57,20 +57,16 @@ export const storeUserContext = async (userId: string, data: OnboardingData): Pr
 
     if (docError) throw docError;
 
-    // Store user preferences for quick access
-    const { error: prefError } = await supabase
-      .from('user_preferences')
-      .upsert({
-        user_id: userId,
-        communication_style: data.communicationStyle,
-        work_style: data.workStyle,
+    // Store preferences in profile instead of separate table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
         availability: data.availability,
-        timezone: data.timezone,
-        learning_goals: data.learningGoals,
-        interests: data.interests
-      });
+        bio: data.bio || ''
+      })
+      .eq('id', userId);
 
-    if (prefError) throw prefError;
+    if (profileError) throw profileError;
 
   } catch (error) {
     console.error('Error storing user context:', error);
@@ -88,7 +84,7 @@ export const getUserContext = async (userId: string): Promise<{
   try {
     // Get user profile
     const { data: profile } = await supabase
-      .from('members')
+      .from('profiles')
       .select('*, teams(*)')
       .eq('id', userId)
       .single();
@@ -112,15 +108,32 @@ export const getUserContext = async (userId: string): Promise<{
       .eq('id', profile.team_id)
       .single() : { data: null };
 
-    // Get user preferences
-    const { data: preferences } = await supabase
-      .from('user_preferences')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    // Get user preferences from profile
+    const preferences = profile ? {
+      communication_style: profile.bio?.includes('communication') ? 'collaborative' : 'direct',
+      learning_goals: profile.personal_goals || [],
+      interests: profile.skills || []
+    } : null;
 
     return {
-      profile: profile?.onboarding_data,
+      profile: profile && profile.role !== 'unassigned' ? {
+        name: profile.full_name || '',
+        role: profile.role as 'builder' | 'mentor' | 'lead' | 'guest',
+        experienceLevel: (profile.experience_level || 'beginner') as ExperienceLevel,
+        skills: (profile.skills || []).filter((skill: string) => 
+          ['frontend', 'backend', 'fullstack', 'ui_ux', 'devops', 'mobile', 'data', 'ai_ml', 'blockchain', 'security'].includes(skill)
+        ) as UserSkill[],
+        learningGoals: profile.personal_goals || [],
+        bio: profile.bio || '',
+        availability: profile.availability || '',
+        timezone: profile.timezone || '',
+        preferredTechnologies: profile.skills || [],
+        interests: profile.skills || [],
+        communicationStyle: 'collaborative',
+        workStyle: 'flexible',
+        onboardingCompleted: profile.onboarding_completed || false,
+        lastUpdated: profile.updated_at
+      } : undefined,
       recentUpdates: updates || [],
       teamContext: teamContext || null,
       preferences: preferences || null

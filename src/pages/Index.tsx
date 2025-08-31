@@ -263,7 +263,7 @@ function Index() {
           />
         );
       default:
-        return <BuilderAccessGate onBuilderAuthenticated={handleBuilderAuthenticated} onRoleSelected={handleRoleSelect} />;
+        return <InitialOnboarding />;
     }
   };
 

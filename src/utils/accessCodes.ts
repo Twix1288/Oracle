@@ -12,18 +12,13 @@ export const generateAccessCode = async (): Promise<string> => {
       characters.charAt(Math.floor(Math.random() * characters.length))
     ).join('');
 
-    // Check if code already exists
-    const { data: memberData } = await supabase
-      .from('members')
+    // Check if code already exists in access_codes table
+    const { data: existingCode } = await supabase
+      .from('access_codes')
       .select('id')
-      .eq('access_code', code);
+      .eq('code', code);
 
-    const { data: teamData } = await supabase
-      .from('teams')
-      .select('id')
-      .eq('access_code', code);
-
-    if ((!memberData || memberData.length === 0) && (!teamData || teamData.length === 0)) {
+    if (!existingCode || existingCode.length === 0) {
       isUnique = true;
       return code;
     }
@@ -38,23 +33,18 @@ export const assignAccessCode = async (userId: string, role: string, teamId?: st
     // Generate new access code
     const accessCode = await generateAccessCode();
 
-    // Update member with new access code
-    const { error: memberError } = await supabase
-      .from('members')
-      .update({ access_code: accessCode })
-      .eq('id', userId);
+    // Create access code entry
+    const { error: codeError } = await supabase
+      .from('access_codes')
+      .insert({
+        code: accessCode,
+        role: role as any,
+        team_id: teamId || null,
+        description: `Generated for user ${userId}`,
+        generated_by: userId
+      });
 
-    if (memberError) throw memberError;
-
-    // If this is a team member, also update team's access code
-    if (teamId) {
-      const { error: teamError } = await supabase
-        .from('teams')
-        .update({ access_code: accessCode })
-        .eq('id', teamId);
-
-      if (teamError) throw teamError;
-    }
+    if (codeError) throw codeError;
 
     return accessCode;
   } catch (error) {
@@ -71,25 +61,15 @@ export const validateAccessCode = async (code: string, role: string): Promise<bo
     // Check master codes
     if (code === 'LEAD2024' && role === 'lead') return true;
 
-    // Check member codes
-    const { data: memberData } = await supabase
-      .from('members')
+    // Check access codes table
+    const { data: codeData } = await supabase
+      .from('access_codes')
       .select('role')
-      .eq('access_code', code)
+      .eq('code', code)
+      .eq('is_active', true)
       .single();
 
-    if (memberData && memberData.role === role) return true;
-
-    // Check team codes (for builders)
-    if (role === 'builder') {
-      const { data: teamData } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('access_code', code)
-        .single();
-
-      if (teamData) return true;
-    }
+    if (codeData && codeData.role === role) return true;
 
     return false;
   } catch (error) {
@@ -102,13 +82,15 @@ export const validateAccessCode = async (code: string, role: string): Promise<bo
 export const getUserAccessCode = async (userId: string): Promise<string | null> => {
   try {
     const { data, error } = await supabase
-      .from('members')
-      .select('access_code')
-      .eq('id', userId)
+      .from('access_codes')
+      .select('code')
+      .eq('generated_by', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (error) throw error;
-    return data?.access_code || null;
+    return data?.code || null;
   } catch (error) {
     console.error('Error getting user access code:', error);
     return null;
