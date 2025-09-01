@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,32 +46,35 @@ export const useAuth = () => {
         
         if (session?.user) {
           console.log('👤 User authenticated, fetching profile...');
-          try {
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-            
-            if (error) {
-              console.error('❌ Profile fetch error:', error);
-              setProfile(null);
-            } else if (profileData) {
-              console.log('✅ Profile loaded successfully:', {
-                id: profileData.id,
-                role: profileData.role,
-                onboarding_completed: profileData.onboarding_completed,
-                team_id: profileData.team_id
-              });
-              setProfile(profileData);
-            } else {
-              console.log('⚠️ No profile found for user, needs to be created');
+          // Use setTimeout to avoid blocking the auth callback
+          setTimeout(async () => {
+            try {
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .maybeSingle();
+              
+              if (error) {
+                console.error('❌ Profile fetch error:', error);
+                setProfile(null);
+              } else if (profileData) {
+                console.log('✅ Profile loaded successfully:', {
+                  id: profileData.id,
+                  role: profileData.role,
+                  onboarding_completed: profileData.onboarding_completed,
+                  team_id: profileData.team_id
+                });
+                setProfile(profileData);
+              } else {
+                console.log('⚠️ No profile found for user, needs to be created');
+                setProfile(null);
+              }
+            } catch (error) {
+              console.error('❌ Profile fetch exception:', error);
               setProfile(null);
             }
-          } catch (error) {
-            console.error('❌ Profile fetch exception:', error);
-            setProfile(null);
-          }
+          }, 0);
         } else {
           console.log('👤 No user session, clearing profile');
           setProfile(null);
@@ -115,42 +119,42 @@ export const useAuth = () => {
       setUser(null);
       setSession(null);
       setProfile(null);
-      setLoading(false);
       
       // Sign out from Supabase
       await supabase.auth.signOut({ scope });
       
       console.log('✅ Signed out successfully');
-      
-      // Force clear any cached auth data
-      localStorage.removeItem('supabase.auth.token');
-      sessionStorage.clear();
+      toast.success("Logged out successfully");
       
     } catch (error) {
       console.error('❌ Logout error:', error);
+      toast.error("Failed to log out");
       // Even if logout fails, clear local state
       setUser(null);
       setSession(null);
       setProfile(null);
-      setLoading(false);
     }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return;
+    if (!user) return { data: null, error: new Error('Not authenticated') };
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
 
-    if (!error && data) {
-      setProfile(data);
+      if (!error && data) {
+        setProfile(data);
+      }
+
+      return { data, error };
+    } catch (error) {
+      return { data: null, error };
     }
-
-    return { data, error };
   };
 
   const joinTeamWithCode = async (code: string) => {
@@ -171,7 +175,7 @@ export const useAuth = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       
       if (updatedProfile) {
         setProfile(updatedProfile);

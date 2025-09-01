@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { InitialOnboarding } from "@/components/InitialOnboarding";
@@ -47,7 +48,7 @@ function Index() {
     
     if (!authLoading && !user) {
       console.log('❌ Not authenticated - redirecting to auth');
-      navigate('/auth');
+      navigate('/auth', { replace: true });
       return;
     }
 
@@ -87,7 +88,7 @@ function Index() {
 
   const handleExitToGateway = () => {
     console.log('🚪 Exiting to gateway...');
-    navigate('/gateway');
+    navigate('/gateway', { replace: true });
   };
 
   const handleLogout = async () => {
@@ -100,16 +101,14 @@ function Index() {
       // Sign out from Supabase
       await signOut();
       
-      toast.success("✅ Logged out successfully");
-      
-      // Force complete page reload to reset all state
-      window.location.href = '/auth';
+      // Navigate to auth without reload
+      navigate('/auth', { replace: true });
       
     } catch (error) {
       console.error('❌ Logout error:', error);
       toast.error("Failed to log out");
       // Force redirect anyway
-      window.location.href = '/auth';
+      navigate('/auth', { replace: true });
     }
   };
 
@@ -136,7 +135,7 @@ function Index() {
     console.log('🚪 Leaving team and going to gateway...');
     setBuilderInfo(null);
     setSelectedRole(null);
-    navigate('/gateway');
+    navigate('/gateway', { replace: true });
   };
 
   // LOADING STATE

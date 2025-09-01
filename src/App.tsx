@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
@@ -9,7 +10,6 @@ import Gateway from '@/pages/Gateway';
 import NotFound from '@/pages/NotFound';
 
 import { DetailedOnboarding } from '@/components/DetailedOnboarding';
-import { TeamJoinFlow } from '@/components/TeamJoinFlow';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -32,12 +32,8 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
   // Only show onboarding if user hasn't completed it AND is a guest (no assigned role)
   if (!profile?.onboarding_completed && profile?.role === 'guest') {
     return <DetailedOnboarding onComplete={() => {
-      // Force refresh of auth state after onboarding completion
-      // This will re-evaluate the profile and redirect appropriately
-      setTimeout(() => {
-        // The auth hook will automatically refetch the profile data
-        // No need for full page reload
-      }, 100);
+      // The auth hook will automatically refetch the profile data
+      console.log('Onboarding completed, profile will refresh automatically');
     }} />;
   }
 
