@@ -35,13 +35,17 @@ export const LogoutButton = ({
   const handleLogout = async (scope: 'local' | 'global' = 'global') => {
     try {
       setLoading(true);
+      console.log('🚪 LogoutButton: Starting logout with scope:', scope);
+      
       if (scope === 'global') {
         await signOutAllSessions();
       } else {
         await signOut('local');
       }
+      
+      console.log('✅ LogoutButton: Logout completed');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('❌ LogoutButton: Logout error:', error);
     } finally {
       setLoading(false);
     }
