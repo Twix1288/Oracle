@@ -32,14 +32,21 @@ export const LogoutButton = ({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
+  console.log('🔧 LogoutButton: Render - signOut available:', !!signOut, 'signOutAllSessions available:', !!signOutAllSessions);
+
   const handleLogout = async (scope: 'local' | 'global' = 'global') => {
+    console.log('🚪 LogoutButton: handleLogout called with scope:', scope);
+    console.log('🚪 LogoutButton: Functions available - signOut:', !!signOut, 'signOutAllSessions:', !!signOutAllSessions);
+    
     try {
       setLoading(true);
       console.log('🚪 LogoutButton: Starting logout with scope:', scope);
       
       if (scope === 'global') {
+        console.log('🚪 LogoutButton: Calling signOutAllSessions...');
         await signOutAllSessions();
       } else {
+        console.log('🚪 LogoutButton: Calling signOut...');
         await signOut(scope);
       }
       
@@ -83,7 +90,10 @@ export const LogoutButton = ({
 
   return (
     <Button 
-      onClick={() => handleLogout()}
+      onClick={() => {
+        console.log('🚪 LogoutButton: Button clicked - calling handleLogout');
+        handleLogout();
+      }}
       variant={variant}
       size={size}
       className={className}
