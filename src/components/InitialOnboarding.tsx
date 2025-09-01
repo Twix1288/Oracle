@@ -209,7 +209,7 @@ export const InitialOnboarding = () => {
 
       console.log('Step 1: Creating/updating user profile...');
       // Create/update user profile with comprehensive data for Oracle
-      const { data: profile, error: profileError } = await supabase
+      const profileUpsertPromise = supabase
         .from('profiles')
         .upsert({
           id: user.id, // Ensure user ID is set
@@ -230,6 +230,17 @@ export const InitialOnboarding = () => {
         })
         .select()
         .single();
+
+      // Add timeout to catch hanging requests
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile creation timed out after 10 seconds')), 10000);
+      });
+
+      console.log('⏳ Waiting for profile creation...');
+      const { data: profile, error: profileError } = await Promise.race([
+        profileUpsertPromise,
+        timeoutPromise
+      ]) as any;
 
       if (profileError) {
         console.error('❌ Profile creation error:', profileError);
