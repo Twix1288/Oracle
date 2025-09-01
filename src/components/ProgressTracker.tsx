@@ -127,9 +127,83 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     launch: 0,
     growth: 0
   });
+  const [actualTeamStage, setActualTeamStage] = useState<TeamStage>(team.stage);
   const { toast } = useToast();
 
-  const currentStageIndex = stages.findIndex(stage => stage.key === team.stage);
+  // Calculate team stage from team members' individual stages
+  useEffect(() => {
+    const calculateTeamStage = async () => {
+      try {
+        console.log('🔄 Calculating team stage for team:', team.id);
+        
+        // Get all team members and their individual stages
+        const { data: teamMembers, error } = await supabase
+          .from('profiles')
+          .select('individual_stage')
+          .eq('team_id', team.id)
+          .not('individual_stage', 'is', null);
+
+        if (error) {
+          console.error('❌ Error fetching team members:', error);
+          setActualTeamStage(team.stage);
+          return;
+        }
+
+        if (!teamMembers || teamMembers.length === 0) {
+          console.log('⚠️ No team members with individual stages found');
+          setActualTeamStage(team.stage);
+          return;
+        }
+
+        // Find the highest stage among team members
+        const stageOrder: Record<TeamStage, number> = {
+          ideation: 1,
+          development: 2,
+          testing: 3,
+          launch: 4,
+          growth: 5
+        };
+
+        let highestStageOrder = 1;
+        let highestStage: TeamStage = 'ideation';
+
+        teamMembers.forEach(member => {
+          if (member.individual_stage && stageOrder[member.individual_stage] > highestStageOrder) {
+            highestStageOrder = stageOrder[member.individual_stage];
+            highestStage = member.individual_stage;
+          }
+        });
+
+        console.log('📊 Calculated team stage:', highestStage, 'from', teamMembers.length, 'members');
+        setActualTeamStage(highestStage);
+
+        // Update the database team stage if it's different
+        if (highestStage !== team.stage) {
+          console.log('🔄 Updating team stage in database from', team.stage, 'to', highestStage);
+          
+          const { error: updateError } = await supabase
+            .from('teams')
+            .update({ stage: highestStage })
+            .eq('id', team.id);
+
+          if (updateError) {
+            console.error('❌ Error updating team stage:', updateError);
+          } else {
+            console.log('✅ Team stage updated successfully');
+            onStageUpdate?.(highestStage);
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Error calculating team stage:', error);
+        setActualTeamStage(team.stage);
+      }
+    };
+
+    calculateTeamStage();
+  }, [team.id, team.stage, onStageUpdate]);
+
+  const currentStageIndex = stages.findIndex(stage => stage.key === actualTeamStage);
   const currentStage = stages[currentStageIndex];
 
   // Calculate progress based on updates and AI analysis with real-time updates
@@ -211,6 +285,8 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
         description: `Team has progressed to ${nextStage.title}`,
       });
 
+      // Update the actual team stage state
+      setActualTeamStage(nextStage.key);
       onStageUpdate?.(nextStage.key);
     } catch (error) {
       console.error('Stage update error:', error);
@@ -229,7 +305,7 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     try {
       const { data, error } = await supabase.functions.invoke('unified-oracle', {
         body: {
-          query: `Analyze our team progress and recommend if we should advance from ${team.stage} stage. Recent updates: ${updates.slice(0, 10).map(u => u.content).join('. ')}`,
+          query: `Analyze our team progress and recommend if we should advance from ${actualTeamStage} stage. Recent updates: ${updates.slice(0, 10).map(u => u.content).join('. ')}`,
           role: userRole,
           teamId: team.id,
           action: 'stage_assessment'
@@ -239,8 +315,8 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
       if (error) throw error;
 
       const recommendation: OracleStageRecommendation = {
-        currentStage: team.stage,
-        recommendedStage: data.recommendedStage || team.stage,
+        currentStage: actualTeamStage,
+        recommendedStage: data.recommendedStage || actualTeamStage,
         confidence: data.confidence || 0.7,
         reasoning: data.reasoning || 'Analysis based on recent team activity',
         shouldAdvance: data.shouldAdvance || false
@@ -405,7 +481,7 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
           <div className="space-y-4">
             {stages.map((stage, index) => {
               const status = getStageStatus(stage.key);
-              const isActive = stage.key === team.stage;
+              const isActive = stage.key === actualTeamStage;
               const progress = stageProgress[stage.key] || 0;
               
               return (

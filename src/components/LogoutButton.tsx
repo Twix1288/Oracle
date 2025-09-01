@@ -40,12 +40,13 @@ export const LogoutButton = ({
       if (scope === 'global') {
         await signOutAllSessions();
       } else {
-        await signOut('local');
+        await signOut(scope);
       }
       
-      console.log('✅ LogoutButton: Logout completed');
+      console.log('✅ LogoutButton: Logout completed successfully');
     } catch (error) {
       console.error('❌ LogoutButton: Logout error:', error);
+      toast.error("Failed to log out. Please try again.");
     } finally {
       setLoading(false);
     }
