@@ -208,39 +208,29 @@ export const InitialOnboarding = () => {
         throw new Error('User not authenticated');
       }
 
-      // Step 1: Update user profile (using maybeSingle to avoid hanging)
+      // Step 1: Update user profile (simplified update)
       console.log('📝 Step 1: Updating user profile...');
-      const profileData = {
-        id: user.id,
-        email: user.email || '',
-        full_name: user.user_metadata?.full_name || 'User',
-        role: formData.role as any,
-        team_id: formData.selectedTeam || null,
-        skills: formData.skills || [],
-        experience_level: formData.experience || '1',
-        availability: formData.availability || '10_20_hours',
-        bio: formData.bio || '',
-        personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
-        project_vision: formData.projectIdea || '',
-        help_needed: formData.lookingFor ? [formData.lookingFor] : [],
-        onboarding_completed: true
-      };
-
-      const { data: profile, error: profileError } = await supabase
+      
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update(profileData)
-        .eq('id', user.id)
-        .select()
-        .single();
+        .update({
+          full_name: user.user_metadata?.full_name || 'User',
+          role: formData.role as any,
+          team_id: formData.selectedTeam || null,
+          skills: formData.skills || [],
+          experience_level: formData.experience || '1',
+          availability: formData.availability || '10_20_hours',
+          bio: formData.bio || '',
+          personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
+          project_vision: formData.projectIdea || '',
+          help_needed: formData.lookingFor ? [formData.lookingFor] : [],
+          onboarding_completed: true
+        })
+        .eq('id', user.id);
 
       if (profileError) {
         console.error('❌ Profile update failed:', profileError);
         throw new Error(`Profile update failed: ${profileError.message}`);
-      }
-
-      if (!profile) {
-        console.error('❌ Profile creation returned no data');
-        throw new Error('Profile creation failed - no data returned');
       }
 
       console.log('✅ Profile updated successfully');
@@ -259,12 +249,14 @@ export const InitialOnboarding = () => {
       }
 
       // Step 3: Team operations (if applicable) - non-blocking
-      if (formData.selectedTeam && profile) {
+      if (formData.selectedTeam) {
         console.log('👥 Step 3: Updating team information...');
         
         try {
+          const userName = user.user_metadata?.full_name || 'User';
+          
           // Create team update
-          const updateContent = `🎯 ${profile.full_name} joined the team!\n\n📋 Profile:\n• Role: ${formData.role}\n• Skills: ${formData.skills.join(', ')}\n• Experience: ${formData.experience} years\n\n🚀 Current Stage: ${formData.stageDescription}`;
+          const updateContent = `🎯 ${userName} joined the team!\n\n📋 Profile:\n• Role: ${formData.role}\n• Skills: ${formData.skills.join(', ')}\n• Experience: ${formData.experience} years\n\n🚀 Current Stage: ${formData.stageDescription}`;
           
           const { error: updateError } = await supabase
             .from('updates')
@@ -305,7 +297,7 @@ export const InitialOnboarding = () => {
           const { error: memberError } = await supabase
             .from('members')
             .insert({
-              name: profile.full_name || 'User',
+              name: userName,
               role: formData.role as any,
               team_id: formData.selectedTeam,
               user_id: user.id,
@@ -326,7 +318,7 @@ export const InitialOnboarding = () => {
       console.log('🤖 Step 4: Storing Oracle context...');
       try {
         await storeUserContext(user.id, {
-          name: profile.full_name || '',
+          name: user.user_metadata?.full_name || '',
           bio: formData.stageDescription || '',
           skills: formData.skills.filter(skill => 
             ['frontend', 'backend', 'fullstack', 'ui_ux', 'devops', 'mobile', 'data', 'ai_ml', 'blockchain', 'security'].includes(skill)
@@ -800,18 +792,7 @@ export const InitialOnboarding = () => {
                 Back
               </Button>
               <Button
-                onClick={() => {
-                  console.log('🚀 BUTTON CLICKED - Testing click handler');
-                  alert('Button clicked! Check console for details.');
-                  console.log('🔘 Form validation check:', {
-                    isLoading,
-                    projectTimeline: formData.projectTimeline,
-                    targetAudience: formData.targetAudience,
-                    successMetrics: formData.successMetrics,
-                    allFormData: formData
-                  });
-                  handleComplete();
-                }}
+                onClick={handleComplete}
                 disabled={isLoading || !formData.projectTimeline || !formData.targetAudience || !formData.successMetrics}
                 className="flex-1 ufo-gradient"
               >
