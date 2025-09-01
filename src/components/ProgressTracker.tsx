@@ -206,57 +206,69 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
   const currentStageIndex = stages.findIndex(stage => stage.key === actualTeamStage);
   const currentStage = stages[currentStageIndex];
 
-  // Calculate progress based on updates and AI analysis with real-time updates
+  // Calculate progress based on individual stages from team members
   useEffect(() => {
-    const analyzeProgress = async () => {
-      console.log('🔍 Analyzing progress for team:', team.name, 'Current stage:', team.stage);
+    const calculateProgressFromIndividualStages = async () => {
+      console.log('🔍 Calculating progress from individual stages for team:', team.name, 'Actual team stage:', actualTeamStage);
       
-      const stageUpdates = updates.filter(update => update.team_id === team.id);
-      const recentUpdates = stageUpdates.slice(0, 20);
-      const veryRecentUpdates = stageUpdates.filter(u => new Date(u.created_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000);
-      
-      const progressEstimates: Record<TeamStage, number> = {
-        ideation: 100, // Always complete if past this stage
-        development: 0,
-        testing: 0,
-        launch: 0,
-        growth: 0
-      };
+      try {
+        // Get all team members and their individual stages
+        const { data: teamMembers, error } = await supabase
+          .from('profiles')
+          .select('individual_stage')
+          .eq('team_id', team.id)
+          .not('individual_stage', 'is', null);
 
-      // Mark completed stages as 100%
-      stages.forEach((stage, index) => {
-        if (index < currentStageIndex) {
-          progressEstimates[stage.key] = 100;
-        } else if (index === currentStageIndex) {
-          // Current stage gets realistic progress based on activity
-          const activityScore = Math.min(100, 
-            (recentUpdates.length * 5) + 
-            (veryRecentUpdates.length * 10) + 
-            (Math.min(30, new Date().getTime() - new Date(team.created_at).getTime()) / (1000 * 60 * 60 * 24)) // Days since team creation
-          );
-          
-          // More realistic progress calculation
-          let stageProgress = Math.max(5, Math.min(95, activityScore));
-          
-          // Stage-specific adjustments
-          if (stage.key === 'development') {
-            const developmentKeywords = ['build', 'code', 'feature', 'mvp', 'prototype', 'implement'];
-            const devUpdates = recentUpdates.filter(u => 
-              developmentKeywords.some(keyword => u.content.toLowerCase().includes(keyword))
-            );
-            stageProgress = Math.max(10, Math.min(90, (devUpdates.length * 12) + (veryRecentUpdates.length * 8)));
-          }
-          
-          progressEstimates[stage.key] = stageProgress;
+        if (error) {
+          console.error('❌ Error fetching team members for progress:', error);
+          return;
         }
-      });
 
-      console.log('📊 Progress estimates:', progressEstimates);
-      setStageProgress(progressEstimates);
+        // Clean progress calculation based on stage positions
+        const stageOrder: Record<TeamStage, number> = {
+          ideation: 1,
+          development: 2,
+          testing: 3,
+          launch: 4,
+          growth: 5
+        };
+
+        const progressEstimates: Record<TeamStage, number> = {
+          ideation: 0,
+          development: 0,
+          testing: 0,
+          launch: 0,
+          growth: 0
+        };
+
+        const currentStageOrder = stageOrder[actualTeamStage];
+
+        // Mark completed stages as 100%, current stage as 50%, future as 0%
+        stages.forEach((stage, index) => {
+          const stageOrderNumber = stageOrder[stage.key];
+          
+          if (stageOrderNumber < currentStageOrder) {
+            // Completed stages
+            progressEstimates[stage.key] = 100;
+          } else if (stageOrderNumber === currentStageOrder) {
+            // Current stage - show 50% to indicate in progress
+            progressEstimates[stage.key] = 50;
+          } else {
+            // Future stages
+            progressEstimates[stage.key] = 0;
+          }
+        });
+
+        console.log('📊 Clean progress estimates based on individual stages:', progressEstimates);
+        setStageProgress(progressEstimates);
+
+      } catch (error) {
+        console.error('❌ Error calculating progress from individual stages:', error);
+      }
     };
 
-    analyzeProgress();
-  }, [team, updates, currentStageIndex]);
+    calculateProgressFromIndividualStages();
+  }, [team.id, actualTeamStage]);
 
   const handleAdvanceStage = async () => {
     if (currentStageIndex >= stages.length - 1) return;
