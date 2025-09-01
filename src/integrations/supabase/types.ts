@@ -225,6 +225,7 @@ export type Database = {
           role_visibility: Database["public"]["Enums"]["user_role"][] | null
           source_reference: string | null
           source_type: string | null
+          team_visibility: string[] | null
           updated_at: string
         }
         Insert: {
@@ -236,6 +237,7 @@ export type Database = {
           role_visibility?: Database["public"]["Enums"]["user_role"][] | null
           source_reference?: string | null
           source_type?: string | null
+          team_visibility?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -247,6 +249,7 @@ export type Database = {
           role_visibility?: Database["public"]["Enums"]["user_role"][] | null
           source_reference?: string | null
           source_type?: string | null
+          team_visibility?: string[] | null
           updated_at?: string
         }
         Relationships: []
@@ -339,6 +342,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           team_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           assigned_by?: string | null
@@ -349,6 +353,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           assigned_by?: string | null
@@ -359,6 +364,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {

@@ -303,6 +303,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
             name: profile.full_name || '',
             role: formData.role as any,
             team_id: formData.selectedTeam,
+            user_id: user.id, // Add user_id to support multiple members per team
             assigned_by: 'onboarding'
           });
 
