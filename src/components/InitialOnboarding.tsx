@@ -217,6 +217,7 @@ export const InitialOnboarding = () => {
           full_name: user.user_metadata?.full_name || 'User',
           role: formData.role as any,
           team_id: formData.selectedTeam || null,
+          individual_stage: formData.projectStage as any || 'ideation',
           skills: formData.skills || [],
           experience_level: formData.experience || '1',
           availability: formData.availability || '10_20_hours',

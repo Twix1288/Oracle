@@ -257,6 +257,7 @@ function Index() {
             members={members || []}
             updates={updates || []}
             teamStatuses={teamStatuses}
+            userStage={profile?.individual_stage}
             onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
               submitUpdate({ teamId, content, type, createdBy })
             }

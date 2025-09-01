@@ -39,6 +39,7 @@ interface EnhancedBuilderDashboardProps {
   members: Member[];
   updates: Update[];
   teamStatuses?: TeamStatus[];
+  userStage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
   onSubmitUpdate?: (teamId: string, content: string, type: UpdateType, createdBy?: string) => void;
   onQueryRAG?: (params: { query: string; role: UserRole }) => void;
   ragResponse?: any;
@@ -52,6 +53,7 @@ export const EnhancedBuilderDashboard = ({
   members, 
   updates, 
   teamStatuses,
+  userStage,
   onSubmitUpdate, 
   onQueryRAG, 
   ragResponse, 
@@ -63,6 +65,12 @@ export const EnhancedBuilderDashboard = ({
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentTeam, setCurrentTeam] = useState(team);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // For individual users, create a virtual team with their stage
+  const userTeam = userStage ? {
+    ...currentTeam,
+    stage: userStage
+  } : currentTeam;
 
   // Check if team needs onboarding (minimal description or no updates)
   useEffect(() => {
@@ -482,7 +490,7 @@ Investment Opportunity & Funding Needs`;
 
           <TabsContent value="overview" className="space-y-6">
             <PieFiOverview 
-              team={currentTeam}
+              team={userTeam}
               builderName={builderName}
               updates={teamUpdates}
               onPopulateJourney={handlePopulateJourney}
@@ -517,7 +525,7 @@ Investment Opportunity & Funding Needs`;
 
           <TabsContent value="progress" className="space-y-6">
             <ProgressTracker 
-              team={currentTeam}
+              team={userTeam}
               updates={teamUpdates}
               userRole="builder"
               onStageUpdate={handleStageUpdate}

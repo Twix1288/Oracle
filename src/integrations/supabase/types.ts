@@ -577,6 +577,7 @@ export type Database = {
           github_url: string | null
           help_needed: string[] | null
           id: string
+          individual_stage: Database["public"]["Enums"]["team_stage"] | null
           linkedin_url: string | null
           onboarding_completed: boolean | null
           personal_goals: string[] | null
@@ -599,6 +600,7 @@ export type Database = {
           github_url?: string | null
           help_needed?: string[] | null
           id: string
+          individual_stage?: Database["public"]["Enums"]["team_stage"] | null
           linkedin_url?: string | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
@@ -621,6 +623,7 @@ export type Database = {
           github_url?: string | null
           help_needed?: string[] | null
           id?: string
+          individual_stage?: Database["public"]["Enums"]["team_stage"] | null
           linkedin_url?: string | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
@@ -860,6 +863,10 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           skills: string[]
         }[]
+      }
+      get_user_dashboard_stage: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["team_stage"]
       }
       get_user_role: {
         Args: { p_user_id: string }
