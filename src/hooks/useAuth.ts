@@ -126,13 +126,23 @@ export const useAuth = () => {
       console.log('✅ Signed out successfully');
       toast.success("Logged out successfully");
       
+      // Force navigation to auth page
+      window.location.href = '/auth';
+      
     } catch (error) {
       console.error('❌ Logout error:', error);
-      toast.error("Failed to log out");
-      // Even if logout fails, clear local state
+      // Even if logout fails, clear local state and redirect
       setUser(null);
       setSession(null);
       setProfile(null);
+      
+      // Still redirect to auth page
+      window.location.href = '/auth';
+      
+      // Only show error toast for actual errors, not "session not found"
+      if (!error?.message?.includes('Session not found')) {
+        toast.error("Failed to log out");
+      }
     }
   };
 
@@ -211,8 +221,33 @@ export const useAuth = () => {
   };
 
   const signOutAllSessions = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
-    toast.success('Signed out from all devices');
+    try {
+      // Clear local state first
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      await supabase.auth.signOut({ scope: 'global' });
+      toast.success('Signed out from all devices');
+      
+      // Force navigation to auth page
+      window.location.href = '/auth';
+      
+    } catch (error) {
+      console.error('❌ Global logout error:', error);
+      // Even if logout fails, clear local state and redirect
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      
+      // Still redirect to auth page
+      window.location.href = '/auth';
+      
+      // Only show error toast for actual errors, not "session not found"
+      if (!error?.message?.includes('Session not found')) {
+        toast.error("Failed to log out from all devices");
+      }
+    }
   };
 
   return {

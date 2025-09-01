@@ -39,11 +39,9 @@ export const LogoutButton = ({
         await signOutAllSessions();
       } else {
         await signOut('local');
-        toast.success("Logged out from this device");
       }
-      navigate('/auth');
     } catch (error) {
-      toast.error("Failed to log out");
+      console.error('Logout error:', error);
     } finally {
       setLoading(false);
     }

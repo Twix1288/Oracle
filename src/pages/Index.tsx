@@ -93,23 +93,12 @@ function Index() {
 
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
-    try {
-      // Clear all local state first
-      setSelectedRole(null);
-      setBuilderInfo(null);
-      
-      // Sign out from Supabase
-      await signOut();
-      
-      // Navigate to auth without reload
-      navigate('/auth', { replace: true });
-      
-    } catch (error) {
-      console.error('❌ Logout error:', error);
-      toast.error("Failed to log out");
-      // Force redirect anyway
-      navigate('/auth', { replace: true });
-    }
+    // Clear all local state first
+    setSelectedRole(null);
+    setBuilderInfo(null);
+    
+    // Sign out (useAuth handles navigation automatically)
+    await signOut();
   };
 
   const handleRoleSelect = (role: UserRole) => {
