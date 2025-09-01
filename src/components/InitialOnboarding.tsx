@@ -228,9 +228,9 @@ export const InitialOnboarding = () => {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .upsert(profileData, { onConflict: 'id' })
+        .insert(profileData)
         .select()
-        .maybeSingle();
+        .single();
 
       if (profileError) {
         console.error('❌ Profile update failed:', profileError);
