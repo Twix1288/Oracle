@@ -34,7 +34,8 @@ const SKILLS = [
 
 const ROLES = [
   { id: 'builder', label: 'Builder', description: 'Join a team and build amazing products' },
-  { id: 'mentor', label: 'Mentor', description: 'Guide and support builder teams' }
+  { id: 'mentor', label: 'Mentor', description: 'Guide and support builder teams' },
+  { id: 'lead', label: 'Lead', description: 'Create and manage teams; skip to final' }
 ];
 
 const PROJECT_STAGES = [
@@ -208,8 +209,11 @@ export const InitialOnboarding = () => {
         throw new Error('User not authenticated');
       }
 
-      // Step 1: Update user profile (simplified update)
+      // Step 1: Update user profile with stage from onboarding
       console.log('📝 Step 1: Updating user profile...');
+      
+      const selectedStage = formData.projectStage as any || 'ideation';
+      console.log('🎯 Setting individual_stage to:', selectedStage);
       
       const { error: profileError } = await supabase
         .from('profiles')
@@ -217,7 +221,7 @@ export const InitialOnboarding = () => {
           full_name: user.user_metadata?.full_name || 'User',
           role: formData.role as any,
           team_id: formData.selectedTeam || null,
-          individual_stage: formData.projectStage as any || 'ideation',
+          individual_stage: selectedStage,
           skills: formData.skills || [],
           experience_level: formData.experience || '1',
           availability: formData.availability || '10_20_hours',
@@ -234,7 +238,7 @@ export const InitialOnboarding = () => {
         throw new Error(`Profile update failed: ${profileError.message}`);
       }
 
-      console.log('✅ Profile updated successfully');
+      console.log('✅ Profile updated successfully with stage:', selectedStage);
 
       // Step 2: Generate access code early (before team operations that might fail)
       console.log('🔑 Step 2: Generating access code...');
@@ -274,24 +278,18 @@ export const InitialOnboarding = () => {
             console.log('✅ Team update created');
           }
 
-          // Update team stage
-          const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
-          const teamStage = validStages.includes(formData.projectStage as any) 
-            ? (formData.projectStage as typeof validStages[number])
-            : 'ideation';
-          
+          // Update team description (stage will be handled by DB trigger)
           const { error: teamUpdateError } = await supabase
             .from('teams')
             .update({ 
-              stage: teamStage,
               description: formData.projectIdea || 'Team project in development'
             })
             .eq('id', formData.selectedTeam);
 
           if (teamUpdateError) {
-            console.warn('⚠️ Team stage update failed:', teamUpdateError.message);
+            console.warn('⚠️ Team description update failed:', teamUpdateError.message);
           } else {
-            console.log('✅ Team stage updated');
+            console.log('✅ Team description updated, stage will sync via trigger');
           }
 
           // Create member record
@@ -529,10 +527,17 @@ export const InitialOnboarding = () => {
               <p className="text-muted-foreground text-lg">
                 {formData.role === 'mentor' 
                   ? "Choose the team you'll be mentoring"
-                  : "Choose your team to join"}
+                  : formData.role === 'builder' 
+                    ? "Choose your team to join"
+                    : "No team selection needed for Lead"}
               </p>
             </div>
 
+            {formData.role === 'lead' ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Lead role selected. You'll get a lead access code after completion.</p>
+              </div>
+            ) : (
             <div className="space-y-3">
               {availableTeams.length === 0 ? (
                 <div className="text-center py-8">
@@ -560,6 +565,7 @@ export const InitialOnboarding = () => {
                 ))
               )}
             </div>
+            )}
 
             <div className="flex gap-3">
               <Button variant="outline" onClick={handleBack} className="flex-1">
@@ -567,7 +573,7 @@ export const InitialOnboarding = () => {
               </Button>
               <Button
                 onClick={handleNext}
-                disabled={!formData.selectedTeam}
+                disabled={formData.role !== 'lead' && !formData.selectedTeam}
                 className="flex-1 ufo-gradient"
               >
                 Continue

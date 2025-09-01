@@ -15,6 +15,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { stageToPercent } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { Team, TeamStage, Update, UserRole } from "@/types/oracle";
 
@@ -130,145 +131,44 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
   const [actualTeamStage, setActualTeamStage] = useState<TeamStage>(team.stage);
   const { toast } = useToast();
 
-  // Calculate team stage from team members' individual stages
+  // Use the team's stage directly (DB-driven via trigger)
   useEffect(() => {
-    const calculateTeamStage = async () => {
-      try {
-        console.log('🔄 Calculating team stage for team:', team.id);
-        
-        // Get all team members and their individual stages
-        const { data: teamMembers, error } = await supabase
-          .from('profiles')
-          .select('individual_stage')
-          .eq('team_id', team.id)
-          .not('individual_stage', 'is', null);
-
-        if (error) {
-          console.error('❌ Error fetching team members:', error);
-          setActualTeamStage(team.stage);
-          return;
-        }
-
-        if (!teamMembers || teamMembers.length === 0) {
-          console.log('⚠️ No team members with individual stages found');
-          setActualTeamStage(team.stage);
-          return;
-        }
-
-        // Find the highest stage among team members
-        const stageOrder: Record<TeamStage, number> = {
-          ideation: 1,
-          development: 2,
-          testing: 3,
-          launch: 4,
-          growth: 5
-        };
-
-        let highestStageOrder = 1;
-        let highestStage: TeamStage = 'ideation';
-
-        teamMembers.forEach(member => {
-          if (member.individual_stage && stageOrder[member.individual_stage] > highestStageOrder) {
-            highestStageOrder = stageOrder[member.individual_stage];
-            highestStage = member.individual_stage;
-          }
-        });
-
-        console.log('📊 Calculated team stage:', highestStage, 'from', teamMembers.length, 'members');
-        setActualTeamStage(highestStage);
-
-        // Update the database team stage if it's different
-        if (highestStage !== team.stage) {
-          console.log('🔄 Updating team stage in database from', team.stage, 'to', highestStage);
-          
-          const { error: updateError } = await supabase
-            .from('teams')
-            .update({ stage: highestStage })
-            .eq('id', team.id);
-
-          if (updateError) {
-            console.error('❌ Error updating team stage:', updateError);
-          } else {
-            console.log('✅ Team stage updated successfully');
-            onStageUpdate?.(highestStage);
-          }
-        }
-
-      } catch (error) {
-        console.error('❌ Error calculating team stage:', error);
-        setActualTeamStage(team.stage);
-      }
-    };
-
-    calculateTeamStage();
-  }, [team.id, team.stage, onStageUpdate]);
+    setActualTeamStage(team.stage);
+  }, [team.id, team.stage]);
 
   const currentStageIndex = stages.findIndex(stage => stage.key === actualTeamStage);
   const currentStage = stages[currentStageIndex];
 
-  // Calculate progress based on individual stages from team members
+  // Enhanced progress mapping with within-stage progress
   useEffect(() => {
-    const calculateProgressFromIndividualStages = async () => {
-      console.log('🔍 Calculating progress from individual stages for team:', team.name, 'Actual team stage:', actualTeamStage);
-      
-      try {
-        // Get all team members and their individual stages
-        const { data: teamMembers, error } = await supabase
-          .from('profiles')
-          .select('individual_stage')
-          .eq('team_id', team.id)
-          .not('individual_stage', 'is', null);
-
-        if (error) {
-          console.error('❌ Error fetching team members for progress:', error);
-          return;
-        }
-
-        // Clean progress calculation based on stage positions
-        const stageOrder: Record<TeamStage, number> = {
-          ideation: 1,
-          development: 2,
-          testing: 3,
-          launch: 4,
-          growth: 5
-        };
-
-        const progressEstimates: Record<TeamStage, number> = {
-          ideation: 0,
-          development: 0,
-          testing: 0,
-          launch: 0,
-          growth: 0
-        };
-
-        const currentStageOrder = stageOrder[actualTeamStage];
-
-        // Mark completed stages as 100%, current stage as 50%, future as 0%
-        stages.forEach((stage, index) => {
-          const stageOrderNumber = stageOrder[stage.key];
-          
-          if (stageOrderNumber < currentStageOrder) {
-            // Completed stages
-            progressEstimates[stage.key] = 100;
-          } else if (stageOrderNumber === currentStageOrder) {
-            // Current stage - show 50% to indicate in progress
-            progressEstimates[stage.key] = 50;
-          } else {
-            // Future stages
-            progressEstimates[stage.key] = 0;
-          }
-        });
-
-        console.log('📊 Clean progress estimates based on individual stages:', progressEstimates);
-        setStageProgress(progressEstimates);
-
-      } catch (error) {
-        console.error('❌ Error calculating progress from individual stages:', error);
-      }
+    const progressEstimates: Record<TeamStage, number> = {
+      ideation: 0,
+      development: 0,
+      testing: 0,
+      launch: 0,
+      growth: 0
     };
 
-    calculateProgressFromIndividualStages();
-  }, [team.id, actualTeamStage]);
+    const currentStageOrder = stages.findIndex(s => s.key === actualTeamStage);
+    
+    stages.forEach((s, index) => {
+      if (index < currentStageOrder) {
+        // Completed stages show 100%
+        progressEstimates[s.key] = 100;
+      } else if (index === currentStageOrder) {
+        // Current stage shows base percent + within-stage progress
+        const basePercent = stageToPercent(actualTeamStage);
+        // Add some within-stage progress based on recent updates
+        const withinStageBonus = Math.min(15, updates.length * 2); // Max 15% bonus
+        progressEstimates[s.key] = Math.min(100, basePercent + withinStageBonus);
+      } else {
+        // Future stages show 0%
+        progressEstimates[s.key] = 0;
+      }
+    });
+
+    setStageProgress(progressEstimates);
+  }, [actualTeamStage, updates]);
 
   const handleAdvanceStage = async () => {
     if (currentStageIndex >= stages.length - 1) return;
@@ -277,12 +177,19 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     try {
       const nextStage = stages[currentStageIndex + 1];
       
-      const { error } = await supabase
-        .from('teams')
-        .update({ stage: nextStage.key })
-        .eq('id', team.id);
+      // Update user's individual stage first (trigger will handle team stage)
+      const { data: user } = await supabase.auth.getUser();
+      if (user.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ individual_stage: nextStage.key })
+          .eq('id', user.user.id);
 
-      if (error) throw error;
+        if (profileError) {
+          console.error('❌ Error updating individual stage:', profileError);
+          throw profileError;
+        }
+      }
 
       // Log milestone update
       await supabase.from('updates').insert({
@@ -294,10 +201,10 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
 
       toast({
         title: "🚀 Stage Advanced!",
-        description: `Team has progressed to ${nextStage.title}`,
+        description: `You've progressed to ${nextStage.title}`,
       });
 
-      // Update the actual team stage state
+      // Update the actual team stage state (DB trigger will sync team.stage)
       setActualTeamStage(nextStage.key);
       onStageUpdate?.(nextStage.key);
     } catch (error) {

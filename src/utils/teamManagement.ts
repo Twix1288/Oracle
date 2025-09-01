@@ -161,12 +161,12 @@ export const updateTeamStatus = async (
 ): Promise<void> => {
   const { error } = await supabase
     .from('team_status')
-    .upsert({
-      team_id: teamId,
+    .update({
       current_status: currentStatus,
       pending_actions: pendingActions,
       last_update: new Date().toISOString()
-    });
+    })
+    .eq('team_id', teamId);
 
   if (error) throw error;
 };

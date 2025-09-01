@@ -186,7 +186,7 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
   };
 
   const canSendMessages = () => {
-    return userRole === 'mentor' || userRole === 'lead';
+    return userRole === 'mentor' || userRole === 'lead' || userRole === 'builder';
   };
 
   const canBroadcast = () => {
@@ -337,24 +337,24 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Recipient Role</label>
+                    <label className="text-sm font-medium">Send To</label>
                     <select
                       value={newMessage.receiverRole}
                       onChange={(e) => setNewMessage({ ...newMessage, receiverRole: e.target.value as UserRole })}
                       className="w-full p-3 rounded-lg bg-background border border-border focus:border-primary/50"
                     >
-                      <option value="builder">Builder</option>
-                      <option value="mentor">Mentor</option>
-                      <option value="lead">Lead</option>
-                      <option value="guest">Guest</option>
+                      <option value="builder">All Builders</option>
+                      <option value="mentor">All Mentors</option>
+                      <option value="lead">All Leads</option>
+                      <option value="guest">All Guests</option>
                     </select>
                   </div>
 
                   {!newMessage.isBroadcast && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Recipient Access Code</label>
+                      <label className="text-sm font-medium">Specific Person (Optional)</label>
                       <Input
-                        placeholder="Access code of recipient"
+                        placeholder="Leave blank for all, or enter name/code"
                         value={newMessage.receiverId}
                         onChange={(e) => setNewMessage({ ...newMessage, receiverId: e.target.value })}
                         className="bg-background/50 border-border focus:border-primary/50"

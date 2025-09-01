@@ -414,6 +414,22 @@ Investment Opportunity & Funding Needs`;
 
       if (detected && detected !== currentTeam.stage) {
         setCurrentTeam(prev => ({ ...prev, stage: detected }));
+        
+        // Update the user's individual stage in their profile
+        try {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ individual_stage: detected })
+            .eq('id', (await supabase.auth.getUser()).data.user?.id);
+          
+          if (error) {
+            console.error('❌ Error updating individual stage from AI:', error);
+          } else {
+            console.log('✅ Individual stage updated by AI to:', detected);
+          }
+        } catch (error) {
+          console.error('❌ Exception updating individual stage from AI:', error);
+        }
       }
 
       toast.success("Journey updated", { description: summary || feedback.slice(0, 120) });

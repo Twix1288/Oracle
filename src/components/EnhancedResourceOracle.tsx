@@ -505,11 +505,11 @@ I'm your intelligent AI companion with superpowers! I can:
               // Also update team status
               await supabase
                 .from('team_status')
-                .upsert({
-                  team_id: teamId,
+                .update({
                   current_status: updateContent.substring(0, 200),
                   last_update: new Date().toISOString()
-                });
+                })
+                .eq('team_id', teamId);
               
               return {
                 success: true,

@@ -21,7 +21,8 @@ import {
   Crown,
   Shield,
   Heart,
-  Loader2
+  Loader2,
+  Activity
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,8 +102,15 @@ const SLASH_COMMANDS: SlashCommand[] = [
   {
     command: '/message',
     description: 'Send message to user or team',
-    usage: '/message @target your message',
-    roleRequired: ['mentor', 'lead'],
+    usage: '/message @target your message OR /message builders hello everyone',
+    roleRequired: ['builder', 'mentor', 'lead'],
+    category: 'team'
+  },
+  {
+    command: '/chat',
+    description: 'Start team conversation',
+    usage: '/chat your message to the team',
+    roleRequired: ['builder', 'mentor', 'lead'],
     category: 'team'
   },
   {
@@ -260,21 +268,27 @@ export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
       type: 'oracle',
       content: `🛸 **Welcome to the PieFi Oracle, ${profile?.full_name || 'Explorer'}!**
 
-I'm your intelligent AI companion, ready to help you navigate your journey. I can:
+I'm your intelligent AI companion with enhanced communication powers! I can:
 
 ✨ **Answer questions** with context about your team and progress
-🔍 **Find curated resources** tailored to your specific needs (try asking "I need resources for React" or "help me learn Python")
-👥 **Connect you** with teammates based on skills and expertise  
-⚡ **Execute commands** to update progress, send messages, and more
+💬 **Send messages** to teammates or entire roles
+📝 **Log updates** and track your development journey
+👥 **Connect people** based on skills and expertise  
+⚡ **Execute commands** with natural language or slash commands
 
-**🎯 Try these examples:**
-• "I need resources for learning JavaScript"
-• "Help me with API development tutorials"
-• "Find me Python courses for beginners"
-• "/resources react hooks"
-• "/find someone who knows design"
+**🎯 Try these messaging examples:**
+• \`/chat Hello team! How's the MVP coming along?\`
+• \`/message builders Great work on the frontend!\`
+• \`/update Completed user auth system today\`
+• "Send builders that the design is ready"
+• "Update: Fixed the login bug"
 
-The Oracle has been enhanced and is ready to provide helpful resources for any technology or skill!`,
+**📚 And resource examples:**
+• \`/resources react hooks\`
+• \`/find someone who knows backend\`
+• "I need help with database design"
+
+The Oracle is now your communication hub + knowledge assistant!`,
       timestamp: new Date().toISOString(),
       author: {
         name: 'Oracle',
@@ -504,11 +518,11 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
               // Also update team status
               const { error: statusError } = await supabase
                 .from('team_status')
-                .upsert({
-                  team_id: teamId,
+                .update({
                   current_status: updateContent.substring(0, 200),
                   last_update: new Date().toISOString()
-                });
+                })
+                .eq('team_id', teamId);
               
               if (statusError) {
                 console.error('Failed to update team status:', statusError);
@@ -531,9 +545,95 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
             };
           }
 
+        case 'chat':
+          const teamMessage = args.join(' ');
+          if (!teamMessage) {
+            return {
+              success: false,
+              message: `❌ Please provide a message. Usage: /chat your message to the team`
+            };
+          }
+          
+          if (!teamId) {
+            return {
+              success: false,
+              message: `❌ No team assigned. You need to be part of a team to use team chat.`
+            };
+          }
+          
+          // Send team chat message
+          const { error: chatError } = await supabase
+            .from('messages')
+            .insert({
+              sender_id: profile?.id,
+              sender_role: selectedRole,
+              receiver_role: 'builder', // Team messages target builders by default
+              content: `💬 **Team Chat:** ${teamMessage}`,
+              team_id: teamId
+            });
+          
+          if (!chatError) {
+            return {
+              success: true,
+              message: `✅ **Team Message Sent!**\n\n💬 **Content:** "${teamMessage}"\n👥 **Recipients:** All team members\n📱 **Delivery:** Available in Team Room and Messages\n\n💡 *Your team can see this in the Team Room tab.*`
+            };
+          } else {
+            return {
+              success: false,
+              message: `❌ Failed to send team message: ${chatError.message}`
+            };
+          }
+
         case 'message':
-          const targetMatch = args[0]?.startsWith('@') ? args[0].slice(1) : args[0];
-          const messageContent = args.slice(1).join(' ');
+          // Enhanced message command for both @mentions and role targeting
+          const firstArg = args[0] || '';
+          let targetMatch = '';
+          let messageContent = '';
+          
+          if (firstArg.startsWith('@')) {
+            // @mention format: /message @username your message
+            targetMatch = firstArg.slice(1);
+            messageContent = args.slice(1).join(' ');
+          } else if (['builders', 'mentors', 'leads', 'guests'].includes(firstArg.toLowerCase())) {
+            // Role targeting: /message builders hello everyone
+            const targetRole = firstArg.toLowerCase().slice(0, -1); // Remove 's'
+            messageContent = args.slice(1).join(' ');
+            
+            if (!messageContent) {
+              return {
+                success: false,
+                message: `❌ Please provide a message. Usage: /message ${firstArg} your message`
+              };
+            }
+            
+            // Send to all users of that role
+            const { error } = await supabase
+              .from('messages')
+              .insert({
+                sender_id: profile?.id,
+                sender_role: selectedRole,
+                receiver_role: targetRole as UserRole,
+                content: `📢 **From ${selectedRole}:** ${messageContent}`,
+                team_id: teamId
+              });
+            
+            if (!error) {
+              return {
+                success: true,
+                message: `✅ **Message Sent to All ${firstArg}!**\n\n💬 **Content:** "${messageContent}"\n👥 **Recipients:** All ${firstArg} in the program\n📧 **Delivery:** Message delivered to their inboxes\n\n💡 *They will see this in their messaging center.*`
+              };
+            } else {
+              return {
+                success: false,
+                message: `❌ Failed to send message: ${error.message}`
+              };
+            }
+          } else {
+            return {
+              success: false,
+              message: `❌ Invalid format. Use:\n• \`/message @username your message\` for specific users\n• \`/message builders your message\` for all builders\n• \`/message mentors your message\` for all mentors`
+            };
+          }
           
           if (!targetMatch || !messageContent) {
             return {
@@ -924,6 +1024,58 @@ The Oracle has been enhanced and is ready to provide helpful resources for any t
         return;
       }
 
+      // Check for natural language messaging/update intents
+      const messageIntent = currentMessage.match(/^(?:send|message|tell)\s+(.+?)\s+(?:that|:)\s+(.+)$/i);
+      const updateIntent = currentMessage.match(/^(?:update|log|record):\s*(.+)$/i);
+      
+      if (messageIntent) {
+        const [_, target, content] = messageIntent;
+        const result = await executeSlashCommand('message', [target, ...content.split(' ')]);
+        
+        const responseMessage: ChatMessage = {
+          id: Date.now().toString() + '_auto_message',
+          type: result.success ? 'oracle' : 'system',
+          content: result.message,
+          timestamp: new Date().toISOString(),
+          author: {
+            name: 'Oracle Assistant',
+            role: 'guest' as UserRole,
+            avatar: '📨'
+          },
+          metadata: {
+            command: 'auto-message',
+            confidence: result.success ? 95 : 50
+          }
+        };
+        
+        setMessages(prev => [...prev, responseMessage]);
+        return;
+      }
+      
+      if (updateIntent) {
+        const [_, updateContent] = updateIntent;
+        const result = await executeSlashCommand('update', updateContent.split(' '));
+        
+        const responseMessage: ChatMessage = {
+          id: Date.now().toString() + '_auto_update',
+          type: result.success ? 'oracle' : 'system',
+          content: result.message,
+          timestamp: new Date().toISOString(),
+          author: {
+            name: 'Oracle Assistant',
+            role: 'guest' as UserRole,
+            avatar: '📝'
+          },
+          metadata: {
+            command: 'auto-update',
+            confidence: result.success ? 95 : 50
+          }
+        };
+        
+        setMessages(prev => [...prev, responseMessage]);
+        return;
+      }
+
       // Query the Oracle for intelligent response
       const oracleResponse = await queryOracle(currentMessage);
       
@@ -1166,20 +1318,29 @@ I'll be back to full functionality soon! In the meantime, feel free to explore t
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setMessage('/resources AI development')}
+                onClick={() => setMessage('/chat Hello team! How is everyone doing?')}
                 className="text-xs"
               >
-                <Star className="h-3 w-3 mr-1" />
-                Resources
+                <MessageSquare className="h-3 w-3 mr-1" />
+                Team Chat
               </Button>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => setMessage('/find React developer')}
+                onClick={() => setMessage('/update Made good progress on the MVP today')}
+                className="text-xs"
+              >
+                <Activity className="h-3 w-3 mr-1" />
+                Log Update
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMessage('/message builders Hey everyone, great work this week!')}
                 className="text-xs"
               >
                 <Users className="h-3 w-3 mr-1" />
-                Find People
+                Message All
               </Button>
             </div>
             
@@ -1191,7 +1352,7 @@ I'll be back to full functionality soon! In the meantime, feel free to explore t
                   ref={inputRef}
                   value={message}
                   onChange={handleInputChange}
-                  placeholder="Ask the Oracle anything, use /commands, or @mention users..."
+                  placeholder="Ask questions, send messages, log updates, or use /commands..."
                   className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
                   disabled={isLoading}
                 />
@@ -1232,8 +1393,8 @@ I'll be back to full functionality soon! In the meantime, feel free to explore t
             </form>
             
             <p className="text-xs text-muted-foreground text-center">
-              Type <code>/help</code> for commands • Mention users with <code>@username</code> • 
-              The Oracle knows about your team, project, and progress
+              Type <code>/help</code> for commands • Use <code>/chat</code> for team messages • 
+              Say "send [role] that [message]" for natural messaging • <code>/update</code> to log progress
             </p>
           </div>
         </CardContent>
