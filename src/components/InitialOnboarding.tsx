@@ -207,6 +207,7 @@ export const InitialOnboarding = () => {
         throw new Error('User not authenticated');
       }
 
+      console.log('Step 1: Creating/updating user profile...');
       // Create/update user profile with comprehensive data for Oracle
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -231,15 +232,15 @@ export const InitialOnboarding = () => {
         .single();
 
       if (profileError) {
-        console.error('Profile creation error:', profileError);
-        throw profileError;
+        console.error('❌ Profile creation error:', profileError);
+        throw new Error(`Profile creation failed: ${profileError.message}`);
       }
 
-      console.log('Profile created successfully:', profile);
+      console.log('✅ Profile created successfully:', profile);
 
       // If user selected a team, create team update and establish relationship
       if (formData.selectedTeam && profile) {
-        console.log('Creating team update and establishing team relationship...');
+        console.log('Step 2: Creating team update...');
         
         // Create the user's first project update (stage description) - this serves as the initial Oracle context
         const updateContent = `🎯 New member ${profile.full_name} joined the team!
@@ -263,12 +264,13 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           });
 
         if (updateError) {
-          console.error('Update creation error:', updateError);
-          throw updateError;
+          console.error('❌ Update creation error:', updateError);
+          throw new Error(`Update creation failed: ${updateError.message}`);
         }
 
-        console.log('Team update created successfully');
+        console.log('✅ Team update created successfully');
 
+        console.log('Step 3: Updating team stage...');
         // Update team with comprehensive data from onboarding  
         const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
         const teamStage = validStages.includes(formData.projectStage as any) 
@@ -287,6 +289,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
 
         if (teamUpdateError) {
           console.error('❌ Team update error:', teamUpdateError);
+          // Don't fail onboarding for this, just warn
           toast({
             title: "Warning",
             description: `Team stage update failed: ${teamUpdateError.message}. Contact support if this persists.`,
@@ -296,8 +299,7 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           console.log('✅ Team stage successfully updated to:', teamStage);
         }
 
-        console.log('Team updated with project info');
-
+        console.log('Step 4: Creating member record...');
         // CRITICAL FIX: Create member record for proper team tracking
         const { error: memberError } = await supabase
           .from('members')
@@ -310,13 +312,14 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           });
 
         if (memberError) {
-          console.error('Member creation error:', memberError);
+          console.error('❌ Member creation error:', memberError);
           // Don't fail onboarding for this, but log it
         } else {
-          console.log('Member record created successfully');
+          console.log('✅ Member record created successfully');
         }
       }
 
+      console.log('Step 5: Storing user context for Oracle...');
       // Store user context for Oracle learning
       try {
         await storeUserContext(user.id, {
@@ -339,19 +342,20 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           onboardingCompleted: true,
           lastUpdated: new Date().toISOString()
         });
-        console.log('User context stored for Oracle');
+        console.log('✅ User context stored for Oracle');
       } catch (contextError) {
-        console.error('Error storing user context:', contextError);
+        console.error('❌ Error storing user context:', contextError);
         // Don't fail onboarding for this
       }
 
+      console.log('Step 6: Generating access code...');
       // Generate access code using utility function
       console.log('🔑 Starting access code generation...', { userId: user.id, role: formData.role, teamId: formData.selectedTeam });
       const { assignAccessCode } = await import('@/utils/accessCodes');
       const accessCode = await assignAccessCode(user.id, formData.role, formData.selectedTeam);
       console.log('🔑 Access code generated successfully:', accessCode);
 
-      console.log('Onboarding completed successfully');
+      console.log('✅ Onboarding completed successfully');
 
       // Show success toast and completion screen with access code
       const selectedTeam = availableTeams.find((team: any) => team.id === formData.selectedTeam);
@@ -366,13 +370,14 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
       setIsCompleted(true);
 
     } catch (error: any) {
-      console.error('Onboarding completion error:', error);
+      console.error('❌ Onboarding completion error:', error);
       toast({
         title: "Error",
         description: `Failed to complete onboarding: ${error.message}. Please try again.`,
         variant: "destructive"
       });
     } finally {
+      console.log('🔄 Resetting loading state');
       setIsLoading(false);
     }
   };
