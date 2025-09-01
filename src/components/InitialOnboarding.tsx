@@ -798,7 +798,16 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
                 Back
               </Button>
               <Button
-                onClick={handleComplete}
+                onClick={() => {
+                  console.log('🔘 Button clicked - checking form validation:', {
+                    isLoading,
+                    projectTimeline: formData.projectTimeline,
+                    targetAudience: formData.targetAudience,
+                    successMetrics: formData.successMetrics,
+                    formData
+                  });
+                  handleComplete();
+                }}
                 disabled={isLoading || !formData.projectTimeline || !formData.targetAudience || !formData.successMetrics}
                 className="flex-1 ufo-gradient"
               >
