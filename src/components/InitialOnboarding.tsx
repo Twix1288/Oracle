@@ -353,19 +353,17 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
 
       console.log('Onboarding completed successfully');
 
-      // Show success toast with access code
+      // Show success toast and completion screen with access code
       const selectedTeam = availableTeams.find((team: any) => team.id === formData.selectedTeam);
-      toast({
-        title: "🎉 Onboarding Complete!",
-        description: `Your access code: ${accessCode}. Redirecting to gateway...`
-      });
-
+      
       console.log('🎉 Onboarding completed! Access code:', accessCode);
       
-      // Go directly to gateway after short delay
-      setTimeout(() => {
-        window.location.href = '/gateway';
-      }, 2000);
+      // Set completion data to show the AccessCodeDisplay
+      setCompletionData({
+        accessCode,
+        teamName: selectedTeam?.name
+      });
+      setIsCompleted(true);
 
     } catch (error: any) {
       console.error('Onboarding completion error:', error);
@@ -814,6 +812,18 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
         return null;
     }
   };
+
+  // Show completion screen if onboarding is done
+  if (isCompleted && completionData) {
+    return (
+      <AccessCodeDisplay 
+        accessCode={completionData.accessCode}
+        role={formData.role}
+        teamName={completionData.teamName}
+        onContinue={handleContinueToGateway}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
