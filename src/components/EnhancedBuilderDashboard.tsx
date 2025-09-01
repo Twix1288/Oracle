@@ -364,8 +364,26 @@ Investment Opportunity & Funding Needs`;
     setShowOnboarding(false);
   };
 
-  const handleStageUpdate = (newStage: TeamStage) => {
+  const handleStageUpdate = async (newStage: TeamStage) => {
+    // Update the team state for immediate UI feedback
     setCurrentTeam(prev => ({ ...prev, stage: newStage }));
+    
+    // Also update the user's individual stage in their profile
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ individual_stage: newStage })
+        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+      
+      if (error) {
+        console.error('❌ Error updating individual stage:', error);
+        toast.error('Failed to update your individual stage');
+      } else {
+        console.log('✅ Individual stage updated to:', newStage);
+      }
+    } catch (error) {
+      console.error('❌ Exception updating individual stage:', error);
+    }
   };
 
   const [isPopulating, setIsPopulating] = useState(false);
