@@ -35,18 +35,17 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('🔐 Setting up auth state listener...');
     
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('🔄 Auth state changed:', event, session?.user?.id);
+      async (event, session) => {
+        console.log('🔄 Auth state changed:', event, 'User ID:', session?.user?.id || 'None');
         
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile with delay to avoid deadlock
-          setTimeout(async () => {
-            console.log('👤 Fetching user profile...');
+          console.log('👤 User authenticated, fetching profile...');
+          try {
             const { data: profileData, error } = await supabase
               .from('profiles')
               .select('*')
@@ -56,45 +55,49 @@ export const useAuth = () => {
             if (error) {
               console.error('❌ Profile fetch error:', error);
               setProfile(null);
-            } else {
-              console.log('✅ Profile loaded:', profileData);
+            } else if (profileData) {
+              console.log('✅ Profile loaded successfully:', {
+                id: profileData.id,
+                role: profileData.role,
+                onboarding_completed: profileData.onboarding_completed,
+                team_id: profileData.team_id
+              });
               setProfile(profileData);
+            } else {
+              console.log('⚠️ No profile found for user, needs to be created');
+              setProfile(null);
             }
-          }, 0);
+          } catch (error) {
+            console.error('❌ Profile fetch exception:', error);
+            setProfile(null);
+          }
         } else {
           console.log('👤 No user session, clearing profile');
           setProfile(null);
         }
+        
         setLoading(false);
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔍 Checking existing session:', session?.user?.id);
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Fetch user profile with delay to avoid deadlock
-        setTimeout(async () => {
-          console.log('👤 Fetching existing user profile...');
-          const { data: profileData, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .maybeSingle();
-          
-          if (error) {
-            console.error('❌ Existing profile fetch error:', error);
-            setProfile(null);
-          } else {
-            console.log('✅ Existing profile loaded:', profileData);
-            setProfile(profileData);
-          }
-        }, 0);
+    // THEN check for existing session
+    console.log('🔍 Checking for existing session...');
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('❌ Session retrieval error:', error);
+        setLoading(false);
+        return;
       }
+      
+      console.log('🔍 Initial session check result:', session?.user?.id || 'No session');
+      
+      // If we have a session but the auth state listener hasn't fired yet, 
+      // the listener will handle setting the state
+      if (!session) {
+        setLoading(false);
+      }
+    }).catch((error) => {
+      console.error('❌ Session check exception:', error);
       setLoading(false);
     });
 
