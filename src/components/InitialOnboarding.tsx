@@ -804,12 +804,14 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
               </Button>
               <Button
                 onClick={() => {
-                  console.log('🔘 Button clicked - checking form validation:', {
+                  console.log('🚀 BUTTON CLICKED - Testing click handler');
+                  alert('Button clicked! Check console for details.');
+                  console.log('🔘 Form validation check:', {
                     isLoading,
                     projectTimeline: formData.projectTimeline,
                     targetAudience: formData.targetAudience,
                     successMetrics: formData.successMetrics,
-                    formData
+                    allFormData: formData
                   });
                   handleComplete();
                 }}
