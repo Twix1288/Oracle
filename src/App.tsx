@@ -41,7 +41,8 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     }} />;
   }
 
-  return <>{children}</>;
+  // Always redirect authenticated users to gateway page instead of main dashboard
+  return <Navigate to="/gateway" replace />;
 }
 
 function App() {
