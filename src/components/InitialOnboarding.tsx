@@ -224,6 +224,8 @@ export const InitialOnboarding = () => {
           project_vision: formData.projectIdea,
           help_needed: formData.lookingFor ? [formData.lookingFor] : [],
           onboarding_completed: true // CRITICAL: This must be set to true
+        }, {
+          onConflict: 'id'
         })
         .select()
         .single();
