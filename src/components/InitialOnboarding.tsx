@@ -228,7 +228,8 @@ export const InitialOnboarding = () => {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .insert(profileData)
+        .update(profileData)
+        .eq('id', user.id)
         .select()
         .single();
 
