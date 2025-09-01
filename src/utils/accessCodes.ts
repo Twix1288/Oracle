@@ -30,10 +30,15 @@ export const generateAccessCode = async (): Promise<string> => {
 // Assign access code to user
 export const assignAccessCode = async (userId: string, role: string, teamId?: string): Promise<string> => {
   try {
+    console.log('🔑 assignAccessCode called with:', { userId, role, teamId });
+    
     // Generate new access code
+    console.log('🔑 Generating access code...');
     const accessCode = await generateAccessCode();
+    console.log('🔑 Generated access code:', accessCode);
 
     // Create access code entry
+    console.log('🔑 Inserting access code into database...');
     const { error: codeError } = await supabase
       .from('access_codes')
       .insert({
@@ -44,11 +49,15 @@ export const assignAccessCode = async (userId: string, role: string, teamId?: st
         generated_by: userId
       });
 
-    if (codeError) throw codeError;
+    if (codeError) {
+      console.error('🔑 Database insertion error:', codeError);
+      throw codeError;
+    }
 
+    console.log('🔑 Access code successfully saved to database');
     return accessCode;
   } catch (error) {
-    console.error('Error assigning access code:', error);
+    console.error('🔑 Error assigning access code:', error);
     throw error;
   }
 };

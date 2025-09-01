@@ -343,8 +343,10 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
       }
 
       // Generate access code using utility function
+      console.log('🔑 Starting access code generation...', { userId: user.id, role: formData.role, teamId: formData.selectedTeam });
       const { assignAccessCode } = await import('@/utils/accessCodes');
       const accessCode = await assignAccessCode(user.id, formData.role, formData.selectedTeam);
+      console.log('🔑 Access code generated successfully:', accessCode);
 
       console.log('Onboarding completed successfully');
 
