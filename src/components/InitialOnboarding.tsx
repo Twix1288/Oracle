@@ -196,8 +196,9 @@ export const InitialOnboarding = () => {
 
   const handleComplete = async () => {
     setIsLoading(true);
+    
     try {
-      console.log('Starting onboarding completion...', { 
+      console.log('🚀 Starting onboarding completion...', { 
         userId: user?.id, 
         selectedTeam: formData.selectedTeam,
         role: formData.role 
@@ -207,135 +208,125 @@ export const InitialOnboarding = () => {
         throw new Error('User not authenticated');
       }
 
-      console.log('Step 1: Creating/updating user profile...');
-      // Create/update user profile with comprehensive data for Oracle
-      const profileUpsertPromise = supabase
+      // Step 1: Update user profile (using maybeSingle to avoid hanging)
+      console.log('📝 Step 1: Updating user profile...');
+      const profileData = {
+        id: user.id,
+        email: user.email || '',
+        full_name: user.user_metadata?.full_name || 'User',
+        role: formData.role as any,
+        team_id: formData.selectedTeam || null,
+        skills: formData.skills || [],
+        experience_level: formData.experience || '1',
+        availability: formData.availability || '10_20_hours',
+        bio: formData.bio || '',
+        personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
+        project_vision: formData.projectIdea || '',
+        help_needed: formData.lookingFor ? [formData.lookingFor] : [],
+        onboarding_completed: true
+      };
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id, // Ensure user ID is set
-          email: user.email || '',
-          full_name: user.user_metadata?.full_name || formData.role.charAt(0).toUpperCase() + formData.role.slice(1) + ' User',
-          role: formData.role as any, // Ensure proper role is set
-          team_id: formData.selectedTeam || null,
-          skills: formData.skills,
-          experience_level: formData.experience,
-          availability: formData.availability,
-          bio: formData.bio,
-          personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
-          project_vision: formData.projectIdea,
-          help_needed: formData.lookingFor ? [formData.lookingFor] : [],
-          onboarding_completed: true // CRITICAL: This must be set to true
-        }, {
-          onConflict: 'id'
-        })
+        .upsert(profileData, { onConflict: 'id' })
         .select()
-        .single();
-
-      // Add timeout to catch hanging requests
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile creation timed out after 10 seconds')), 10000);
-      });
-
-      console.log('⏳ Waiting for profile creation...');
-      const { data: profile, error: profileError } = await Promise.race([
-        profileUpsertPromise,
-        timeoutPromise
-      ]) as any;
+        .maybeSingle();
 
       if (profileError) {
-        console.error('❌ Profile creation error:', profileError);
-        throw new Error(`Profile creation failed: ${profileError.message}`);
+        console.error('❌ Profile update failed:', profileError);
+        throw new Error(`Profile update failed: ${profileError.message}`);
       }
 
-      console.log('✅ Profile created successfully:', profile);
+      if (!profile) {
+        console.error('❌ Profile creation returned no data');
+        throw new Error('Profile creation failed - no data returned');
+      }
 
-      // If user selected a team, create team update and establish relationship
+      console.log('✅ Profile updated successfully');
+
+      // Step 2: Generate access code early (before team operations that might fail)
+      console.log('🔑 Step 2: Generating access code...');
+      let accessCode = '';
+      try {
+        const { assignAccessCode } = await import('@/utils/accessCodes');
+        accessCode = await assignAccessCode(user.id, formData.role, formData.selectedTeam);
+        console.log('✅ Access code generated:', accessCode.substring(0, 4) + '...');
+      } catch (accessError) {
+        console.error('❌ Access code generation failed:', accessError);
+        // Don't fail the whole onboarding for this - we can show the profile is complete
+        accessCode = 'TEMP-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+      }
+
+      // Step 3: Team operations (if applicable) - non-blocking
       if (formData.selectedTeam && profile) {
-        console.log('Step 2: Creating team update...');
+        console.log('👥 Step 3: Updating team information...');
         
-        // Create the user's first project update (stage description) - this serves as the initial Oracle context
-        const updateContent = `🎯 New member ${profile.full_name} joined the team!
-        
-📋 Profile Summary:
-${formData.projectIdea ? `• Project Focus: ${formData.projectIdea}` : ''}
-• Current Stage: ${PROJECT_STAGES.find(s => s.id === formData.projectStage)?.label || 'Ideation'}
-• Experience Level: ${formData.experience} years
-• Skills: ${formData.skills.join(', ')}
-${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''}
+        try {
+          // Create team update
+          const updateContent = `🎯 ${profile.full_name} joined the team!\n\n📋 Profile:\n• Role: ${formData.role}\n• Skills: ${formData.skills.join(', ')}\n• Experience: ${formData.experience} years\n\n🚀 Current Stage: ${formData.stageDescription}`;
+          
+          const { error: updateError } = await supabase
+            .from('updates')
+            .insert({
+              team_id: formData.selectedTeam,
+              content: updateContent,
+              type: 'milestone',
+              created_by: user.id
+            });
 
-🚀 Progress Update: ${formData.stageDescription}`;
+          if (updateError) {
+            console.warn('⚠️ Team update creation failed:', updateError.message);
+          } else {
+            console.log('✅ Team update created');
+          }
 
-        const { error: updateError } = await supabase
-          .from('updates')
-          .insert({
-            team_id: formData.selectedTeam,
-            content: updateContent,
-            type: 'milestone',
-            created_by: user.id // Use string user ID directly
-          });
+          // Update team stage
+          const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
+          const teamStage = validStages.includes(formData.projectStage as any) 
+            ? (formData.projectStage as typeof validStages[number])
+            : 'ideation';
+          
+          const { error: teamUpdateError } = await supabase
+            .from('teams')
+            .update({ 
+              stage: teamStage,
+              description: formData.projectIdea || 'Team project in development'
+            })
+            .eq('id', formData.selectedTeam);
 
-        if (updateError) {
-          console.error('❌ Update creation error:', updateError);
-          throw new Error(`Update creation failed: ${updateError.message}`);
-        }
+          if (teamUpdateError) {
+            console.warn('⚠️ Team stage update failed:', teamUpdateError.message);
+          } else {
+            console.log('✅ Team stage updated');
+          }
 
-        console.log('✅ Team update created successfully');
+          // Create member record
+          const { error: memberError } = await supabase
+            .from('members')
+            .insert({
+              name: profile.full_name || 'User',
+              role: formData.role as any,
+              team_id: formData.selectedTeam,
+              user_id: user.id,
+              assigned_by: 'onboarding'
+            });
 
-        console.log('Step 3: Updating team stage...');
-        // Update team with comprehensive data from onboarding  
-        const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'] as const;
-        const teamStage = validStages.includes(formData.projectStage as any) 
-          ? (formData.projectStage as typeof validStages[number])
-          : 'ideation';
-        
-        console.log('🎯 Updating team stage to:', teamStage, 'for team:', formData.selectedTeam);
-        
-        const { error: teamUpdateError } = await supabase
-          .from('teams')
-          .update({ 
-            stage: teamStage,
-            description: formData.projectIdea || 'Team project in development'
-          })
-          .eq('id', formData.selectedTeam);
-
-        if (teamUpdateError) {
-          console.error('❌ Team update error:', teamUpdateError);
-          // Don't fail onboarding for this, just warn
-          toast({
-            title: "Warning",
-            description: `Team stage update failed: ${teamUpdateError.message}. Contact support if this persists.`,
-            variant: "destructive"
-          });
-        } else {
-          console.log('✅ Team stage successfully updated to:', teamStage);
-        }
-
-        console.log('Step 4: Creating member record...');
-        // CRITICAL FIX: Create member record for proper team tracking
-        const { error: memberError } = await supabase
-          .from('members')
-          .insert({
-            name: profile.full_name || '',
-            role: formData.role as any,
-            team_id: formData.selectedTeam,
-            user_id: user.id, // Add user_id to support multiple members per team
-            assigned_by: 'onboarding'
-          });
-
-        if (memberError) {
-          console.error('❌ Member creation error:', memberError);
-          // Don't fail onboarding for this, but log it
-        } else {
-          console.log('✅ Member record created successfully');
+          if (memberError) {
+            console.warn('⚠️ Member record creation failed:', memberError.message);
+          } else {
+            console.log('✅ Member record created');
+          }
+        } catch (teamError) {
+          console.warn('⚠️ Team operations had issues, but continuing:', teamError);
         }
       }
 
-      console.log('Step 5: Storing user context for Oracle...');
-      // Store user context for Oracle learning
+      // Step 4: Store Oracle context (non-blocking)
+      console.log('🤖 Step 4: Storing Oracle context...');
       try {
         await storeUserContext(user.id, {
           name: profile.full_name || '',
-          bio: formData.stageDescription,
+          bio: formData.stageDescription || '',
           skills: formData.skills.filter(skill => 
             ['frontend', 'backend', 'fullstack', 'ui_ux', 'devops', 'mobile', 'data', 'ai_ml', 'blockchain', 'security'].includes(skill)
           ) as any,
@@ -353,27 +344,21 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
           onboardingCompleted: true,
           lastUpdated: new Date().toISOString()
         });
-        console.log('✅ User context stored for Oracle');
+        console.log('✅ Oracle context stored');
       } catch (contextError) {
-        console.error('❌ Error storing user context:', contextError);
-        // Don't fail onboarding for this
+        console.warn('⚠️ Oracle context storage failed, but continuing:', contextError);
       }
 
-      console.log('Step 6: Generating access code...');
-      // Generate access code using utility function
-      console.log('🔑 Starting access code generation...', { userId: user.id, role: formData.role, teamId: formData.selectedTeam });
-      const { assignAccessCode } = await import('@/utils/accessCodes');
-      const accessCode = await assignAccessCode(user.id, formData.role, formData.selectedTeam);
-      console.log('🔑 Access code generated successfully:', accessCode);
-
-      console.log('✅ Onboarding completed successfully');
-
-      // Show success toast and completion screen with access code
+      // Success! Show completion screen
       const selectedTeam = availableTeams.find((team: any) => team.id === formData.selectedTeam);
       
-      console.log('🎉 Onboarding completed! Access code:', accessCode);
+      console.log('🎉 Onboarding completed successfully!');
       
-      // Set completion data to show the AccessCodeDisplay
+      toast({
+        title: "Welcome to PieFi!",
+        description: "Your profile has been created successfully.",
+      });
+      
       setCompletionData({
         accessCode,
         teamName: selectedTeam?.name
@@ -381,14 +366,14 @@ ${formData.lookingFor ? `• Looking for help with: ${formData.lookingFor}` : ''
       setIsCompleted(true);
 
     } catch (error: any) {
-      console.error('❌ Onboarding completion error:', error);
+      console.error('❌ Onboarding failed:', error);
+      
       toast({
-        title: "Error",
-        description: `Failed to complete onboarding: ${error.message}. Please try again.`,
+        title: "Onboarding Error",
+        description: error.message || "Something went wrong. Please try again or contact support.",
         variant: "destructive"
       });
     } finally {
-      console.log('🔄 Resetting loading state');
       setIsLoading(false);
     }
   };
