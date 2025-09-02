@@ -128,7 +128,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
 
       // Notify Oracle of profile update (for context refresh)
       try {
-        await supabase.functions.invoke('enhanced-resource-oracle', {
+        await supabase.functions.invoke('super-oracle', {
           body: {
             query: 'Profile updated',
             type: 'profile_update',

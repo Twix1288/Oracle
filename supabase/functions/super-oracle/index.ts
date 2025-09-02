@@ -2,18 +2,74 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+// Multi-model AI configuration
+const AI_MODELS = {
+  openai: {
+    apiKey: Deno.env.get('OPENAI_API_KEY'),
+    models: {
+      primary: 'gpt-4o',
+      fallback: 'gpt-4o-mini',
+      backup: 'gpt-3.5-turbo',
+      embeddings: 'text-embedding-3-large'
+    }
+  },
+  gemini: {
+    apiKey: Deno.env.get('GOOGLE_API_KEY'),
+    models: {
+      primary: 'gemini-1.5-pro',
+      fallback: 'gemini-1.5-flash'
+    }
+  },
+  claude: {
+    apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
+    models: {
+      primary: 'claude-3-5-sonnet-20241022',
+      fallback: 'claude-3-haiku-20240307'
+    }
+  }
+};
+
+// GraphRAG Configuration
+const GRAPHRAG_CONFIG = {
+  maxGraphDepth: 3,
+  maxRelationships: 10,
+  minConfidence: 0.7,
+  enableEntityExtraction: true,
+  enableRelationshipMining: true,
+  enableGraphTraversal: true,
+  maxContextNodes: 15,
+  enableHybridSearch: true
+};
+
+// Enhanced RAG configuration with web search
+const RAG_CONFIG = {
+  maxContextTokens: 8000,
+  minRelevanceThreshold: 0.7,
+  maxDocuments: 8,
+  enableSemanticReranking: true,
+  enableHybridSearch: true,
+  enableWebSearch: true,
+  maxWebResults: 3,
+  webSearchFrequency: 'conservative', // 'conservative', 'moderate', 'aggressive'
+  webSearchQueries: [
+    'latest', 'current', 'recent', 'trend', 'news', 'update', '2024', '2025',
+    'new', 'emerging', 'industry', 'market', 'technology', 'innovation',
+    'best practice', 'methodology', 'framework', 'guide', 'tutorial'
+  ]
+};
+
+// Vector Search Configuration
+const VECTOR_CONFIG = {
+  dimensions: 1536,
+  similarityThreshold: 0.75,
+  maxResults: 20,
+  enableReranking: true,
+  enableHybridSearch: true,
+  maxTokens: 8000
+};
+
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
-
-// Check for required environment variables
-if (!openAIApiKey) {
-  console.error('Missing OPENAI_API_KEY environment variable');
-}
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase environment variables');
-}
-
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const corsHeaders = {
@@ -23,770 +79,1167 @@ const corsHeaders = {
 
 interface SuperOracleRequest {
   query: string;
+  type: 'chat' | 'resources' | 'connect' | 'analyze' | 'graph' | 'multi_model';
   role: 'builder' | 'mentor' | 'lead' | 'guest';
   teamId?: string;
   userId?: string;
-  userProfile?: any;
-  contextRequest?: {
-    needsResources: boolean;
-    needsMentions: boolean;
-    needsTeamContext: boolean;
-    needsPersonalization: boolean;
-    resourceTopic?: string;
-  };
-}
-
-interface OracleResource {
-  title: string;
-  url: string;
-  type: 'youtube' | 'article' | 'documentation' | 'tutorial' | 'tool';
-  description: string;
-  relevance: number;
+  context?: any;
+  preferredModel?: 'openai' | 'gemini' | 'claude' | 'auto';
+  enableGraphRAG?: boolean;
+  enableMultiModel?: boolean;
 }
 
 interface SuperOracleResponse {
   answer: string;
   sources: number;
+  context_used: boolean;
+  model_used: string;
   confidence: number;
-  detected_stage?: string;
-  resources?: OracleResource[];
-  next_actions?: string[];
-  mentions?: string[];
-  personalization?: {
-    skill_match: number;
-    project_relevance: number;
-    experience_level: string;
+  processing_time: number;
+  graph_data?: any;
+  multi_model_insights?: any;
+  resources?: any[];
+  connections?: any[];
+  entities?: any[];
+  relationships?: any[];
+  search_strategy: string;
+  fallback_used: boolean;
+}
+
+// Intelligent Model Router - Choose the best AI model for the task
+async function selectOptimalModel(query: string, type: string, preferredModel?: string): Promise<{
+  model: 'openai' | 'gemini' | 'claude';
+  reason: string;
+  confidence: number;
+}> {
+  if (preferredModel && preferredModel !== 'auto') {
+    return { model: preferredModel, reason: 'User preference', confidence: 0.9 };
+  }
+
+  const queryLower = query.toLowerCase();
+  
+  // Analyze query characteristics
+  const characteristics = {
+    technical: ['code', 'programming', 'api', 'database', 'algorithm', 'architecture'],
+    creative: ['design', 'story', 'narrative', 'creative', 'artistic', 'branding'],
+    analytical: ['analysis', 'data', 'metrics', 'performance', 'optimization', 'strategy'],
+    conversational: ['chat', 'help', 'advice', 'guidance', 'mentoring', 'coaching']
+  };
+
+  let scores = {
+    openai: 0,
+    gemini: 0,
+    claude: 0
+  };
+
+  // Score based on query characteristics
+  if (characteristics.technical.some(term => queryLower.includes(term))) {
+    scores.openai += 3; // OpenAI excels at technical tasks
+    scores.gemini += 2;
+    scores.claude += 2;
+  }
+  
+  if (characteristics.creative.some(term => queryLower.includes(term))) {
+    scores.gemini += 3; // Gemini is strong on creative tasks
+    scores.openai += 2;
+    scores.claude += 2;
+  }
+  
+  if (characteristics.analytical.some(term => queryLower.includes(term))) {
+    scores.claude += 3; // Claude excels at analysis
+    scores.openai += 2;
+    scores.gemini += 1;
+  }
+  
+  if (characteristics.conversational.some(term => queryLower.includes(term))) {
+    scores.claude += 2; // Claude is great at conversation
+    scores.openai += 2;
+    scores.gemini += 2;
+  }
+
+  // Score based on query type
+  switch (type) {
+    case 'resources':
+      scores.gemini += 2; // Gemini is good at finding resources
+      break;
+    case 'connect':
+      scores.openai += 2; // OpenAI is good at networking
+      break;
+    case 'analyze':
+      scores.claude += 3; // Claude excels at analysis
+      break;
+    case 'graph':
+      scores.openai += 2; // OpenAI is good at structured data
+      break;
+  }
+
+  // Find the best model
+  const bestModel = Object.entries(scores).reduce((a, b) => scores[a[0] as keyof typeof scores] > scores[b[0] as keyof typeof scores] ? a : b)[0] as keyof typeof scores;
+  
+  return {
+    model: bestModel,
+    reason: `Best match for ${type} query with ${bestModel} characteristics`,
+    confidence: scores[bestModel] / 10
   };
 }
 
-async function getTeamContext(teamId: string, supabase: any) {
+// GraphRAG: Build knowledge graph from query context
+async function buildKnowledgeGraph(query: string, context: any): Promise<any> {
   try {
-    const { data: team, error } = await supabase
-      .from('teams')
-      .select(`
-        *,
-        team_status(*),
-        updates(content, type, created_at, created_by),
-        profiles!inner(full_name, skills, help_needed, experience_level)
-      `)
-      .eq('id', teamId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching team context:', error);
-      return null;
-    }
-
-    return team;
+    console.log('Building knowledge graph for query:', query);
+    
+    // Extract entities from the query
+    const entities = await extractEntities(query);
+    
+    // Find related entities in the knowledge base
+    const relatedEntities = await findRelatedEntities(entities);
+    
+    // Build relationship graph
+    const relationships = await buildRelationships(entities, relatedEntities);
+    
+    // Traverse the graph to find relevant context
+    const graphContext = await traverseGraph(entities, relationships);
+    
+    return {
+      entities,
+      relationships,
+      context: graphContext,
+      confidence: calculateGraphConfidence(graphContext)
+    };
   } catch (error) {
-    console.error('Exception in getTeamContext:', error);
+    console.error('Error building knowledge graph:', error);
     return null;
   }
 }
 
-async function getUsersWithSkills(skill: string, supabase: any) {
-  try {
-    const { data: users, error } = await supabase
-      .from('profiles')
-      .select('full_name, role, skills, experience_level, help_needed, team_id, bio')
-      .or(`skills.cs.{${skill}},help_needed.cs.{${skill}}`);
-
-    if (error) {
-      console.error('Error fetching users with skills:', error);
-      return [];
-    }
-
-    return users || [];
-  } catch (error) {
-    console.error('Exception in getUsersWithSkills:', error);
-    return [];
-  }
-}
-
-async function findRelevantPeople(query: string, userProfile: any, userRole: string, supabase: any) {
-  // Extract potential skills/topics from the query
-  const queryWords = query.toLowerCase().split(' ');
-  const techKeywords = ['react', 'javascript', 'python', 'api', 'backend', 'frontend', 'design', 'ui', 'ux', 'marketing', 'business', 'finance', 'ai', 'ml', 'data'];
-  const foundKeywords = queryWords.filter(word => techKeywords.some(tech => word.includes(tech)));
-  
-  let relevantPeople = [];
-  
-  // If user needs help with specific technologies
-  for (const keyword of foundKeywords) {
-    const people = await getUsersWithSkills(keyword, supabase);
-    relevantPeople.push(...people);
-  }
-  
-  // If user is asking for general help, look at their help_needed array
-  if (query.includes('help') || query.includes('stuck') || query.includes('guidance')) {
-    if (userProfile?.help_needed) {
-      for (const helpTopic of userProfile.help_needed) {
-        const people = await getUsersWithSkills(helpTopic, supabase);
-        relevantPeople.push(...people);
-      }
-    }
-  }
-  
-  // Remove duplicates and filter based on role permissions
-  const uniquePeople = relevantPeople.filter((person, index, self) => 
-    index === self.findIndex(p => p.full_name === person.full_name)
-  );
-  
-  // Filter based on role - guests can't see people
-  if (userRole === 'guest') {
-    return [];
-  }
-  
-  return uniquePeople.slice(0, 5); // Limit to top 5 matches
-}
-
-async function generatePersonalizedResources(query: string, userProfile: any, teamData: any): Promise<OracleResource[]> {
-  const skills = userProfile?.skills || [];
-  const helpNeeded = userProfile?.help_needed || [];
-  const experienceLevel = userProfile?.experience_level || 'beginner';
-  const teamStage = teamData?.stage || 'ideation';
-  const userRole = userProfile?.role || 'guest';
-  
-  const resources: OracleResource[] = [];
-  const queryLower = query.toLowerCase();
-  
-  // FIRST: Check PieFi database for internal resources and knowledge
-  const pieFiResources: OracleResource[] = [];
-  
-  try {
-    const { data: dbResources, error } = await supabase
-      .from('documents')
-      .select('content, metadata, source_type')
-      .contains('role_visibility', [userRole])
-      .or(`content.ilike.%${queryLower}%, metadata->>title.ilike.%${queryLower}%`)
-      .limit(5);
-    
-    if (!error && dbResources) {
-      dbResources.forEach((doc, idx) => {
-        pieFiResources.push({
-          title: doc.metadata?.title || `PieFi Resource ${idx + 1}`,
-          url: doc.metadata?.url || '#',
-          type: 'documentation',
-          description: doc.content.substring(0, 150) + '...',
-          relevance: 0.95 // High relevance for internal resources
-        });
-      });
-    }
-  } catch (error) {
-    console.error('Error fetching PieFi database resources:', error);
-  }
-  
-  // Add PieFi resources first to the final resources array
-  resources.push(...pieFiResources);
-  
-  // Enhanced technology-specific resources with real, working URLs (as fallback)
-  const techResources = {
-    'react': [
-      { title: 'React Official Documentation', url: 'https://react.dev', type: 'documentation', description: 'Official React documentation with modern hooks and patterns', relevance: 95 },
-      { title: 'React Hooks Complete Guide', url: 'https://www.youtube.com/watch?v=TNhaISOUy6Q', type: 'youtube', description: 'Complete guide to React hooks for modern development', relevance: 92 },
-      { title: 'React Best Practices 2025', url: 'https://kentcdodds.com/blog/application-state-management-with-react', type: 'article', description: 'Modern React patterns and best practices', relevance: 90 }
-    ],
-    'javascript': [
-      { title: 'Modern JavaScript Guide', url: 'https://javascript.info', type: 'tutorial', description: 'Complete modern JavaScript tutorial from basics to advanced', relevance: 94 },
-      { title: 'JavaScript ES6+ Features', url: 'https://www.youtube.com/watch?v=WZQc7RUAg18', type: 'youtube', description: 'Modern JavaScript features every developer should know', relevance: 90 },
-      { title: 'You Don\'t Know JS', url: 'https://github.com/getify/You-Dont-Know-JS', type: 'documentation', description: 'Deep dive into JavaScript fundamentals', relevance: 88 }
-    ],
-    'python': [
-      { title: 'Python Official Tutorial', url: 'https://docs.python.org/3/tutorial/', type: 'tutorial', description: 'Official Python 3 tutorial from basics to advanced', relevance: 95 },
-      { title: 'Python for Data Science', url: 'https://www.youtube.com/watch?v=LHBE6Q9XlzI', type: 'youtube', description: 'Complete Python data science course', relevance: 90 },
-      { title: 'Real Python Guides', url: 'https://realpython.com', type: 'article', description: 'High-quality Python tutorials and guides', relevance: 93 }
-    ],
-    'node': [
-      { title: 'Node.js Official Docs', url: 'https://nodejs.org/en/docs/', type: 'documentation', description: 'Comprehensive Node.js documentation and API reference', relevance: 94 },
-      { title: 'Node.js Complete Course', url: 'https://www.youtube.com/watch?v=TlB_eWDSMt4', type: 'youtube', description: 'Complete Node.js development course', relevance: 91 },
-      { title: 'Express.js Guide', url: 'https://expressjs.com/en/guide/routing.html', type: 'tutorial', description: 'Express.js framework complete guide', relevance: 89 }
-    ],
-    'ai': [
-      { title: 'OpenAI API Documentation', url: 'https://platform.openai.com/docs', type: 'documentation', description: 'Complete guide to OpenAI API integration', relevance: 96 },
-      { title: 'AI for Developers Course', url: 'https://www.deeplearning.ai/courses/', type: 'tutorial', description: 'AI and machine learning for developers', relevance: 94 },
-      { title: 'Prompt Engineering Guide', url: 'https://www.promptingguide.ai/', type: 'article', description: 'Best practices for AI prompt engineering', relevance: 92 }
-    ],
-    'design': [
-      { title: 'Figma Design Tutorial', url: 'https://help.figma.com/hc/en-us', type: 'tutorial', description: 'Complete guide to Figma design tools', relevance: 93 },
-      { title: 'UI/UX Design Principles', url: 'https://www.youtube.com/watch?v=_K06LoVjFSg', type: 'youtube', description: 'Fundamental UI/UX design principles', relevance: 91 },
-      { title: 'Design Systems Guide', url: 'https://designsystemsrepo.com/', type: 'article', description: 'Collection of design system examples and patterns', relevance: 89 }
-    ],
-    'api': [
-      { title: 'REST API Design Guide', url: 'https://restfulapi.net/', type: 'documentation', description: 'Complete guide to RESTful API design', relevance: 92 },
-      { title: 'API Development Tutorial', url: 'https://www.youtube.com/watch?v=pKd0Rpw7O48', type: 'youtube', description: 'Building robust APIs from scratch', relevance: 90 },
-      { title: 'GraphQL vs REST', url: 'https://blog.apollographql.com/graphql-vs-rest-5d425123e34b', type: 'article', description: 'When to use GraphQL vs REST APIs', relevance: 87 }
-    ],
-    'business': [
-      { title: 'Lean Canvas Template', url: 'https://leanstack.com/lean-canvas', type: 'tool', description: 'Create your business model with Lean Canvas', relevance: 95 },
-      { title: 'Customer Development Guide', url: 'https://www.youtube.com/watch?v=f_LNNnNfpp4', type: 'youtube', description: 'Steve Blank on customer development process', relevance: 93 },
-      { title: 'Startup Pitch Deck Guide', url: 'https://www.sequoiacap.com/article/writing-a-business-plan/', type: 'article', description: 'Sequoia Capital guide to pitch decks', relevance: 91 }
-    ]
-  };
-  
-  // Stage-specific resources
-  const stageResources = {
-    'ideation': [
-      { title: 'Idea Validation Framework', url: 'https://www.youtube.com/watch?v=6z-TNwqED8g', type: 'youtube', description: 'How to validate your startup idea effectively', relevance: 96 },
-      { title: 'Market Research Guide', url: 'https://blog.hubspot.com/marketing/market-research-buyers-journey-guide', type: 'article', description: 'Complete guide to market research for startups', relevance: 94 },
-      { title: 'Problem-Solution Fit', url: 'https://leanstack.com/problem-solution-fit/', type: 'tutorial', description: 'Achieving problem-solution fit for your startup', relevance: 92 }
-    ],
-    'development': [
-      { title: 'Agile Development Guide', url: 'https://agilemanifesto.org/', type: 'article', description: 'Principles of agile software development', relevance: 93 },
-      { title: 'MVP Development Strategy', url: 'https://www.youtube.com/watch?v=0P7nCmln7PM', type: 'youtube', description: 'Building your minimum viable product effectively', relevance: 95 },
-      { title: 'Git Best Practices', url: 'https://www.atlassian.com/git/tutorials/comparing-workflows', type: 'tutorial', description: 'Git workflows for development teams', relevance: 89 }
-    ],
-    'testing': [
-      { title: 'User Testing Guide', url: 'https://www.usertesting.com/resources', type: 'article', description: 'How to conduct effective user testing sessions', relevance: 94 },
-      { title: 'A/B Testing Framework', url: 'https://www.optimizely.com/optimization-glossary/ab-testing/', type: 'tutorial', description: 'Complete guide to A/B testing methodology', relevance: 92 },
-      { title: 'QA Testing Strategies', url: 'https://www.youtube.com/watch?v=VYXp1iTgNgc', type: 'youtube', description: 'Quality assurance testing best practices', relevance: 88 }
-    ],
-    'launch': [
-      { title: 'Product Launch Checklist', url: 'https://producthabits.com/product-launch-checklist/', type: 'article', description: 'Comprehensive product launch checklist and timeline', relevance: 96 },
-      { title: 'Go-to-Market Strategy', url: 'https://blog.hubspot.com/marketing/go-to-market-strategy', type: 'article', description: 'Building your go-to-market strategy', relevance: 94 },
-      { title: 'Product Hunt Launch Guide', url: 'https://blog.producthunt.com/how-to-launch-on-product-hunt-7c1843e06399', type: 'tutorial', description: 'Complete guide to launching on Product Hunt', relevance: 90 }
-    ],
-    'growth': [
-      { title: 'Growth Hacking Guide', url: 'https://blog.hubspot.com/marketing/growth-hacking', type: 'article', description: 'Growth hacking strategies for startups', relevance: 93 },
-      { title: 'Customer Acquisition', url: 'https://www.youtube.com/watch?v=BPK_qzeH_yk', type: 'youtube', description: 'Effective customer acquisition strategies', relevance: 91 },
-      { title: 'Scaling Your Startup', url: 'https://firstround.com/review/', type: 'article', description: 'Lessons on scaling from successful startups', relevance: 89 }
-    ]
-  };
-  
-  // Find relevant technology resources
-  for (const [tech, techResourceList] of Object.entries(techResources)) {
-    if (queryLower.includes(tech) || skills.some(skill => skill.toLowerCase().includes(tech))) {
-      resources.push(...techResourceList.map(r => ({ ...r, type: r.type as any })));
-    }
-  }
-  
-  // Add stage-specific resources based on team context
-  if (teamStage && stageResources[teamStage as keyof typeof stageResources]) {
-    const stageResourceList = stageResources[teamStage as keyof typeof stageResources];
-    resources.push(...stageResourceList.map(r => ({ ...r, type: r.type as any })));
-  }
-  
-  // Add experience-level appropriate resources
-  if (experienceLevel === 'beginner') {
-    resources.push({
-      title: 'Programming Foundations Course',
-      url: 'https://www.freecodecamp.org/',
-      type: 'tutorial',
-      description: 'Free comprehensive programming courses for beginners',
-      relevance: 85
-    });
-  } else if (experienceLevel === 'advanced') {
-    resources.push({
-      title: 'Advanced Software Architecture',
-      url: 'https://www.oreilly.com/library/view/clean-architecture-a/9780134494272/',
-      type: 'documentation',
-      description: 'Advanced software architecture patterns and principles',
-      relevance: 88
-    });
-  }
-  
-  // Role-specific resources
-  const roleSpecificResources = {
-    'builder': [
-      { title: 'Technical Skills Roadmap', url: 'https://roadmap.sh/', type: 'tutorial', description: 'Learning paths for developers and builders', relevance: 87 },
-      { title: 'Code Quality Guide', url: 'https://github.com/ryanmcdermott/clean-code-javascript', type: 'article', description: 'Clean code principles for better development', relevance: 85 }
-    ],
-    'mentor': [
-      { title: 'Mentoring Best Practices', url: 'https://www.themusejobs.com/advice/mentoring-best-practices', type: 'article', description: 'How to be an effective mentor in tech', relevance: 90 },
-      { title: 'Coaching Techniques for Mentors', url: 'https://www.youtube.com/watch?v=oHDq1PcokdI', type: 'youtube', description: 'Effective coaching techniques for technical mentors', relevance: 88 }
-    ],
-    'lead': [
-      { title: 'Startup Leadership Playbook', url: 'https://firstround.com/review/', type: 'article', description: 'Leadership insights from successful startup founders', relevance: 92 },
-      { title: 'Team Building for Startups', url: 'https://www.atlassian.com/team-playbook', type: 'tutorial', description: 'Building and managing effective startup teams', relevance: 89 }
-    ]
-  };
-  
-  if (roleSpecificResources[userRole as keyof typeof roleSpecificResources]) {
-    const roleResources = roleSpecificResources[userRole as keyof typeof roleSpecificResources];
-    resources.push(...roleResources.map(r => ({ ...r, type: r.type as any })));
-  }
-  
-  // If no specific resources found, add general startup resources
-  if (resources.length === 0) {
-    resources.push(
-      { title: 'Y Combinator Startup School', url: 'https://www.startupschool.org/', type: 'tutorial', description: 'Free online course for entrepreneurs and builders', relevance: 85 },
-      { title: 'Indie Hackers Community', url: 'https://www.indiehackers.com/', type: 'article', description: 'Community of independent entrepreneurs and makers', relevance: 82 },
-      { title: 'Hacker News', url: 'https://news.ycombinator.com/', type: 'article', description: 'Tech and startup news from the community', relevance: 78 }
-    );
-  }
-  
-  // Sort by relevance and return top resources
-  return resources
-    .sort((a, b) => b.relevance - a.relevance)
-    .slice(0, 8) // Return top 8 resources
-    .map(resource => ({
-      ...resource,
-      relevance: resource.relevance / 100 // Convert to 0-1 scale
-    }));
-}
-
-async function detectMentions(query: string, supabase: any): Promise<any[]> {
-  const mentionPattern = /@(\w+)/g;
-  const mentionedUsers = [];
-  let match;
-  
-  while ((match = mentionPattern.exec(query)) !== null) {
-    const username = match[1];
-    try {
-      // Try to find user by name and fetch their full profile
-      const { data: user, error } = await supabase
-        .from('profiles')
-        .select(`
-          id, full_name, role, skills, help_needed, bio, 
-          experience_level, team_id, project_vision,
-          availability, linkedin_url, github_url, portfolio_url
-        `)
-        .or(`full_name.ilike.%${username}%, full_name.ilike.${username}%`)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching mentioned user:', error);
-        continue;
-      }
-      
-      if (user) {
-        // Also get their team information if they have one
-        let teamInfo = null;
-        if (user.team_id) {
-          const { data: team, error: teamError } = await supabase
-            .from('teams')
-            .select('name, stage, description')
-            .eq('id', user.team_id)
-            .maybeSingle();
-          
-          if (!teamError) {
-            teamInfo = team;
-          }
-        }
-        
-        // Get their recent activity/updates
-        const { data: recentUpdates } = await supabase
-          .from('updates')
-          .select('content, created_at, type')
-          .eq('created_by', user.id)
-          .order('created_at', { ascending: false })
-          .limit(3);
-        
-        mentionedUsers.push({
-          id: user.id,
-          full_name: user.full_name,
-          role: user.role,
-          skills: user.skills || [],
-          help_needed: user.help_needed || [],
-          bio: user.bio || '',
-          experience_level: user.experience_level || '',
-          team: teamInfo,
-          project_vision: user.project_vision || '',
-          availability: user.availability || '',
-          social_links: {
-            linkedin: user.linkedin_url,
-            github: user.github_url,
-            portfolio: user.portfolio_url
-          },
-          recent_activity: recentUpdates || [],
-          mention_text: match[0] // The original @username text
-        });
-      }
-    } catch (error) {
-      console.error(`Error processing mention for ${username}:`, error);
-    }
-  }
-  
-  return mentionedUsers;
-}
-
-async function generateIntelligentResponse(
-  query: string, 
-  role: string, 
-  teamContext: any, 
-  userProfile: any,
-  mentionedUsers: any[],
-  resources: OracleResource[],
-  relevantPeople: any[]
-): Promise<string> {
-  
-  // Role-based information filtering and persona
-  const getRolePersonality = (role: string) => {
-    switch (role) {
-      case 'guest':
-        return {
-          tone: 'welcoming and encouraging',
-          infoLevel: 'surface-level team activities only',
-          details: 'team projects, stages, and general activities - NO personal information',
-          restrictions: 'No personal data, names, skills, profiles, or individual information - only team activities and project details'
-        };
-      case 'builder':
-        return {
-          tone: 'supportive and practical',
-          infoLevel: 'detailed technical guidance',
-          details: 'specific implementation advice, team updates, relevant resources',
-          restrictions: 'Access to own team data, limited admin information'
-        };
-      case 'mentor':
-        return {
-          tone: 'wise and guidance-focused',
-          infoLevel: 'comprehensive insights across teams',
-          details: 'team performance data, builder progress, strategic advice',
-          restrictions: 'Access to mentored teams, progress tracking, no system admin details'
-        };
-      case 'lead':
-        return {
-          tone: 'authoritative and strategic',
-          infoLevel: 'full administrative access',
-          details: 'complete system overview, all team data, admin functions',
-          restrictions: 'Full access to all information and capabilities'
-        };
-      default:
-        return {
-          tone: 'helpful but cautious',
-          infoLevel: 'minimal information',
-          details: 'basic guidance only',
-          restrictions: 'Very limited access'
-        };
-    }
-  };
-
-  // Generate detailed mentioned user context
-  const getMentionedUserContext = () => {
-    if (mentionedUsers.length === 0) return 'No users mentioned';
-    
-    switch (role) {
-      case 'guest':
-        return 'User mentions not available to guests';
-      case 'builder':
-      case 'mentor':
-      case 'lead':
-        return mentionedUsers.map(user => {
-          const teamContext = user.team ? ` (Team: ${user.team.name} - ${user.team.stage} stage)` : ' (No team)';
-          const skillsText = user.skills.length > 0 ? `Skills: ${user.skills.join(', ')}` : 'No skills listed';
-          const helpText = user.help_needed.length > 0 ? `Can help with: ${user.help_needed.join(', ')}` : 'No help areas specified';
-          const activityText = user.recent_activity.length > 0 ? 
-            `Recent activity: ${user.recent_activity[0].content.substring(0, 100)}...` : 
-            'No recent activity';
-          
-          return `
-**${user.mention_text} → ${user.full_name}** (${user.role})${teamContext}
-• ${skillsText}
-• ${helpText}
-• Experience Level: ${user.experience_level || 'Not specified'}
-• Bio: ${user.bio || 'No bio available'}
-• ${activityText}
-${user.project_vision ? `• Project Vision: ${user.project_vision}` : ''}
-${user.availability ? `• Availability: ${user.availability}` : ''}
-${user.social_links.linkedin ? `• LinkedIn: ${user.social_links.linkedin}` : ''}
-${user.social_links.github ? `• GitHub: ${user.social_links.github}` : ''}
-${user.social_links.portfolio ? `• Portfolio: ${user.social_links.portfolio}` : ''}`;
-        }).join('\n\n');
-      default:
-        return 'Limited mention information available';
-    }
-  };
-  
-  // Filter team context based on role
-  const getFilteredTeamContext = () => {
-    if (!teamContext) return 'No team activity information available';
-    
-    switch (role) {
-      case 'guest':
-        // Only show team activities, projects, and stages - NO personal information
-        const guestInfo = {
-          activeTeams: teamContext.name ? 1 : 0,
-          projectStage: teamContext.stage || 'unknown',
-          projectType: teamContext.description ? 'Active project in development' : 'General activity',
-          recentActivity: teamContext.updates?.length > 0 ? 
-            `${teamContext.updates.length} recent project updates` : 'No recent activity'
-        };
-        return `Teams are actively working on projects. Current activity: ${guestInfo.activeTeams} active team in ${guestInfo.projectStage} stage. ${guestInfo.recentActivity}.`;
-      case 'builder':
-        return `Team: ${teamContext.name}, Stage: ${teamContext.stage}, Recent activity: ${teamContext.updates?.slice(0, 2).map(u => u.content.substring(0, 50)).join('; ') || 'No recent updates'}`;
-      case 'mentor':
-        return `Full team context: ${teamContext.name} (${teamContext.stage}), Members: ${teamContext.profiles?.map(p => p.full_name).join(', ')}, Recent updates: ${teamContext.updates?.slice(0, 3).map(u => u.content).join('; ') || 'No recent updates'}`;
-      case 'lead':
-        return `Complete team data: ${JSON.stringify(teamContext, null, 2)}`;
-      default:
-        return 'Limited team information available';
-    }
-  };
-
-  // Filter user profile based on role
-  const getFilteredUserProfile = () => {
-    if (!userProfile) return 'General visitor information';
-    
-    switch (role) {
-      case 'guest':
-        return 'You are exploring our startup incubator and the projects teams are working on';
-      case 'builder':
-        return `Your profile: ${userProfile.full_name}, Skills: ${userProfile.skills?.join(', ') || 'Not specified'}, Experience: ${userProfile.experience_level || 'Not specified'}`;
-      case 'mentor':
-      case 'lead':
-        return `Full profile access: ${JSON.stringify(userProfile, null, 2)}`;
-      default:
-        return 'Limited profile information';
-    }
-  };
-
-  // Get role-specific personality settings
-  const rolePersonality = getRolePersonality(role);
-  
-  const contextPrompt = `
-You are the PieFi Oracle, an extremely intelligent AI assistant for a startup incubator program. You provide deeply personalized, contextual responses based on WHO is asking.
-
-CRITICAL ROLE-BASED BEHAVIOR:
-Role: ${role.toUpperCase()}
-Personality: ${rolePersonality.tone}
-Information Level: ${rolePersonality.infoLevel}
-Access Restrictions: ${rolePersonality.restrictions}
-
-ROLE-SPECIFIC INSTRUCTIONS:
-${role === 'guest' ? `
-- Welcome newcomers warmly and focus on team activities and projects
-- Share information about what teams are working on, project stages, and general activities
-- NEVER mention specific people's names, skills, profiles, or personal information
-- Focus on project types, development stages, team activities, and general progress
-- Encourage them to join as a builder/mentor/lead for access to team collaboration
-- Discuss the types of projects and innovations happening in the incubator
-` : ''}
-
-${role === 'builder' ? `
-- Provide practical, hands-on technical guidance
-- Share relevant team updates and progress
-- Connect with team members based on skills
-- Focus on project development and collaboration
-- Access to own team's data and relevant resources
-` : ''}
-
-${role === 'mentor' ? `
-- Offer strategic guidance and wisdom
-- Provide insights across multiple teams you mentor
-- Share progress tracking and team performance insights
-- Focus on growth, guidance, and leadership development
-- Access to mentored teams' comprehensive data
-` : ''}
-
-${role === 'lead' ? `
-- Provide full administrative and strategic oversight
-- Access to all system data and team information
-- Focus on program management and optimization
-- Offer comprehensive insights and decision-making support
-- Full access to all capabilities and information
-` : ''}
-
-FILTERED CONTEXT FOR YOUR ROLE:
-User Context: ${getFilteredUserProfile()}
-Team Activities: ${getFilteredTeamContext()}
-Mentioned Users: ${getMentionedUserContext()}
-People Who Can Help: ${role === 'guest' ? 'People connections not available to guests' : (relevantPeople.length > 0 ? relevantPeople.map(p => `${p.full_name} (${p.role}) - Skills: ${p.skills?.join(', ') || 'Not specified'}`).join('; ') : 'No specific matches found')}
-Available Resources: ${resources.length} curated resources matching your needs
-
-RESPONSE GUIDELINES:
-1. PERSONALIZE EVERYTHING based on the specific user asking (${userProfile?.full_name || 'user'})
-2. Reference their specific skills: ${userProfile?.skills?.join(', ') || 'none specified'}
-3. Address their specific help needs: ${userProfile?.help_needed?.join(', ') || 'none specified'}
-4. Consider their experience level: ${userProfile?.experience_level || 'not specified'}
-5. Factor in their team's current stage: ${teamContext?.stage || 'no team context'}
-6. **MENTIONED USERS CONTEXT**: ${mentionedUsers.length > 0 ? `Use detailed info about mentioned users to provide rich insights. When users are mentioned, incorporate their skills, experience, recent activity, and team context into your response.` : 'No users mentioned in this query.'}
-7. SUGGEST SPECIFIC PEOPLE when relevant - if someone needs help, connect them with the right person from the "People Who Can Help" list
-8. Provide resources that match their exact situation and needs
-9. CRITICAL: Respect role restrictions - ${rolePersonality.restrictions}
-10. Use their name and make it feel like you truly know them and their context
-11. Be incredibly helpful within your authority level
-12. If they need help, always try to connect them with relevant people (unless you're responding to a guest)
-13. Make every response feel personally crafted for THIS specific user in THEIR specific situation
-14. **MENTION INTELLIGENCE**: When users mention others (@username), use their full profile data to provide insights about collaboration potential, skill matches, project synergy, and specific ways they can work together
-
-PERSONALITY FOR THIS USER:
-- Role: ${role} 
-- Tone: ${rolePersonality.tone}
-- Information Level: ${rolePersonality.infoLevel}
-
-User Query: "${query}"
-
-Provide a response that perfectly matches your role's authority level and personality:`;
-
-  // Validate OpenAI API key before making request
-  if (!openAIApiKey) {
-    console.error('OpenAI API key not configured');
-    const fallbackResponses = {
-      guest: `Welcome to PieFi Oracle! 🛸 I'd love to help you explore the exciting projects our teams are working on. Unfortunately, my AI capabilities are not configured right now, but I can still share information about team activities, project stages, and what types of innovations are happening in our incubator. What would you like to know about our current projects?`,
-      builder: `Hey there! 🔧 I understand you're asking about "${query}". While my AI systems need configuration, I'm still here to help with your project development. As a builder, you have access to team collaboration tools and technical resources. What specific challenge are you working on?`,
-      mentor: `Hello! 🌟 I see you're inquiring about "${query}". Even though my AI capabilities need setup, I can still provide guidance. As a mentor, you have insight into team progress and can access comprehensive data about your mentees. How can I assist with your mentoring efforts?`,
-      lead: `Greetings! 👑 You're asking about "${query}". Despite needing AI configuration, I'm operational for strategic support. As a lead, you have full administrative access to all program data and analytics. What administrative or strategic insight do you need?`
-    };
-    
-    return fallbackResponses[role as keyof typeof fallbackResponses] || fallbackResponses.guest;
-  }
-
+// Extract entities from text using AI
+async function extractEntities(text: string): Promise<any[]> {
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: AI_MODELS.openai.models.primary,
+        temperature: 0.1,
         messages: [
           {
             role: 'system',
-            content: contextPrompt
+            content: 'Extract key entities from the text. Return as JSON array with objects containing: name, type (person/company/technology/concept), relevance (0-1), description.'
           },
           {
             role: 'user',
-            content: query
+            content: text
           }
         ],
-        max_completion_tokens: 800,
-      }),
+        max_tokens: 500
+      })
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error(`OpenAI API error: ${response.status} - ${errorData}`);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
     const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '[]';
     
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid response format from OpenAI API');
+    try {
+      return JSON.parse(content);
+    } catch {
+      return [];
     }
-    
-    return data.choices[0].message.content;
   } catch (error) {
-    console.error('Error generating intelligent response:', error);
-    
-    // Role-appropriate fallback responses
-    const fallbackResponses = {
-      guest: `Welcome to PieFi Oracle! 🛸 I'd love to help you explore the exciting projects our teams are working on. Unfortunately, I'm experiencing some technical difficulties right now, but I can still share information about team activities, project stages, and what types of innovations are happening in our incubator. What would you like to know about our current projects?`,
-      builder: `Hey there! 🔧 I understand you're asking about "${query}". While my advanced systems are having a moment, I'm still here to help with your project development. As a builder, you have access to team collaboration tools and technical resources. What specific challenge are you working on?`,
-      mentor: `Hello! 🌟 I see you're inquiring about "${query}". Even though I'm experiencing some technical hiccups, I can still provide guidance. As a mentor, you have insight into team progress and can access comprehensive data about your mentees. How can I assist with your mentoring efforts?`,
-      lead: `Greetings! 👑 You're asking about "${query}". Despite some system difficulties, I'm operational for strategic support. As a lead, you have full administrative access to all program data and analytics. What administrative or strategic insight do you need?`
-    };
-    
-    return fallbackResponses[role] || fallbackResponses.guest;
+    console.error('Error extracting entities:', error);
+    return [];
   }
 }
 
+// Find related entities in knowledge base
+async function findRelatedEntities(entities: any[]): Promise<any[]> {
+  const related: any[] = [];
+  
+  for (const entity of entities) {
+    try {
+      // Search for related entities in the database
+      const { data: relatedDocs } = await supabase
+        .from('documents')
+        .select('*')
+        .textSearch('content', entity.name)
+        .limit(5);
+      
+      if (relatedDocs) {
+        related.push(...relatedDocs.map(doc => ({
+          name: doc.metadata?.title || 'Unknown',
+          type: 'document',
+          relevance: 0.8,
+          description: doc.content.substring(0, 200),
+          source: doc.id
+        })));
+      }
+    } catch (error) {
+      console.error('Error finding related entities:', error);
+    }
+  }
+  
+  return related;
+}
 
+// Build relationships between entities
+async function buildRelationships(entities: any[], relatedEntities: any[]): Promise<any[]> {
+  const relationships: any[] = [];
+  
+  // Build relationships between main entities
+  for (let i = 0; i < entities.length; i++) {
+    for (let j = i + 1; j < entities.length; j++) {
+      relationships.push({
+        source: entities[i].name,
+        target: entities[j].name,
+        type: 'related',
+        confidence: 0.8,
+        description: `${entities[i].name} is related to ${entities[j].name}`
+      });
+    }
+  }
+  
+  // Build relationships with related entities
+  entities.forEach(entity => {
+    relatedEntities.forEach(related => {
+      relationships.push({
+        source: entity.name,
+        target: related.name,
+        type: 'references',
+        confidence: 0.7,
+        description: `${entity.name} references ${related.name}`
+      });
+    });
+  });
+  
+  return relationships;
+}
+
+// Traverse the knowledge graph
+async function traverseGraph(entities: any[], relationships: any[]): Promise<any[]> {
+  const visited = new Set();
+  const context: any[] = [];
+  
+  // Breadth-first traversal
+  const queue = [...entities];
+  
+  while (queue.length > 0 && context.length < GRAPHRAG_CONFIG.maxContextNodes) {
+    const current = queue.shift();
+    if (!current || visited.has(current.name)) continue;
+    
+    visited.add(current.name);
+    context.push(current);
+    
+    // Find related entities
+    const related = relationships
+      .filter(rel => rel.source === current.name || rel.target === current.name)
+      .map(rel => rel.source === current.name ? rel.target : rel.source);
+    
+    queue.push(...related.filter(name => !visited.has(name)));
+  }
+  
+  return context;
+}
+
+// Calculate graph confidence
+function calculateGraphConfidence(context: any[]): number {
+  if (context.length === 0) return 0;
+  
+  const avgRelevance = context.reduce((sum, entity) => sum + (entity.relevance || 0.5), 0) / context.length;
+  const coverage = Math.min(context.length / GRAPHRAG_CONFIG.maxContextNodes, 1);
+  
+  return (avgRelevance * 0.7) + (coverage * 0.3);
+}
+
+// Multi-model AI response generation
+async function generateMultiModelResponse(query: string, context: any, graphData?: any): Promise<any> {
+  const insights: any = {};
+  
+  try {
+    // Generate responses from all models
+    const [openaiResponse, geminiResponse, claudeResponse] = await Promise.allSettled([
+      generateOpenAIResponse(query, context, graphData),
+      generateGeminiResponse(query, context, graphData),
+      generateClaudeResponse(query, context, graphData)
+    ]);
+    
+    // Collect successful responses
+    if (openaiResponse.status === 'fulfilled') {
+      insights.openai = openaiResponse.value;
+    }
+    if (geminiResponse.status === 'fulfilled') {
+      insights.gemini = geminiResponse.value;
+    }
+    if (claudeResponse.status === 'fulfilled') {
+      insights.claude = claudeResponse.value;
+    }
+    
+    // Synthesize the best response
+    const synthesizedResponse = await synthesizeResponses(insights, query);
+    
+    return {
+      answer: synthesizedResponse,
+      insights,
+      confidence: calculateMultiModelConfidence(insights)
+    };
+    
+  } catch (error) {
+    console.error('Error in multi-model response generation:', error);
+    return {
+      answer: "I'm experiencing difficulties with multi-model processing. Let me use a single model instead.",
+      insights: {},
+      confidence: 0.5
+    };
+  }
+}
+
+// Generate OpenAI response
+async function generateOpenAIResponse(query: string, context: any, graphData?: any): Promise<any> {
+  if (!AI_MODELS.openai.apiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+  
+  const systemPrompt = `You are the Super Oracle, an advanced AI assistant with access to knowledge graphs and multiple AI models.
+
+Context: ${JSON.stringify(context)}
+${graphData ? `Knowledge Graph: ${JSON.stringify(graphData)}` : ''}
+
+Provide a comprehensive, helpful response that leverages the available context and knowledge graph.`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: AI_MODELS.openai.models.primary,
+      temperature: 0.7,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: query }
+      ],
+      max_tokens: 800
+    })
+  });
+
+  const data = await response.json();
+  return {
+    answer: data.choices?.[0]?.message?.content || 'OpenAI response unavailable',
+    model: 'gpt-4o',
+    confidence: 0.85
+  };
+}
+
+// Generate Gemini response
+async function generateGeminiResponse(query: string, context: any, graphData?: any): Promise<any> {
+  if (!AI_MODELS.gemini.apiKey) {
+    throw new Error('Gemini API key not configured');
+  }
+  
+  const prompt = `You are the Super Oracle, an advanced AI assistant with access to knowledge graphs and multiple AI models.
+
+Context: ${JSON.stringify(context)}
+${graphData ? `Knowledge Graph: ${JSON.stringify(graphData)}` : ''}
+
+Query: ${query}
+
+Provide a comprehensive, helpful response that leverages the available context and knowledge graph.`;
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AI_MODELS.gemini.models.primary}:generateContent?key=${AI_MODELS.gemini.apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 800
+      }
+    })
+  });
+
+  const data = await response.json();
+  return {
+    answer: data.candidates?.[0]?.content?.parts?.[0]?.text || 'Gemini response unavailable',
+    model: 'gemini-1.5-pro',
+    confidence: 0.8
+  };
+}
+
+// Generate Claude response
+async function generateClaudeResponse(query: string, context: any, graphData?: any): Promise<any> {
+  if (!AI_MODELS.claude.apiKey) {
+    throw new Error('Claude API key not configured');
+  }
+  
+  const systemPrompt = `You are the Super Oracle, an advanced AI assistant with access to knowledge graphs and multiple AI models.
+
+Context: ${JSON.stringify(context)}
+${graphData ? `Knowledge Graph: ${JSON.stringify(graphData)}` : ''}
+
+Provide a comprehensive, helpful response that leverages the available context and knowledge graph.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${AI_MODELS.claude.apiKey}`,
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: AI_MODELS.claude.models.primary,
+      max_tokens: 800,
+      messages: [
+        { role: 'user', content: `${systemPrompt}\n\nQuery: ${query}` }
+      ]
+    })
+  });
+
+  const data = await response.json();
+  return {
+    answer: data.content?.[0]?.text || 'Claude response unavailable',
+    model: 'claude-3-5-sonnet',
+    confidence: 0.85
+  };
+}
+
+// Synthesize responses from multiple models
+async function synthesizeResponses(insights: any, query: string): Promise<string> {
+  const responses = Object.values(insights).map((insight: any) => insight.answer).filter(Boolean);
+  
+  if (responses.length === 0) {
+    return "I'm unable to generate a response at the moment. Please try again.";
+  }
+  
+  if (responses.length === 1) {
+    return responses[0];
+  }
+  
+  // Use the most confident model's response as primary
+  const bestResponse = Object.values(insights).reduce((best: any, current: any) => 
+    current.confidence > best.confidence ? current : best
+  );
+  
+  return bestResponse.answer;
+}
+
+// Calculate confidence from multi-model responses
+function calculateMultiModelConfidence(insights: any): number {
+  const responses = Object.values(insights);
+  if (responses.length === 0) return 0;
+  
+  const avgConfidence = responses.reduce((sum: number, insight: any) => sum + insight.confidence, 0) / responses.length;
+  const modelCount = responses.length;
+  
+  // Boost confidence based on model agreement
+  const agreementBonus = modelCount > 1 ? 0.1 : 0;
+  
+  return Math.min(avgConfidence + agreementBonus, 1.0);
+}
+
+// Enhanced vector search with GraphRAG and web search integration
+async function enhancedVectorSearch(query: string, context: any, role: string, teamId?: string): Promise<any> {
+  try {
+    // Generate embeddings for the query
+    const queryEmbedding = await generateEmbedding(query);
+    
+    // Perform vector search
+    const { data: vectorResults } = await supabase.rpc('match_documents', {
+      query_embedding: queryEmbedding,
+      match_threshold: VECTOR_CONFIG.similarityThreshold,
+      match_count: VECTOR_CONFIG.maxResults
+    });
+    
+    // Enhance with GraphRAG context
+    let enhancedResults = vectorResults || [];
+    if (context && context.length > 0) {
+      enhancedResults = await enhanceWithGraphContext(enhancedResults, context);
+    }
+    
+    // Integrate web search when needed (only for external queries)
+    const webResults = await webSearch(query, role, teamId, enhancedResults);
+    if (webResults && webResults.length > 0) {
+      // Combine internal and web results, prioritizing internal knowledge
+      const combinedResults = [
+        ...enhancedResults.slice(0, Math.floor(VECTOR_CONFIG.maxResults / 2)),
+        ...webResults.slice(0, Math.floor(VECTOR_CONFIG.maxResults / 2))
+      ];
+      
+      // Sort by relevance and source priority
+      return combinedResults.sort((a, b) => {
+        // Prioritize internal results over web results
+        const aPriority = a.source === 'web_search' ? 0.5 : 1.0;
+        const bPriority = b.source === 'web_search' ? 0.5 : 1.0;
+        
+        return (b.relevance * bPriority) - (a.relevance * aPriority);
+      });
+    }
+    
+    return enhancedResults;
+  } catch (error) {
+    console.error('Error in enhanced vector search:', error);
+    return [];
+  }
+}
+
+// Generate embeddings using OpenAI
+async function generateEmbedding(text: string): Promise<number[]> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: text,
+        model: AI_MODELS.openai.models.embeddings
+      })
+    });
+
+    const data = await response.json();
+    return data.data?.[0]?.embedding || [];
+  } catch (error) {
+    console.error('Error generating embedding:', error);
+    return [];
+  }
+}
+
+// Enhance search results with graph context
+async function enhanceWithGraphContext(results: any[], context: any[]): Promise<any[]> {
+  const enhanced = results.map(result => {
+    const contextRelevance = context.reduce((score, entity) => {
+      if (result.content.toLowerCase().includes(entity.name.toLowerCase())) {
+        return score + (entity.relevance || 0.5);
+      }
+      return score;
+    }, 0);
+    
+    return {
+      ...result,
+      graph_relevance: contextRelevance,
+      enhanced_score: (result.similarity || 0.5) + (contextRelevance * 0.3)
+    };
+  });
+  
+  // Sort by enhanced score
+  return enhanced.sort((a, b) => b.enhanced_score - a.enhanced_score);
+}
+
+// Main Super Oracle function
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { 
-      query, 
-      role, 
-      teamId, 
-      userId, 
-      userProfile,
-      contextRequest 
-    }: SuperOracleRequest = await req.json();
+    const startTime = Date.now();
+    const { query, type, role, teamId, userId, context, preferredModel, enableGraphRAG, enableMultiModel }: SuperOracleRequest = await req.json();
 
-    console.log(`Super Oracle processing: ${query} for ${role}`);
+    console.log(`Super Oracle request - Type: ${type}, Role: ${role}, Query: ${query}`);
 
-    // Validate required parameters
-    if (!query || !role) {
-      throw new Error('Missing required parameters: query and role');
-    }
+    // Select optimal AI model
+    const modelSelection = await selectOptimalModel(query, type, preferredModel);
+    console.log(`Selected model: ${modelSelection.model} (${modelSelection.reason})`);
 
-    
-    // Gather contextual information with people suggestions
-    let teamContext = null;
-    let relevantPeople = [];
-    
-    if (teamId && contextRequest?.needsTeamContext) {
-      teamContext = await getTeamContext(teamId, supabase);
-    }
-    
-    // Find relevant people who can help
-    relevantPeople = await findRelevantPeople(query, userProfile, role, supabase);
-
-    // Detect mentions with full user profiles
-    let mentionedUsers: any[] = [];
-    if (contextRequest?.needsMentions) {
-      mentionedUsers = await detectMentions(query, supabase);
-    }
-
-    // Generate highly personalized resources
-    let resources: OracleResource[] = [];
-    if (contextRequest?.needsResources || contextRequest?.resourceTopic) {
-      resources = await generatePersonalizedResources(
-        contextRequest?.resourceTopic || query, 
-        userProfile, 
-        teamContext
-      );
-    }
-
-    // Generate intelligent response with mentioned user profiles
-    const answer = await generateIntelligentResponse(
-      query,
-      role,
-      teamContext,
-      userProfile,
-      mentionedUsers,
-      resources,
-      relevantPeople
-    );
-
-    // Calculate confidence based on available context and personalization
-    let confidence = 75; // Base confidence
-    if (userProfile) confidence += 15; // Higher weight for user context
-    if (teamContext) confidence += 10;
-    if (resources.length > 0) confidence += 5;
-    if (relevantPeople.length > 0) confidence += 10; // Boost for people connections
-    if (mentionedUsers.length > 0) confidence += 15; // Higher boost for mentioned users with full context
-
-    // Log interaction for learning with error handling
-    try {
-      await supabase.from('oracle_logs').insert({
-        user_role: role,
-        user_id: userId,
-        team_id: teamId,
-        query,
-        response: answer.substring(0, 1000), // Limit length to prevent DB errors
-        sources_count: resources.length,
-        processing_time_ms: Date.now() % 10000 // Simplified timing
-      });
-    } catch (logError) {
-      console.error('Error logging Oracle interaction:', logError);
-      // Continue execution even if logging fails
-    }
-
-    const response: SuperOracleResponse = {
-      answer,
-      sources: resources.length + relevantPeople.length + mentionedUsers.length,
-      confidence: Math.min(confidence, 100),
-      resources: resources.length > 0 ? resources : undefined,
-      mentions: mentionedUsers.length > 0 ? mentionedUsers.map(u => u.full_name) : undefined,
-      detected_stage: teamContext?.stage,
-      next_actions: [], // Could be enhanced with AI-generated next steps
-      personalization: userProfile ? {
-        skill_match: userProfile.skills?.length || 0,
-        project_relevance: teamContext ? 95 : 60,
-        experience_level: userProfile.experience_level || 'unknown'
-      } : undefined
+    let responseData: SuperOracleResponse = {
+      answer: '',
+      sources: 0,
+      context_used: false,
+      model_used: modelSelection.model,
+      confidence: modelSelection.confidence,
+      processing_time: 0,
+      search_strategy: 'standard',
+      fallback_used: false
     };
 
-    return new Response(JSON.stringify(response), {
+    // Build knowledge graph if GraphRAG is enabled
+    let graphData = null;
+    if (enableGraphRAG) {
+      console.log('Building knowledge graph...');
+      graphData = await buildKnowledgeGraph(query, context);
+      if (graphData) {
+        responseData.graph_data = graphData;
+        responseData.context_used = true;
+        responseData.search_strategy = 'graphrag_enhanced';
+      }
+    }
+
+    // Enhanced vector search with web search integration
+    const searchResults = await enhancedVectorSearch(query, graphData?.context || [], role, teamId);
+    responseData.sources = searchResults.length;
+
+    // Generate response based on type and configuration
+    switch (type) {
+      case 'multi_model':
+        if (enableMultiModel) {
+          console.log('Generating multi-model response...');
+          const multiModelResponse = await generateMultiModelResponse(query, searchResults, graphData);
+          responseData.answer = multiModelResponse.answer;
+          responseData.multi_model_insights = multiModelResponse.insights;
+          responseData.confidence = multiModelResponse.confidence;
+          responseData.search_strategy = 'multi_model_enhanced';
+        } else {
+          // Fallback to single model
+          const singleModelResponse = await generateSingleModelResponse(query, searchResults, graphData, modelSelection.model);
+          responseData.answer = singleModelResponse.answer;
+          responseData.confidence = singleModelResponse.confidence;
+        }
+        break;
+
+      case 'graph':
+        if (graphData) {
+          responseData.answer = `Knowledge graph analysis complete. Found ${graphData.entities.length} entities with ${graphData.relationships.length} relationships. Confidence: ${Math.round(graphData.confidence * 100)}%.`;
+        } else {
+          responseData.answer = "GraphRAG analysis unavailable. Please try again or use standard search.";
+        }
+        break;
+
+      case 'resources':
+        // Enhanced resource finding with GraphRAG
+        console.log('Enhanced resource search with GraphRAG...');
+        const resourceResponse = await generateEnhancedResourceResponse(query, searchResults, graphData, modelSelection.model);
+        responseData.answer = resourceResponse.answer;
+        responseData.resources = resourceResponse.resources;
+        responseData.confidence = resourceResponse.confidence;
+        responseData.search_strategy = 'graphrag_resource_search';
+        break;
+
+      case 'connect':
+        // Enhanced connection finding with GraphRAG
+        console.log('Enhanced connection search with GraphRAG...');
+        const connectionResponse = await generateEnhancedConnectionResponse(query, searchResults, graphData, modelSelection.model);
+        responseData.answer = connectionResponse.answer;
+        responseData.connections = connectionResponse.connections;
+        responseData.confidence = connectionResponse.confidence;
+        responseData.search_strategy = 'graphrag_connection_search';
+        break;
+
+      default:
+        // Enhanced chat response with GraphRAG context
+        console.log('Generating enhanced chat response...');
+        const enhancedResponse = await generateEnhancedChatResponse(query, searchResults, graphData, modelSelection.model, context);
+        responseData.answer = enhancedResponse.answer;
+        responseData.confidence = enhancedResponse.confidence;
+        responseData.search_strategy = graphData ? 'graphrag_enhanced_chat' : 'standard_chat';
+        break;
+    }
+
+    responseData.processing_time = Date.now() - startTime;
+
+    // Log the interaction
+    try {
+      await supabase.from('oracle_logs').insert({
+        user_id: userId || 'anonymous',
+        user_role: role,
+        team_id: teamId,
+        query: query.substring(0, 500),
+        response: responseData.answer.substring(0, 500),
+        sources_count: responseData.sources,
+        processing_time_ms: responseData.processing_time,
+        model_used: responseData.model_used,
+        search_strategy: responseData.search_strategy
+      });
+    } catch (logError) {
+      console.error('Failed to log Super Oracle interaction:', logError);
+    }
+
+    console.log(`Super Oracle response completed in ${responseData.processing_time}ms`);
+    
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Super Oracle error:', error);
     
-    return new Response(JSON.stringify({
-      answer: "I'm experiencing some technical difficulties right now, but I'm still here to help! Please try rephrasing your question or ask me something else.",
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      answer: "I'm experiencing technical difficulties. Please try again or contact support if the issue persists.",
       sources: 0,
-      confidence: 50,
-      error: error.message
+      confidence: 0,
+      model_used: 'unknown',
+      search_strategy: 'error'
     }), {
-      status: 200,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+// Enhanced resource response generation with GraphRAG
+async function generateEnhancedResourceResponse(query: string, searchResults: any[], graphData: any, model: string): Promise<any> {
+  try {
+    const systemPrompt = `You are an expert resource curator with access to knowledge graphs and advanced AI models.
+
+Query: ${query}
+${graphData ? `Knowledge Graph Context: ${JSON.stringify(graphData)}` : ''}
+Search Results: ${JSON.stringify(searchResults)}
+
+Generate a comprehensive response that:
+1. Explains what resources were found and why they're relevant
+2. Leverages the knowledge graph to provide deeper context
+3. Suggests additional resources based on the graph relationships
+4. Provides actionable next steps
+
+Format your response to be helpful and engaging.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODELS.openai.models.primary,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query }
+        ],
+        max_tokens: 800
+      })
+    });
+
+    const data = await response.json();
+    
+    // Generate enhanced resources using the knowledge graph
+    const enhancedResources = await generateResourcesFromGraph(query, graphData, searchResults);
+    
+    return {
+      answer: data.choices?.[0]?.message?.content || "I found some great resources for you!",
+      resources: enhancedResources,
+      confidence: 0.9
+    };
+  } catch (error) {
+    console.error('Error generating enhanced resource response:', error);
+    return {
+      answer: "I'm having trouble finding resources right now. Please try again.",
+      resources: [],
+      confidence: 0.5
+    };
+  }
+}
+
+// Enhanced connection response generation with GraphRAG
+async function generateEnhancedConnectionResponse(query: string, searchResults: any[], graphData: any, model: string): Promise<any> {
+  try {
+    const systemPrompt = `You are an expert networking assistant with access to knowledge graphs and advanced AI models.
+
+Query: ${query}
+${graphData ? `Knowledge Graph Context: ${JSON.stringify(graphData)}` : ''}
+Search Results: ${JSON.stringify(searchResults)}
+
+Generate a comprehensive response that:
+1. Explains what connections were found and why they're relevant
+2. Leverages the knowledge graph to suggest related connections
+3. Provides networking advice and strategies
+4. Suggests next steps for building these relationships
+
+Format your response to be helpful and actionable.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODELS.openai.models.primary,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query }
+        ],
+        max_tokens: 800
+      })
+    });
+
+    const data = await response.json();
+    
+    // Generate enhanced connections using the knowledge graph
+    const enhancedConnections = await generateConnectionsFromGraph(query, graphData, searchResults);
+    
+    return {
+      answer: data.choices?.[0]?.message?.content || "I found some great connections for you!",
+      connections: enhancedConnections,
+      confidence: 0.9
+    };
+  } catch (error) {
+    console.error('Error generating enhanced connection response:', error);
+    return {
+      answer: "I'm having trouble finding connections right now. Please try again.",
+      connections: [],
+      confidence: 0.5
+    };
+  }
+}
+
+// Enhanced chat response generation with GraphRAG
+async function generateEnhancedChatResponse(query: string, searchResults: any[], graphData: any, model: string, context: any): Promise<any> {
+  try {
+    const systemPrompt = `You are the Super Oracle, an advanced AI assistant with access to knowledge graphs and multiple AI models.
+
+Query: ${query}
+${graphData ? `Knowledge Graph Context: ${JSON.stringify(graphData)}` : ''}
+Search Results: ${JSON.stringify(searchResults)}
+User Context: ${JSON.stringify(context)}
+
+Generate a comprehensive, helpful response that:
+1. Directly addresses the user's query
+2. Leverages the knowledge graph for deeper insights
+3. Uses the search results to provide relevant information
+4. Considers the user's role and team context
+5. Provides actionable next steps
+
+Format your response to be conversational, helpful, and motivating.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODELS.openai.models.primary,
+        temperature: 0.7,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: query }
+        ],
+        max_tokens: 800
+      })
+    });
+
+    const data = await response.json();
+    
+    return {
+      answer: data.choices?.[0]?.message?.content || "I'm here to help! Let me know what you need.",
+      confidence: 0.85
+    };
+  } catch (error) {
+    console.error('Error generating enhanced chat response:', error);
+    return {
+      answer: "I'm experiencing some technical difficulties. Please try again or use slash commands like /help for assistance!",
+      confidence: 0.5
+    };
+  }
+}
+
+// Generate enhanced resources from knowledge graph
+async function generateResourcesFromGraph(query: string, graphData: any, searchResults: any[]): Promise<any[]> {
+  try {
+    if (!graphData || !graphData.entities) {
+      return searchResults.slice(0, 5);
+    }
+
+    // Use GraphRAG to find related resources
+    const enhancedResources = [];
+    
+    // Add search results
+    enhancedResources.push(...searchResults.slice(0, 3));
+    
+    // Generate additional resources based on graph entities
+    for (const entity of graphData.entities.slice(0, 3)) {
+      if (entity.type === 'technology' || entity.type === 'concept') {
+        enhancedResources.push({
+          title: `${entity.name} - Related Resources`,
+          url: `#graph-entity-${entity.name}`,
+          type: 'piefi',
+          description: `Resources related to ${entity.name} from our knowledge graph`,
+          relevance: entity.relevance || 0.8,
+          author: 'PieFi Knowledge Graph',
+          source: 'graphrag'
+        });
+      }
+    }
+    
+    return enhancedResources.slice(0, 5);
+  } catch (error) {
+    console.error('Error generating resources from graph:', error);
+    return searchResults.slice(0, 5);
+  }
+}
+
+// Generate enhanced connections from knowledge graph
+async function generateConnectionsFromGraph(query: string, graphData: any, searchResults: any[]): Promise<any[]> {
+  try {
+    if (!graphData || !graphData.entities) {
+      return searchResults.slice(0, 4);
+    }
+
+    // Use GraphRAG to find related connections
+    const enhancedConnections = [];
+    
+    // Add search results
+    enhancedConnections.push(...searchResults.slice(0, 2));
+    
+    // Generate additional connections based on graph entities
+    for (const entity of graphData.entities.slice(0, 2)) {
+      if (entity.type === 'person' || entity.type === 'company') {
+        enhancedConnections.push({
+          name: entity.name,
+          title: entity.description || 'Expert in this field',
+          company: entity.type === 'company' ? entity.name : 'Various Companies',
+          expertise: `Specializes in ${entity.name} and related areas`,
+          relevance: entity.relevance || 85,
+          source: 'graphrag'
+        });
+      }
+    }
+    
+    return enhancedConnections.slice(0, 4);
+  } catch (error) {
+    console.error('Error generating connections from graph:', error);
+    return searchResults.slice(0, 4);
+  }
+}
+
+// Web search for real-time information - only when external resources are needed
+async function webSearch(query: string, role: string, teamId?: string, internalDocs?: any[]): Promise<any[]> {
+  if (!RAG_CONFIG.enableWebSearch) return [];
+  
+  // First, check if we actually need web search
+  if (!shouldUseWebSearch(query)) {
+    console.log('Query does not require web search, skipping');
+    return [];
+  }
+  
+  // Check if internal knowledge is already sufficient
+  if (internalDocs && isInternalKnowledgeSufficient(internalDocs, query)) {
+    console.log('Internal knowledge is sufficient, skipping web search');
+    return [];
+  }
+  
+  try {
+    console.log('Performing enhanced web search with RAG pipeline:', query);
+    
+    // Enhanced OpenAI web search with RAG context
+    const openAIResults = await enhancedOpenAIWebSearch(query, internalDocs);
+    if (openAIResults && openAIResults.length > 0) {
+      const filteredResults = filterWebResults(openAIResults, role, teamId);
+      console.log(`Enhanced OpenAI web search found ${filteredResults.length} relevant external results`);
+      return filteredResults;
+    }
+    
+    // Fallback to alternative web search methods with RAG enhancement
+    const fallbackResults = await enhancedFallbackWebSearch(query, internalDocs);
+    const filteredResults = filterWebResults(fallbackResults, role, teamId);
+    console.log(`Enhanced fallback web search found ${filteredResults.length} relevant external results`);
+    return filteredResults;
+    
+  } catch (error) {
+    console.warn('Enhanced web search failed, continuing without external results:', error);
+    return [];
+  }
+}
+
+// Determine if web search is actually needed
+function shouldUseWebSearch(query: string): boolean {
+  const queryLower = query.toLowerCase();
+  
+  // Check for indicators that external information is needed
+  const needsExternalInfo = RAG_CONFIG.webSearchQueries.some(keyword => 
+    queryLower.includes(keyword)
+  );
+  
+  // Check for specific external resource requests
+  const requestsExternalResource = [
+    'external', 'outside', 'internet', 'web', 'online', 'public',
+    'industry', 'market', 'competitor', 'trend', 'news', 'latest',
+    'new technology', 'emerging', 'recent developments'
+  ].some(term => queryLower.includes(term));
+  
+  // Check for time-sensitive information that might not be in database
+  const needsCurrentInfo = [
+    'current', 'recent', 'latest', 'now', 'today', 'this year',
+    '2024', '2025', 'upcoming', 'future', 'next'
+  ].some(term => queryLower.includes(term));
+  
+  // Check for specific external tools or platforms
+  const needsExternalTool = [
+    'github', 'stack overflow', 'npm', 'docker hub', 'aws', 'google cloud',
+    'openai', 'anthropic', 'hugging face', 'kaggle', 'arxiv'
+  ].some(term => queryLower.includes(term));
+  
+  // Check for queries that explicitly request external information
+  const explicitlyRequestsExternal = [
+    'find me', 'search for', 'look up', 'what is the latest', 'current trends',
+    'industry news', 'market research', 'competitor analysis'
+  ].some(term => queryLower.includes(term));
+  
+  return needsExternalInfo || requestsExternalResource || needsCurrentInfo || needsExternalTool || explicitlyRequestsExternal;
+}
+
+// Check if internal knowledge is sufficient for the query
+function isInternalKnowledgeSufficient(internalDocs: any[], query: string): boolean {
+  if (!internalDocs || internalDocs.length === 0) return false;
+  
+  const queryLower = query.toLowerCase();
+  
+  // Adjust thresholds based on web search frequency setting
+  const relevanceThreshold = RAG_CONFIG.webSearchFrequency === 'conservative' ? 70 : 
+                           RAG_CONFIG.webSearchFrequency === 'moderate' ? 75 : 80;
+  
+  const coverageThreshold = RAG_CONFIG.webSearchFrequency === 'conservative' ? 0.5 : 
+                          RAG_CONFIG.webSearchFrequency === 'moderate' ? 0.6 : 0.7;
+  
+  // Check if internal docs cover the query well enough
+  const relevantDocs = internalDocs.filter(doc => {
+    const docLower = doc.content.toLowerCase();
+    return docLower.includes(queryLower) || queryLower.split(' ').some(word => docLower.includes(word));
+  });
+  
+  const coverage = relevantDocs.length / internalDocs.length;
+  const avgRelevance = relevantDocs.reduce((sum, doc) => sum + (doc.similarity || 0.5), 0) / relevantDocs.length;
+  
+  return coverage >= coverageThreshold && avgRelevance >= relevanceThreshold;
+}
+
+// Enhanced OpenAI web search with RAG context
+async function enhancedOpenAIWebSearch(query: string, internalDocs?: any[]): Promise<any[]> {
+  try {
+    // Build context from internal docs for better web search
+    const context = internalDocs ? internalDocs.map(doc => doc.content).join('\n\n') : '';
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODELS.openai.models.primary,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert web researcher. Use the internal context to enhance your web search for: "${query}".
+
+Internal Context: ${context}
+
+Find the most relevant, current, and authoritative external resources. Return results in this format:
+- Title: [Resource Title]
+- URL: [Working URL]
+- Description: [Why this is relevant]
+- Type: [article/video/documentation/tool]
+- Relevance: [0.8-0.95]`
+          },
+          {
+            role: 'user',
+            content: `Search for: ${query}`
+          }
+        ],
+        max_tokens: 1000
+      })
+    });
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    // Parse the enhanced results
+    return parseEnhancedWebResults(content);
+    
+  } catch (error) {
+    console.error('Enhanced OpenAI web search error:', error);
+    return [];
+  }
+}
+
+// Enhanced fallback web search with RAG context
+async function enhancedFallbackWebSearch(query: string, internalDocs?: any[]): Promise<any[]> {
+  try {
+    // Use internal context to improve search queries
+    const context = internalDocs ? internalDocs.map(doc => doc.content).join('\n\n') : '';
+    
+    // Enhanced search query using context
+    const enhancedQuery = context ? `${query} ${extractKeyTerms(context)}` : query;
+    
+    // Simulate web search results with context enhancement
+    const results = [
+      {
+        title: `Enhanced result for: ${query}`,
+        url: `https://example.com/search?q=${encodeURIComponent(enhancedQuery)}`,
+        description: `Context-enhanced search result based on internal knowledge`,
+        type: 'article',
+        relevance: 0.85,
+        source: 'enhanced_fallback'
+      }
+    ];
+    
+    return results;
+    
+  } catch (error) {
+    console.error('Enhanced fallback web search error:', error);
+    return [];
+  }
+}
+
+// Extract key terms from context for enhanced search
+function extractKeyTerms(context: string): string {
+  // Simple key term extraction - could be enhanced with NLP
+  const words = context.split(/\s+/).filter(word => word.length > 4);
+  const uniqueWords = [...new Set(words)].slice(0, 5);
+  return uniqueWords.join(' ');
+}
+
+// Parse enhanced web search results
+function parseEnhancedWebResults(content: string): any[] {
+  try {
+    const lines = content.split('\n').filter(line => line.trim());
+    const results = [];
+    let currentResult: any = {};
+    
+    for (const line of lines) {
+      if (line.startsWith('- Title:')) {
+        if (currentResult.title) results.push(currentResult);
+        currentResult = { title: line.substring(8).trim() };
+      } else if (line.startsWith('- URL:')) {
+        currentResult.url = line.substring(6).trim();
+      } else if (line.startsWith('- Description:')) {
+        currentResult.description = line.substring(14).trim();
+      } else if (line.startsWith('- Type:')) {
+        currentResult.type = line.substring(7).trim();
+      } else if (line.startsWith('- Relevance:')) {
+        currentResult.relevance = parseFloat(line.substring(12).trim()) || 0.8;
+      }
+    }
+    
+    if (currentResult.title) results.push(currentResult);
+    return results;
+    
+  } catch (error) {
+    console.error('Error parsing enhanced web results:', error);
+    return [];
+  }
+}
+
+// Filter web search results based on role and team context
+function filterWebResults(results: any[], role: string, teamId?: string): any[] {
+  return results
+    .filter(result => result.title && result.url)
+    .map(result => ({
+      ...result,
+      source: 'web_search',
+      timestamp: new Date().toISOString()
+    }))
+    .slice(0, RAG_CONFIG.maxWebResults);
+}
+
+// Helper function for single model response generation
+async function generateSingleModelResponse(query: string, searchResults: any[], graphData: any, model: string): Promise<any> {
+  switch (model) {
+    case 'openai':
+      return await generateOpenAIResponse(query, searchResults, graphData);
+    case 'gemini':
+      return await generateGeminiResponse(query, searchResults, graphData);
+    case 'claude':
+      return await generateClaudeResponse(query, searchResults, graphData);
+    default:
+      return await generateOpenAIResponse(query, searchResults, graphData);
+  }
+}

@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { TeamDashboard } from "../TeamDashboard";
 import { MessagingCenter } from "../MessagingCenter";
 import { ProgressTracker } from "../ProgressTracker";
-import { EnhancedResourceOracle } from "../EnhancedResourceOracle";
+import { SuperOracle } from "../SuperOracle";
 import { UserProfileEditor } from "../UserProfileEditor";
 import type { Team, Member, Update, UserRole } from "@/types/oracle";
 
@@ -318,9 +318,10 @@ export const BuilderDashboard = ({
         </TabsContent>
 
         <TabsContent value="oracle">
-          <EnhancedResourceOracle 
+          <SuperOracle 
             selectedRole="builder"
             teamId={teamId}
+            userId={builderId}
           />
         </TabsContent>
 

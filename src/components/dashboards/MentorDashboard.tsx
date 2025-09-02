@@ -170,7 +170,7 @@ export const MentorDashboard = ({ teams, members, updates, teamStatuses, mentorI
                       try {
                         setReqLoading(true);
                         const prompt = `Summarize mentor requests for my assigned teams. Highlight critical blockers, duplicates, and propose next 3 actions per theme.`;
-                        const { data, error } = await supabase.functions.invoke('enhanced-oracle', {
+                        const { data, error } = await supabase.functions.invoke('super-oracle', {
                           body: { query: prompt, role: 'mentor', userId: mentorId }
                         });
                         if (error) throw error;

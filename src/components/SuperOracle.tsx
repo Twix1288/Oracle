@@ -1,1404 +1,1234 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  Bot, 
-  Send, 
-  Sparkles, 
-  Users, 
-  Hash, 
-  Zap,
-  MessageSquare,
-  Star,
-  Play,
-  Link as LinkIcon,
-  User,
-  Crown,
-  Shield,
-  Heart,
-  Loader2,
-  Activity
-} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Sparkles, Zap, MessageSquare, FileText, Calendar, Users, Send, Brain, Network, Cpu, BarChart3, Globe, Layers } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import type { UserRole } from "@/types/oracle";
 import ReactMarkdown from "react-markdown";
 
 interface SuperOracleProps {
   selectedRole: UserRole;
   teamId?: string;
+  userId?: string;
 }
 
-interface ChatMessage {
-  id: string;
-  type: 'user' | 'oracle' | 'system';
-  content: string;
-  timestamp: string;
-  author?: {
-    name: string;
-    role: UserRole;
-    avatar?: string;
-  };
-  metadata?: {
-    command?: string;
-    sources?: number;
-    resources?: OracleResource[];
-    mentions?: string[];
-    confidence?: number;
-    stage?: string;
-  };
+interface SuperOracleResponse {
+  answer: string;
+  sources: number;
+  context_used: boolean;
+  model_used: string;
+  confidence: number;
+  processing_time: number;
+  graph_data?: any;
+  multi_model_insights?: any;
+  resources?: any[];
+  connections?: any[];
+  entities?: any[];
+  relationships?: any[];
+  search_strategy: string;
+  fallback_used: boolean;
+  commandExecuted?: boolean;
+  commandType?: string;
+  commandResult?: any;
   sections?: {
-    answer: string;
-    resources?: OracleResource[];
-    actions?: string[];
-    mentions?: string[];
+    update?: string;
+    progress?: string;
+    event?: string;
   };
+  query?: string;
+  timestamp?: string;
 }
 
-interface OracleResource {
-  title: string;
-  url: string;
-  type: 'youtube' | 'article' | 'documentation' | 'tutorial' | 'tool';
-  description: string;
-  relevance: number;
+interface RolePermissions {
+  canViewTeamData: boolean;
+  canEditOwnProgress: boolean;
+  canSendMessages: boolean;
+  canChangeOracleState: boolean;
+  canViewAllTeams?: boolean;
+  canSendBroadcasts?: boolean;
+  canEditAnyTeam?: boolean;
+  canUseGraphRAG?: boolean;
+  canUseMultiModel?: boolean;
 }
 
-interface SlashCommand {
-  command: string;
-  description: string;
-  usage: string;
-  roleRequired: UserRole[];
-  category: 'team' | 'user' | 'oracle' | 'admin';
-}
-
-const SLASH_COMMANDS: SlashCommand[] = [
-  {
-    command: '/help',
-    description: 'Show all available commands',
-    usage: '/help',
-    roleRequired: ['builder', 'mentor', 'lead', 'guest'],
-    category: 'oracle'
+const rolePermissions: Record<UserRole, RolePermissions> = {
+  builder: {
+    canViewTeamData: true,
+    canEditOwnProgress: true,
+    canSendMessages: true,
+    canChangeOracleState: false,
+    canUseGraphRAG: true,
+    canUseMultiModel: true
   },
-  {
-    command: '/status',
-    description: 'Check team or user status',
-    usage: '/status [@user | @team]',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'team'
+  lead: {
+    canViewTeamData: true,
+    canEditOwnProgress: true,
+    canSendMessages: true,
+    canChangeOracleState: true,
+    canViewAllTeams: true,
+    canSendBroadcasts: true,
+    canEditAnyTeam: true,
+    canUseGraphRAG: true,
+    canUseMultiModel: true
   },
-  {
-    command: '/update',
-    description: 'Log progress update',
-    usage: '/update your progress description',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'team'
+  mentor: {
+    canViewTeamData: true,
+    canEditOwnProgress: false,
+    canSendMessages: true,
+    canChangeOracleState: false,
+    canViewAllTeams: true,
+    canSendBroadcasts: true,
+    canUseGraphRAG: true,
+    canUseMultiModel: true
   },
-  {
-    command: '/message',
-    description: 'Send message to user or team',
-    usage: '/message @target your message OR /message builders hello everyone',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'team'
+  guest: {
+    canViewTeamData: false,
+    canEditOwnProgress: false,
+    canSendMessages: true,
+    canChangeOracleState: false,
+    canUseGraphRAG: false,
+    canUseMultiModel: false
   },
-  {
-    command: '/chat',
-    description: 'Start team conversation',
-    usage: '/chat your message to the team',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'team'
-  },
-  {
-    command: '/find',
-    description: 'Find team members by skills',
-    usage: '/find [skill | expertise]',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'user'
-  },
-  {
-    command: '/resources',
-    description: 'Get curated resources for your project',
-    usage: '/resources [topic | technology]',
-    roleRequired: ['builder', 'mentor', 'lead', 'guest'],
-    category: 'oracle'
-  },
-  {
-    command: '/analyze',
-    description: 'Deep analysis of team progress',
-    usage: '/analyze [@team | overall]',
-    roleRequired: ['mentor', 'lead'],
-    category: 'admin'
-  },
-  {
-    command: '/broadcast',
-    description: 'Send announcement to all teams',
-    usage: '/broadcast your announcement',
-    roleRequired: ['lead'],
-    category: 'admin'
-  },
-  {
-    command: '/connect',
-    description: 'Find people to help with specific challenges',
-    usage: '/connect [challenge or skill needed]',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'user'
-  },
-  {
-    command: '/progress',
-    description: 'View team progress and milestones',
-    usage: '/progress [team_name]',
-    roleRequired: ['builder', 'mentor', 'lead'],
-    category: 'team'
-  }
-];
-
-const getRoleIcon = (role: UserRole) => {
-  switch (role) {
-    case 'lead': return <Crown className="h-3 w-3 text-purple-400" />;
-    case 'mentor': return <Shield className="h-3 w-3 text-green-400" />;
-    case 'builder': return <Zap className="h-3 w-3 text-blue-400" />;
-    default: return <User className="h-3 w-3 text-gray-400" />;
+  unassigned: {
+    canViewTeamData: false,
+    canEditOwnProgress: false,
+    canSendMessages: false,
+    canChangeOracleState: false,
+    canUseGraphRAG: false,
+    canUseMultiModel: false
   }
 };
 
-const getRoleColor = (role: UserRole) => {
-  switch (role) {
-    case 'lead': return 'text-purple-400';
-    case 'mentor': return 'text-green-400';
-    case 'builder': return 'text-blue-400';
-    default: return 'text-gray-400';
-  }
-};
-
-export const SuperOracle = ({ selectedRole, teamId }: SuperOracleProps) => {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) => {
+  const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showCommands, setShowCommands] = useState(false);
-  const [showMentions, setShowMentions] = useState(false);
-  const [availableUsers, setAvailableUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<{ full_name: string; role: string; id: string }[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [responses, setResponses] = useState<SuperOracleResponse[]>([]);
+  const [activeTab, setActiveTab] = useState("chat");
+  const [enableGraphRAG, setEnableGraphRAG] = useState(false);
+  const [enableMultiModel, setEnableMultiModel] = useState(false);
+  const [preferredModel, setPreferredModel] = useState<'auto' | 'openai' | 'gemini' | 'claude'>('auto');
+  const [queryType, setQueryType] = useState<'chat' | 'resources' | 'connect' | 'analyze' | 'graph' | 'multi_model'>('chat');
   const { toast } = useToast();
-  const { profile } = useAuth();
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const permissions = rolePermissions[selectedRole];
 
+  // Initialize GraphRAG and MultiModel based on role permissions
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    setEnableGraphRAG(permissions.canUseGraphRAG || false);
+    setEnableMultiModel(permissions.canUseMultiModel || false);
+  }, [permissions]);
 
-  // Fetch available users for mentions
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, role')
-        .not('full_name', 'is', null);
-      
-      if (data) {
-        setAvailableUsers(data.map(user => ({
-          id: user.id,
-          full_name: user.full_name || 'Unknown',
-          role: user.role || 'guest'
-        })));
+  // Slash command patterns - the main Oracle commands
+  const detectSlashCommand = (text: string) => {
+    const trimmed = text.trim();
+    
+    // Guest can only use /motivation and /status
+    if (selectedRole === 'guest') {
+      if (trimmed.startsWith('/motivation')) {
+        return { type: 'motivation', query: trimmed.substring(11).trim() || 'motivation' };
       }
-    };
-    
-    fetchUsers();
-  }, []);
-
-  // Subscribe to broadcast messages
-  useEffect(() => {
-    const broadcastSubscription = supabase
-      .channel('broadcast-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `sender_role=eq.lead`
-        },
-        async (payload) => {
-          const message = payload.new;
-          
-          // Check if message is a broadcast (simple check for broadcast prefix)
-          if (message.content?.startsWith('📢 BROADCAST')) {
-            const broadcastMessage: ChatMessage = {
-              id: message.id,
-              type: 'system',
-              content: `📢 **Broadcast Message**\n\n${message.content}\n\n*From: ${message.sender_role}*`,
-              timestamp: message.created_at,
-              author: {
-                name: message.sender_role === selectedRole ? 'You' : `${message.sender_role} User`,
-                role: message.sender_role,
-                avatar: '📢'
-              },
-              metadata: {
-                command: message.command,
-                sources: message.sources,
-                resources: message.resources
-              }
-            };
-
-            setMessages(prev => [...prev, broadcastMessage]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(broadcastSubscription);
-    };
-  }, [teamId, selectedRole]);
-
-  useEffect(() => {
-    // Add welcome message
-    const welcomeMessage: ChatMessage = {
-      id: 'welcome',
-      type: 'oracle',
-      content: `🛸 **Welcome to the PieFi Oracle, ${profile?.full_name || 'Explorer'}!**
-
-I'm your intelligent AI companion with enhanced communication powers! I can:
-
-✨ **Answer questions** with context about your team and progress
-💬 **Send messages** to teammates or entire roles
-📝 **Log updates** and track your development journey
-👥 **Connect people** based on skills and expertise  
-⚡ **Execute commands** with natural language or slash commands
-
-**🎯 Try these messaging examples:**
-• \`/chat Hello team! How's the MVP coming along?\`
-• \`/message builders Great work on the frontend!\`
-• \`/update Completed user auth system today\`
-• "Send builders that the design is ready"
-• "Update: Fixed the login bug"
-
-**📚 And resource examples:**
-• \`/resources react hooks\`
-• \`/find someone who knows backend\`
-• "I need help with database design"
-
-The Oracle is now your communication hub + knowledge assistant!`,
-      timestamp: new Date().toISOString(),
-      author: {
-        name: 'Oracle',
-        role: 'guest' as UserRole,
-        avatar: '🛸'
-      },
-      metadata: {
-        confidence: 100
+      if (trimmed.startsWith('/status')) {
+        return { type: 'status', query: 'team status update' };
       }
-    };
-    setMessages([welcomeMessage]);
-  }, [profile]);
-
-  const parseMessage = (text: string) => {
-    const mentions = text.match(/@(\w+)/g) || [];
-    const commands = text.match(/\/(\w+)/g) || [];
-    
-    return {
-      mentions: mentions.map(m => m.slice(1)),
-      commands: commands.map(c => c.slice(1)),
-      hasSlashCommand: text.startsWith('/')
-    };
-  };
-
-  const executeSlashCommand = async (command: string, args: string[]) => {
-    const cmd = SLASH_COMMANDS.find(c => c.command === `/${command}`);
-    
-    if (!cmd) {
-      return {
-        success: false,
-        message: `Unknown command: /${command}. Type /help to see available commands.`
-      };
+      return null;
     }
 
-    if (!cmd.roleRequired.includes(selectedRole)) {
-      return {
-        success: false,
-        message: `You don't have permission to use /${command}. Required roles: ${cmd.roleRequired.join(', ')}`
-      };
+    // All roles can use these commands
+    if (trimmed.startsWith('/resources ')) {
+      return { type: 'resources', query: trimmed.substring(11).trim() };
     }
+    if (trimmed.startsWith('/connect ') || trimmed.startsWith('/find ')) {
+      const query = trimmed.startsWith('/connect') ? trimmed.substring(9).trim() : trimmed.substring(6).trim();
+      return { type: 'connect', query };
+    }
+    if (trimmed.startsWith('/help')) {
+      return { type: 'help', query: 'help' };
+    }
+    if (trimmed.startsWith('/message ')) {
+      return { type: 'message', query: trimmed.substring(9).trim() };
+    }
+    if (trimmed.startsWith('/update ')) {
+      return { type: 'update', query: trimmed.substring(8).trim() };
+    }
+    
+    return null;
+  };
 
+  const checkCommandPermission = (commandType: string) => {
+    switch (commandType) {
+      case 'logProgress':
+        return permissions.canEditOwnProgress;
+      case 'sendMessage':
+        return permissions.canSendMessages;
+      case 'broadcastUpdate':
+        return permissions.canSendBroadcasts || false;
+      case 'getTeamStatus':
+        return permissions.canViewTeamData;
+      default:
+        return true;
+    }
+  };
+
+  const executeCommand = async (commandType: string, match: RegExpMatchArray, originalQuery: string) => {
     try {
-      switch (command) {
-        case 'help':
-          const availableCommands = SLASH_COMMANDS.filter(c => c.roleRequired.includes(selectedRole));
-          const categorizedCommands = availableCommands.reduce((acc, cmd) => {
-            if (!acc[cmd.category]) acc[cmd.category] = [];
-            acc[cmd.category].push(cmd);
-            return acc;
-          }, {} as Record<string, SlashCommand[]>);
-          
-          let helpMessage = `**🛸 Oracle Command Center - ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} Commands**\n\n`;
-          
-          Object.entries(categorizedCommands).forEach(([category, commands]) => {
-            const categoryEmoji = {
-              'oracle': '🔮',
-              'team': '👥',
-              'user': '🧑',
-              'admin': '⚡'
-            }[category] || '📋';
-            
-            helpMessage += `**${categoryEmoji} ${category.charAt(0).toUpperCase() + category.slice(1)} Commands:**\n`;
-            commands.forEach(cmd => {
-              helpMessage += `• \`${cmd.command}\` - ${cmd.description}\n  *Usage:* ${cmd.usage}\n\n`;
+      switch (commandType) {
+        case 'logProgress':
+          const progressContent = match[4] || match[0];
+          if (teamId) {
+            const { error } = await supabase.from('updates').insert({
+              team_id: teamId,
+              content: progressContent,
+              type: 'daily',
+              created_by: userId || `${selectedRole}_user`
             });
-          });
-          
-          helpMessage += `**💡 Pro Tips:**\n• Use @username to mention team members\n• Ask natural language questions\n• The Oracle remembers your context and role\n• Try asking "Who can help me with [skill]?"`;
-          
-          return {
-            success: true,
-            message: helpMessage
-          };
-
-        case 'status':
-          if (args.length === 0) {
-            // Show current user/team status
-            const { data: teamData } = await supabase
-              .from('teams')
-              .select('*, team_status(*)')
-              .eq('id', teamId)
-              .single();
+            
+            if (error) throw error;
             
             return {
               success: true,
-              message: `**Team Status:**\n${teamData?.name}: ${teamData?.team_status?.[0]?.current_status || 'No status set'}`
+              message: `✅ Progress logged: "${progressContent}"`,
+              sections: {
+                update: progressContent,
+                progress: "Update successfully recorded in team log"
+              }
             };
           }
           break;
 
-        case 'find':
-          const skill = args.join(' ');
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('full_name, role, skills, help_needed, experience_level')
-            .or(`skills.cs.{${skill}},help_needed.cs.{${skill}},experience_level.ilike.%${skill}%`);
-          
-          if (profiles && profiles.length > 0) {
-            return {
-              success: true,
-              message: `**🔍 Found ${profiles.length} people related to "${skill}":**\n\n${profiles.map(p => 
-                `• **${p.full_name}** (${p.role})\n  💪 Skills: ${p.skills?.join(', ') || 'None listed'}\n  🤝 Can help with: ${p.help_needed?.join(', ') || 'Not specified'}\n  📊 Experience: ${p.experience_level || 'Not specified'}`
-              ).join('\n\n')}\n\n💡 *Tip: Use @username to message them directly!*`
-            };
-          } else {
-            return {
-              success: true,
-              message: `❌ No team members found related to "${skill}". Try different keywords or ask the Oracle for alternative approaches.`
-            };
-          }
-
-        case 'connect':
-          const challenge = args.join(' ');
-          const { data: helpProfiles } = await supabase
-            .from('profiles')
-            .select('full_name, role, skills, bio, experience_level')
-            .not('skills', 'is', null);
-          
-          if (helpProfiles && helpProfiles.length > 0) {
-            const relevantPeople = helpProfiles.filter(p => 
-              p.skills?.some(skill => 
-                challenge.toLowerCase().includes(skill.toLowerCase()) ||
-                skill.toLowerCase().includes(challenge.toLowerCase())
-              ) || 
-              p.bio?.toLowerCase().includes(challenge.toLowerCase())
-            ).slice(0, 3);
-            
-            if (relevantPeople.length > 0) {
-              return {
-                success: true,
-                message: `**🤝 People who can help with "${challenge}":**\n\n${relevantPeople.map(p => 
-                  `• **@${p.full_name}** (${p.role})\n  💪 Relevant skills: ${p.skills?.filter(s => 
-                    challenge.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(challenge.toLowerCase())
-                  ).join(', ')}\n  📝 Bio: ${p.bio || 'No bio available'}`
-                ).join('\n\n')}\n\n🚀 *Reach out to them using @mentions or /message command!*`
-              };
-            }
-          }
-          
-          return {
-            success: true,
-            message: `🤔 No direct matches found for "${challenge}". Try asking the Oracle: "Who has experience with [specific technology/skill]?" or use broader terms.`
-          };
-
-        case 'progress':
-          const teamName = args.join(' ');
-          let teamQuery = supabase
-            .from('teams')
-            .select(`
-              name, stage, description,
-              team_status(current_status, last_update),
-              updates(content, created_at, type)
-            `);
-          
-          if (teamName) {
-            teamQuery = teamQuery.ilike('name', `%${teamName}%`);
-          } else if (teamId) {
-            teamQuery = teamQuery.eq('id', teamId);
-          }
-          
-          const { data: teamData } = await teamQuery;
-          
-          if (teamData && teamData.length > 0) {
-            const team = teamData[0];
-            const recentUpdates = team.updates?.slice(0, 3) || [];
-            
-            return {
-              success: true,
-              message: `**📊 Progress Report: ${team.name}**\n\n🎯 **Stage:** ${team.stage}\n📝 **Current Status:** ${team.team_status?.[0]?.current_status || 'No status set'}\n🕐 **Last Update:** ${team.team_status?.[0]?.last_update ? new Date(team.team_status[0].last_update).toLocaleDateString() : 'Never'}\n\n**📋 Recent Updates:**\n${recentUpdates.map(u => 
-                `• ${u.content} (${new Date(u.created_at).toLocaleDateString()})`
-              ).join('\n') || 'No recent updates'}\n\n💡 *Use /update to log new progress!*`
-            };
-          } else {
-            return {
-              success: true,
-              message: `❌ No team found${teamName ? ` matching "${teamName}"` : ''}. Make sure you're part of a team or specify the correct team name.`
-            };
-          }
-
-        case 'resources':
-          const topic = args.join(' ');
-          // Generate contextual resources through Oracle
-          const resourceResponse = await supabase.functions.invoke('super-oracle', {
-            body: {
-              query: `I need curated resources and tutorials for: ${topic}`,
-              role: selectedRole,
-              teamId,
-              userId: profile?.id,
-              userProfile: profile,
-              contextRequest: { 
-                needsResources: true, 
-                resourceTopic: topic,
-                needsTeamContext: !!teamId,
-                needsPersonalization: true
-              }
-            }
-          });
-          
-          if (resourceResponse.data?.resources && resourceResponse.data.resources.length > 0) {
-            const resources = resourceResponse.data.resources;
-            return {
-              success: true,
-              message: `**📚 Curated Resources for "${topic}":**\n\n${resources.map((r: any, idx: number) => 
-                `${idx + 1}. **[${r.title}](${r.url})** (${r.type})\n   ${r.description}\n   ⭐ Relevance: ${Math.round(r.relevance * 100)}%`
-              ).join('\n\n')}\n\n💡 *These resources are personalized based on your role, skills, and project context.*`
-            };
-          } else {
-            return {
-              success: true,
-              message: `🔍 No specific resources found for "${topic}". The Oracle is working on expanding the resource database. Try:\n\n• More specific technical terms (e.g., "React hooks" instead of "React")\n• Different variations ("API development", "REST APIs", "GraphQL")\n• Ask natural language questions like "How do I learn Python for data science?"`
-            };
-          }
-
-        case 'update':
-          if (teamId) {
-            const updateContent = args.join(' ');
-            const { error } = await supabase
-              .from('updates')
-              .insert({
-                team_id: teamId,
-                content: updateContent,
-                type: 'daily',
-                created_by: profile?.id
-              });
-            
-            if (!error) {
-              // Also update team status
-              const { error: statusError } = await supabase
-                .from('team_status')
-                .update({
-                  current_status: updateContent.substring(0, 200),
-                  last_update: new Date().toISOString()
-                })
-                .eq('team_id', teamId);
-              
-              if (statusError) {
-                console.error('Failed to update team status:', statusError);
-              }
-              
-              return {
-                success: true,
-                message: `✅ **Update Logged Successfully!**\n\n📝 **Content:** "${updateContent}"\n🕐 **Timestamp:** ${new Date().toLocaleString()}\n📊 **Status Updated:** Team dashboard refreshed\n\n💡 *Your team members and mentors can now see this update.*`
-              };
-            } else {
-              return {
-                success: false,
-                message: `❌ Failed to log update: ${error.message}`
-              };
-            }
-          } else {
-            return {
-              success: false,
-              message: `❌ No team assigned. You need to be part of a team to log updates.`
-            };
-          }
-
-        case 'chat':
-          const teamMessage = args.join(' ');
-          if (!teamMessage) {
-            return {
-              success: false,
-              message: `❌ Please provide a message. Usage: /chat your message to the team`
-            };
-          }
-          
-          if (!teamId) {
-            return {
-              success: false,
-              message: `❌ No team assigned. You need to be part of a team to use team chat.`
-            };
-          }
-          
-          // Send team chat message
-          const { error: chatError } = await supabase
-            .from('messages')
-            .insert({
-              sender_id: profile?.id,
+        case 'sendMessage':
+          const recipient = match[2];
+          const message = match[3];
+          if (message && recipient) {
+            // Actually send the message via Supabase
+            const { error } = await supabase.from('messages').insert({
+              sender_id: userId || `${selectedRole}_user`,
               sender_role: selectedRole,
-              receiver_role: 'builder', // Team messages target builders by default
-              content: `💬 **Team Chat:** ${teamMessage}`,
+              receiver_id: recipient,
+              receiver_role: 'builder', // Default to builder, could be enhanced to detect role
+              content: message,
               team_id: teamId
             });
-          
-          if (!chatError) {
+            
+            if (error) throw error;
+            
             return {
               success: true,
-              message: `✅ **Team Message Sent!**\n\n💬 **Content:** "${teamMessage}"\n👥 **Recipients:** All team members\n📱 **Delivery:** Available in Team Room and Messages\n\n💡 *Your team can see this in the Team Room tab.*`
-            };
-          } else {
-            return {
-              success: false,
-              message: `❌ Failed to send team message: ${chatError.message}`
-            };
-          }
-
-        case 'message':
-          // Enhanced message command for both @mentions and role targeting
-          const firstArg = args[0] || '';
-          let targetMatch = '';
-          let messageContent = '';
-          
-          if (firstArg.startsWith('@')) {
-            // @mention format: /message @username your message
-            targetMatch = firstArg.slice(1);
-            messageContent = args.slice(1).join(' ');
-          } else if (['builders', 'mentors', 'leads', 'guests'].includes(firstArg.toLowerCase())) {
-            // Role targeting: /message builders hello everyone
-            const targetRole = firstArg.toLowerCase().slice(0, -1); // Remove 's'
-            messageContent = args.slice(1).join(' ');
-            
-            if (!messageContent) {
-              return {
-                success: false,
-                message: `❌ Please provide a message. Usage: /message ${firstArg} your message`
-              };
-            }
-            
-            // Send to all users of that role
-            const { error } = await supabase
-              .from('messages')
-              .insert({
-                sender_id: profile?.id,
-                sender_role: selectedRole,
-                receiver_role: targetRole as UserRole,
-                content: `📢 **From ${selectedRole}:** ${messageContent}`,
-                team_id: teamId
-              });
-            
-            if (!error) {
-              return {
-                success: true,
-                message: `✅ **Message Sent to All ${firstArg}!**\n\n💬 **Content:** "${messageContent}"\n👥 **Recipients:** All ${firstArg} in the program\n📧 **Delivery:** Message delivered to their inboxes\n\n💡 *They will see this in their messaging center.*`
-              };
-            } else {
-              return {
-                success: false,
-                message: `❌ Failed to send message: ${error.message}`
-              };
-            }
-          } else {
-            return {
-              success: false,
-              message: `❌ Invalid format. Use:\n• \`/message @username your message\` for specific users\n• \`/message builders your message\` for all builders\n• \`/message mentors your message\` for all mentors`
-            };
-          }
-          
-          if (!targetMatch || !messageContent) {
-            return {
-              success: false,
-              message: `❌ Invalid message format. Use: /message @username your message content`
-            };
-          }
-          
-          // Find the target user
-          const { data: targetUser, error: userError } = await supabase
-            .from('profiles')
-            .select('id, full_name, role')
-            .ilike('full_name', `%${targetMatch}%`)
-            .maybeSingle();
-          
-          if (userError) {
-            return {
-              success: false,
-              message: `❌ Error finding user: ${userError.message}`
-            };
-          }
-          
-          if (targetUser) {
-            const { error } = await supabase
-              .from('messages')
-              .insert({
-                sender_id: profile?.id,
-                sender_role: selectedRole,
-                receiver_id: targetUser.id,
-                receiver_role: targetUser.role,
-                content: messageContent,
-                team_id: teamId
-              });
-            
-            if (!error) {
-              return {
-                success: true,
-                message: `✅ **Message Sent Successfully!**\n\n👤 **To:** ${targetUser.full_name} (${targetUser.role})\n💬 **Content:** "${messageContent}"\n📧 **Delivery:** Message delivered to their inbox\n\n💡 *They will see this message in their Oracle or messaging center.*`
-              };
-            } else {
-              return {
-                success: false,
-                message: `❌ Failed to send message: ${error.message}`
-              };
-            }
-          } else {
-            return {
-              success: false,
-              message: `❌ User "${targetMatch}" not found. Try using their exact name or check spelling.`
-            };
-          }
-
-        case 'analyze':
-          if (selectedRole === 'mentor' || selectedRole === 'lead') {
-            const target = args.join(' ') || 'overall';
-            
-            if (target === 'overall') {
-              // Get overall program analytics
-              const { data: allTeams } = await supabase
-                .from('teams')
-                .select(`
-                  name, stage, created_at,
-                  team_status(current_status, last_update),
-                  updates(created_at, type)
-                `);
-              
-              if (allTeams) {
-                const totalTeams = allTeams.length;
-                const stageDistribution = allTeams.reduce((acc, team) => {
-                  acc[team.stage] = (acc[team.stage] || 0) + 1;
-                  return acc;
-                }, {} as Record<string, number>);
-                
-                const activeTeams = allTeams.filter(team => 
-                  team.team_status?.[0]?.last_update && 
-                  new Date(team.team_status[0].last_update) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                ).length;
-                
-                const avgUpdatesPerTeam = allTeams.reduce((acc, team) => acc + (team.updates?.length || 0), 0) / totalTeams;
-                
-                return {
-                  success: true,
-                  message: `**📊 Overall Program Analysis**\n\n🏢 **Program Overview:**\n• Total Teams: ${totalTeams}\n• Active Teams (last 7 days): ${activeTeams}\n• Activity Rate: ${Math.round((activeTeams/totalTeams)*100)}%\n\n🎯 **Stage Distribution:**\n${Object.entries(stageDistribution).map(([stage, count]) => 
-                    `• ${stage.charAt(0).toUpperCase() + stage.slice(1)}: ${count} teams (${Math.round((count/totalTeams)*100)}%)`
-                  ).join('\n')}\n\n📈 **Engagement Metrics:**\n• Average Updates per Team: ${avgUpdatesPerTeam.toFixed(1)}\n• Teams needing attention: ${totalTeams - activeTeams}\n\n💡 *Use /analyze @teamname for specific team insights.*`
-                };
+              message: `Message sent to ${recipient}: "${message}"`,
+              sections: {
+                event: `Message delivered to ${recipient}`
               }
-            } else {
-              // Analyze specific team
-              const { data: teamAnalysis } = await supabase
-                .from('teams')
-                .select(`
-                  name, stage, created_at, description,
-                  team_status(current_status, last_update, pending_actions),
-                  updates(content, created_at, type, created_by),
-                  profiles!profiles_team_id_fkey(full_name, role, skills, last_login:updated_at)
-                `)
-                .ilike('name', `%${target}%`)
-                .single();
-              
-              if (teamAnalysis) {
-                const daysSinceLastUpdate = teamAnalysis.team_status?.[0]?.last_update 
-                  ? Math.floor((Date.now() - new Date(teamAnalysis.team_status[0].last_update).getTime()) / (1000 * 60 * 60 * 24))
-                  : 999;
-                
-                const recentUpdates = teamAnalysis.updates?.filter(u => 
-                  new Date(u.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                ).length || 0;
-                
-                const teamMembers = teamAnalysis.profiles?.length || 0;
-                
-                let healthScore = 100;
-                if (daysSinceLastUpdate > 7) healthScore -= 30;
-                if (recentUpdates < 3) healthScore -= 20;
-                if (teamMembers < 2) healthScore -= 25;
-                
-                const healthStatus = healthScore >= 80 ? '🟢 Excellent' : 
-                                   healthScore >= 60 ? '🟡 Good' : 
-                                   healthScore >= 40 ? '🟠 Needs Attention' : '🔴 Critical';
-                
-                return {
-                  success: true,
-                  message: `**📊 Team Analysis: ${teamAnalysis.name}**\n\n🎯 **Team Health Score:** ${healthScore}/100 ${healthStatus}\n\n📈 **Key Metrics:**\n• Stage: ${teamAnalysis.stage}\n• Team Size: ${teamMembers} members\n• Days Since Last Update: ${daysSinceLastUpdate}\n• Weekly Updates: ${recentUpdates}\n\n👥 **Team Composition:**\n${teamAnalysis.profiles?.map(p => 
-                    `• ${p.full_name} (${p.role}) - ${p.skills?.slice(0,2).join(', ') || 'No skills listed'}`
-                  ).join('\n') || 'No members found'}\n\n🚨 **Recommendations:**\n${daysSinceLastUpdate > 7 ? '• Encourage regular updates\n' : ''}${recentUpdates < 3 ? '• Increase communication frequency\n' : ''}${teamMembers < 2 ? '• Consider team expansion\n' : ''}${healthScore >= 80 ? '• Team is performing excellently!' : ''}`
-                };
-              } else {
-                return {
-                  success: false,
-                  message: `❌ Team "${target}" not found. Use /analyze overall for program-wide analysis.`
-                };
-              }
-            }
-          } else {
-            return {
-              success: false,
-              message: `❌ Analysis command requires mentor or lead privileges.`
             };
           }
+          break;
 
-        case 'broadcast':
-          if (selectedRole === 'lead') {
-            const announcement = args.join(' ');
-            if (!announcement) {
-              return {
-                success: false,
-                message: `❌ Please provide an announcement message. Usage: /broadcast your message`
-              };
-            }
-            
-            // Get all team members
-            const { data: allProfiles } = await supabase
-              .from('profiles')
-              .select('id, role, team_id');
-            
-            if (allProfiles) {
-              const broadcasts = allProfiles.map(profile => ({
-                sender_id: profile?.id,
+        case 'broadcastUpdate':
+          const broadcastMessage = match[2];
+          if (broadcastMessage) {
+            // Send broadcast message to all teams
+            const { data: allTeams } = await supabase.from('teams').select('id');
+            if (allTeams) {
+              const broadcasts = allTeams.map(team => ({
+                sender_id: userId || `${selectedRole}_user`,
                 sender_role: selectedRole,
-                receiver_id: profile.id,
-                receiver_role: profile.role,
-                content: `📢 **PROGRAM ANNOUNCEMENT**\n\n${announcement}\n\n*From Program Leadership*`,
-                team_id: profile.team_id
+                receiver_role: 'builder' as any,
+                content: `BROADCAST: ${broadcastMessage}`,
+                team_id: team.id
               }));
               
-              const { error } = await supabase
-                .from('messages')
-                .insert(broadcasts);
-              
-              if (!error) {
-                // Also log as a system update
-                await supabase
-                  .from('updates')
-                  .insert({
-                    team_id: teamId || '00000000-0000-0000-0000-000000000000',
-                    content: `BROADCAST: ${announcement}`,
-                    type: 'milestone' as any,
-                    created_by: profile?.id
-                  });
-                
-                return {
-                  success: true,
-                  message: `✅ **Broadcast Sent Successfully!**\n\n📢 **Announcement:** "${announcement}"\n👥 **Recipients:** ${allProfiles.length} program participants\n📧 **Delivery:** All participants notified\n📝 **Logged:** Announcement recorded in system\n\n💡 *All team members will see this announcement in their Oracle and messaging systems.*`
-                };
-              } else {
-                return {
-                  success: false,
-                  message: `❌ Failed to send broadcast: ${error.message}`
-                };
-              }
+              const { error } = await supabase.from('messages').insert(broadcasts);
+              if (error) throw error;
             }
-          } else {
+            
             return {
-              success: false,
-              message: `❌ Broadcast command requires lead privileges.`
+              success: true,
+              message: `Broadcast sent to all teams: "${broadcastMessage}"`,
+              sections: {
+                event: "Broadcast message delivered to all teams"
+              }
             };
           }
+          break;
 
         default:
-          return {
-            success: false,
-            message: `❌ **Command Not Found**\n\nUnknown command: \`/${command}\`\n\n💡 Use \`/help\` to see all available commands for your role (${selectedRole}).`
-          };
+          return null;
       }
     } catch (error) {
+      console.error('Command execution error:', error);
       return {
         success: false,
-        message: `Error executing command: ${error.message}`
+        message: `❌ Failed to execute command: ${error.message}`
       };
     }
-
-    return {
-      success: false,
-      message: `Failed to execute /${command}`
-    };
-  };
-
-  const queryOracle = async (query: string) => {
-    try {
-      const response = await supabase.functions.invoke('super-oracle', {
-        body: {
-          query,
-          role: selectedRole,
-          teamId,
-          userId: profile?.id,
-          userProfile: profile,
-          contextRequest: {
-            needsResources: true,
-            needsMentions: true, // Always request mentions for enhanced responses
-            needsTeamContext: true,
-            needsPersonalization: true
-          }
-        }
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Oracle function error');
-      }
-
-      if (!response.data) {
-        throw new Error('No response data from Oracle');
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error('Oracle query error:', error);
-      throw error;
-    }
-  };
-
-  const handleMentionSelect = (user: { full_name: string; role: string; id: string }) => {
-    const currentCursorPos = inputRef.current?.selectionStart || 0;
-    const beforeCursor = message.substring(0, currentCursorPos);
-    const afterCursor = message.substring(currentCursorPos);
-    
-    // Find the @ symbol before cursor
-    const lastAtIndex = beforeCursor.lastIndexOf('@');
-    if (lastAtIndex >= 0) {
-      const newMessage = beforeCursor.substring(0, lastAtIndex + 1) + user.full_name + ' ' + afterCursor;
-      setMessage(newMessage);
-    }
-    
-    setShowMentions(false);
-    setFilteredUsers([]);
-    inputRef.current?.focus();
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setMessage(value);
-    
-    // Check for @ mentions
-    const cursorPos = e.target.selectionStart || 0;
-    const beforeCursor = value.substring(0, cursorPos);
-    const lastAtIndex = beforeCursor.lastIndexOf('@');
-    
-    if (lastAtIndex >= 0 && lastAtIndex === cursorPos - 1) {
-      // Just typed @
-      setShowMentions(true);
-      setFilteredUsers(availableUsers);
-    } else if (lastAtIndex >= 0) {
-      const searchTerm = beforeCursor.substring(lastAtIndex + 1);
-      if (searchTerm && !searchTerm.includes(' ')) {
-        const filtered = availableUsers.filter(user => 
-          user.full_name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        setFilteredUsers(filtered);
-        setShowMentions(filtered.length > 0);
-      } else {
-        setShowMentions(false);
-        setFilteredUsers([]);
-      }
-    } else {
-      setShowMentions(false);
-      setFilteredUsers([]);
-    }
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || isLoading) return;
+    if (!query.trim()) return;
 
-    setShowMentions(false);
-    setFilteredUsers([]);
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: message,
-      timestamp: new Date().toISOString(),
-      author: {
-        name: profile?.full_name || 'You',
-        role: selectedRole,
-        avatar: profile?.avatar_url
-      }
-    };
-
-    // Check for broadcast command
-    const broadcastMatch = message.match(/^broadcast(?:\s+to\s+(all|team|role)\s+)?:\s*(.+)$/i);
-    if (broadcastMatch) {
-      const [_, targetType = 'all', content] = broadcastMatch;
-      try {
-        const { error } = await supabase.from('messages').insert({
-          sender_id: profile?.id || 'anonymous',
-          sender_role: selectedRole,
-          receiver_role: 'guest', // Send to all as guest role for broadcasts
-          content: `📢 BROADCAST (${targetType}): ${content.trim()}`,
-          team_id: targetType === 'team' ? teamId : null
-        });
-
-        if (error) throw error;
-
-        const systemMessage: ChatMessage = {
-          id: Date.now().toString() + '_broadcast',
-          type: 'system',
-          content: `✅ Broadcast sent to ${targetType}: "${content.trim()}"`,
-          timestamp: new Date().toISOString(),
-          author: {
-            name: 'System',
-            role: 'guest',
-            avatar: '📢'
-          }
-        };
-
-        setMessages(prev => [...prev, userMessage, systemMessage]);
-        setMessage("");
-        return;
-      } catch (error) {
-        console.error('Broadcast error:', error);
-        toast({
-          title: "Broadcast Error",
-          description: "Failed to send broadcast message. Please try again.",
-          variant: "destructive"
-        });
-      }
-    }
-
-    setMessages(prev => [...prev, userMessage]);
-    const currentMessage = message;
-    setMessage("");
     setIsLoading(true);
-
+    
     try {
-      const parsed = parseMessage(currentMessage);
+      // Check for slash commands first
+      const slashCommand = detectSlashCommand(query);
       
-      // Handle slash commands
-      if (parsed.hasSlashCommand) {
-        const [command, ...args] = currentMessage.slice(1).split(' ');
-        const result = await executeSlashCommand(command, args);
+      if (slashCommand) {
+        // Handle slash commands through Super Oracle with enhanced AI capabilities
+        let commandType = slashCommand.type;
+        let enhancedQuery = slashCommand.query;
         
-        const systemMessage: ChatMessage = {
-          id: Date.now().toString() + '_system',
-          type: 'system',
-          content: result.message,
-          timestamp: new Date().toISOString(),
-          author: {
-            name: 'System',
-            role: 'guest' as UserRole,
-            avatar: '⚡'
-          },
-          metadata: {
-            command: `/${command}`,
-            confidence: result.success ? 100 : 0
-          }
-        };
-        
-        setMessages(prev => [...prev, systemMessage]);
-        return;
-      }
-
-      // Check for natural language messaging/update intents
-      const messageIntent = currentMessage.match(/^(?:send|message|tell)\s+(.+?)\s+(?:that|:)\s+(.+)$/i);
-      const updateIntent = currentMessage.match(/^(?:update|log|record):\s*(.+)$/i);
-      
-      if (messageIntent) {
-        const [_, target, content] = messageIntent;
-        const result = await executeSlashCommand('message', [target, ...content.split(' ')]);
-        
-        const responseMessage: ChatMessage = {
-          id: Date.now().toString() + '_auto_message',
-          type: result.success ? 'oracle' : 'system',
-          content: result.message,
-          timestamp: new Date().toISOString(),
-          author: {
-            name: 'Oracle Assistant',
-            role: 'guest' as UserRole,
-            avatar: '📨'
-          },
-          metadata: {
-            command: 'auto-message',
-            confidence: result.success ? 95 : 50
-          }
-        };
-        
-        setMessages(prev => [...prev, responseMessage]);
-        return;
-      }
-      
-      if (updateIntent) {
-        const [_, updateContent] = updateIntent;
-        const result = await executeSlashCommand('update', updateContent.split(' '));
-        
-        const responseMessage: ChatMessage = {
-          id: Date.now().toString() + '_auto_update',
-          type: result.success ? 'oracle' : 'system',
-          content: result.message,
-          timestamp: new Date().toISOString(),
-          author: {
-            name: 'Oracle Assistant',
-            role: 'guest' as UserRole,
-            avatar: '📝'
-          },
-          metadata: {
-            command: 'auto-update',
-            confidence: result.success ? 95 : 50
-          }
-        };
-        
-        setMessages(prev => [...prev, responseMessage]);
-        return;
-      }
-
-      // Query the Oracle for intelligent response
-      const oracleResponse = await queryOracle(currentMessage);
-      
-      const oracleMessage: ChatMessage = {
-        id: Date.now().toString() + '_oracle',
-        type: 'oracle',
-        content: oracleResponse.answer,
-        timestamp: new Date().toISOString(),
-        author: {
-          name: 'Oracle',
-          role: 'guest' as UserRole,
-          avatar: '🛸'
-        },
-        metadata: {
-          sources: oracleResponse.sources,
-          confidence: oracleResponse.confidence || 95,
-          stage: oracleResponse.detected_stage
-        },
-        sections: {
-          answer: oracleResponse.answer,
-          resources: oracleResponse.resources || [],
-          actions: oracleResponse.next_actions || [],
-          mentions: parsed.mentions
+        // Enhance queries with context for better AI understanding
+        switch (commandType) {
+          case 'motivation':
+            enhancedQuery = `Find motivation and inspiration for: ${slashCommand.query || 'startup success'}. Include success stories, motivational content, and actionable advice.`;
+            commandType = 'resources';
+            break;
+          case 'status':
+            enhancedQuery = `Show me comprehensive team status updates, progress tracking, and recent activities for the PieFi accelerator. Include team milestones, achievements, and upcoming goals.`;
+            commandType = 'chat';
+            break;
+          case 'resources':
+            enhancedQuery = `Find high-quality, relevant resources for: ${slashCommand.query}. Include tutorials, documentation, tools, and best practices. Prioritize the most current and authoritative sources.`;
+            break;
+          case 'connect':
+            enhancedQuery = `Find relevant connections and networking opportunities for: ${slashCommand.query}. Include professionals, mentors, and experts in this field. Provide LinkedIn profiles and contact information when available.`;
+            break;
+          case 'find':
+            enhancedQuery = `Search for and connect with: ${slashCommand.query}. Find relevant people, resources, and opportunities.`;
+            commandType = 'connect';
+            break;
+          case 'help':
+            enhancedQuery = `Provide comprehensive help and guidance for the PieFi accelerator. Show available commands, features, and how to get the most out of the system.`;
+            commandType = 'chat';
+            break;
+          case 'message':
+            enhancedQuery = `Help me send a message: ${slashCommand.query}. Provide guidance on effective communication and help format the message appropriately.`;
+            commandType = 'chat';
+            break;
+          case 'update':
+            enhancedQuery = `Help me update progress: ${slashCommand.query}. Provide guidance on effective progress tracking and milestone documentation.`;
+            commandType = 'chat';
+            break;
         }
-      };
 
-      setMessages(prev => [...prev, oracleMessage]);
+        console.log('Enhanced slash command query:', enhancedQuery);
+
+        // Route through Super Oracle with enhanced capabilities
+        const response = await supabase.functions.invoke('super-oracle', {
+          body: {
+            query: enhancedQuery,
+            type: commandType,
+            role: selectedRole,
+            teamId,
+            userId,
+            context: { 
+              hasTeam: Boolean(teamId),
+              commandType: slashCommand.type,
+              originalQuery: slashCommand.query,
+              isSlashCommand: true
+            },
+            preferredModel,
+            enableGraphRAG: true, // Always enable GraphRAG for slash commands
+            enableMultiModel: enableMultiModel
+          }
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+
+        // Add response to history with enhanced metadata
+        const newResponse: SuperOracleResponse = {
+          ...response.data,
+          commandType: slashCommand.type,
+          commandExecuted: true,
+          query: query,
+          timestamp: new Date().toISOString()
+        };
+
+        setResponses(prev => [newResponse, ...prev]);
+        setQuery("");
+
+        toast({
+          title: `/${slashCommand.type} executed with Super Oracle`,
+          description: `Enhanced AI processing with ${response.data.model_used} and GraphRAG`,
+        });
+
+      } else {
+        // Handle regular queries through Super Oracle
+        console.log('Submitting to Super Oracle:', {
+          query,
+          type: queryType,
+          enableGraphRAG,
+          enableMultiModel,
+          preferredModel
+        });
+
+        const response = await supabase.functions.invoke('super-oracle', {
+          body: {
+            query: query.trim(),
+            type: queryType,
+            role: selectedRole,
+            teamId,
+            userId,
+            context: { hasTeam: Boolean(teamId) },
+            preferredModel,
+            enableGraphRAG,
+            enableMultiModel
+          }
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+
+        const newResponse: SuperOracleResponse = {
+          ...response.data,
+          query: query,
+          timestamp: new Date().toISOString()
+        };
+
+        setResponses(prev => [newResponse, ...prev]);
+        setQuery("");
+
+        toast({
+          title: `Super Oracle Response`,
+          description: `Processed in ${newResponse.processing_time}ms using ${newResponse.model_used}`,
+        });
+      }
 
     } catch (error) {
-      console.error('Oracle error:', error);
-      
-      // Create a more informative error message
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString() + '_error',
-        type: 'system',
-        content: `⚠️ **Oracle Temporarily Unavailable**
-
-I'm experiencing some technical difficulties, but don't worry - I'm working on it! 
-
-**🔧 What you can try:**
-• Rephrase your question in simpler terms
-• Try asking for specific resources like "I need React tutorials"
-• Use slash commands like \`/help\` or \`/resources python\`
-• Check back in a moment - I usually recover quickly
-
-**💡 The issue might be:**
-• Network connectivity
-• High server load
-• Temporary service maintenance
-
-I'll be back to full functionality soon! In the meantime, feel free to explore the available slash commands.`,
-        timestamp: new Date().toISOString(),
-        author: {
-          name: 'System',
-          role: 'guest' as UserRole,
-          avatar: '⚠️'
-        },
-        metadata: {
-          confidence: 0
-        }
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-      
+      console.error('Super Oracle query error:', error);
       toast({
-        title: "Oracle Connection Issue",
-        description: "The Oracle is temporarily unavailable. Please try again in a moment.",
-        variant: "destructive",
+        title: "Super Oracle Error",
+        description: "Failed to process your request. Please try again.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderMessage = (msg: ChatMessage) => {
-    const isUser = msg.type === 'user';
-    const isSystem = msg.type === 'system';
-    const isOracle = msg.type === 'oracle';
-    
-    return (
-      <div key={msg.id} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} mb-4`}>
-        <Avatar className="h-8 w-8">
-          {msg.author?.avatar?.startsWith('http') ? (
-            <AvatarImage src={msg.author.avatar} alt={msg.author.name} />
-          ) : (
-            <AvatarFallback className={`text-xs ${
-              isOracle ? 'bg-primary/20 text-primary' : 
-              isSystem ? 'bg-orange-500/20 text-orange-500' : 
-              'bg-blue-500/20 text-blue-500'
-            }`}>
-              {msg.author?.avatar || msg.author?.name?.charAt(0) || '?'}
-            </AvatarFallback>
-          )}
-        </Avatar>
-        
-        <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
-          <div className={`flex items-center gap-2 mb-1 ${isUser ? 'justify-end' : ''}`}>
-            <span className={`text-sm font-medium ${
-              isOracle ? 'text-primary' : 
-              isSystem ? 'text-orange-500' : 
-              getRoleColor(msg.author?.role || 'guest')
-            }`}>
-              {msg.author?.name}
-            </span>
-            {!isOracle && !isSystem && getRoleIcon(msg.author?.role || 'guest')}
-            {isSystem && msg.metadata?.command && (
-              <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-500 border-orange-500/20">
-                Command Response
-              </Badge>
-            )}
-            {isOracle && (
-              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                Oracle AI
-              </Badge>
-            )}
-            {msg.metadata?.confidence && !isSystem && (
-              <Badge variant="outline" className="text-xs">
-                {msg.metadata.confidence}% confidence
-              </Badge>
-            )}
-            <span className="text-xs text-muted-foreground">
-              {new Date(msg.timestamp).toLocaleTimeString()}
-            </span>
-          </div>
-          
-          <div className={`rounded-lg p-3 ${
-            isUser 
-              ? 'bg-primary text-primary-foreground ml-8' 
-              : isSystem 
-                ? 'bg-orange-500/10 border border-orange-500/20' 
-                : 'bg-muted/50 mr-8'
-          }`}>
-            <ReactMarkdown
-              components={{
-                h1: ({...props}) => <h3 className="font-semibold text-base mb-2" {...props} />,
-                h2: ({...props}) => <h4 className="font-medium text-sm mb-1" {...props} />,
-                ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-2" {...props} />,
-                ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-2" {...props} />,
-                strong: ({...props}) => <strong className="font-semibold" {...props} />,
-                p: ({...props}) => <p className="mb-2 text-sm leading-relaxed" {...props} />,
-                code: ({...props}) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono" {...props} />,
-              }}
-            >
-              {msg.content}
-            </ReactMarkdown>
-            
-            {/* Resources */}
-            {msg.sections?.resources && msg.sections.resources.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Star className="h-4 w-4" />
-                  Recommended Resources
-                </h4>
-                {msg.sections.resources.map((resource, idx) => (
-                  <div key={idx} className="p-2 rounded bg-background/50 border">
-                    <div className="flex items-center gap-2 mb-1">
-                      {resource.type === 'youtube' && <Play className="h-4 w-4 text-red-500" />}
-                      {resource.type === 'article' && <LinkIcon className="h-4 w-4 text-blue-500" />}
-                      <span className="text-sm font-medium">{resource.title}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">{resource.description}</p>
-                    <Button variant="outline" size="sm" className="text-xs" asChild>
-                      <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                        Open Resource
-                      </a>
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {/* Command Indicator */}
-            {msg.metadata?.command && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <Hash className="h-3 w-3" />
-                Command: {msg.metadata.command}
-              </div>
-            )}
-          </div>
-        </div>
+  const renderResponse = (response: SuperOracleResponse, index: number) => (
+    <div key={index} className="space-y-4">
+      {/* Query Display */}
+      <div className="text-sm text-muted-foreground mb-2">
+        <strong>You:</strong> {response.query}
       </div>
-    );
-  };
 
-  return (
-    <div className="flex flex-col h-[600px] max-w-4xl mx-auto">
-      <Card className="flex-1 flex flex-col glow-border bg-card/50 backdrop-blur">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-primary/20 ufo-pulse">
-              <Bot className="h-6 w-6 text-primary" />
+      {/* Model and Strategy Info */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline" className="text-xs">
+          {response.model_used}
+        </Badge>
+        <Badge variant="outline" className="text-xs">
+          {response.search_strategy}
+        </Badge>
+        <span>Confidence: {Math.round(response.confidence * 100)}%</span>
+        <span>Sources: {response.sources}</span>
+        <span>Time: {response.processing_time}ms</span>
+      </div>
+
+      {/* GraphRAG Data */}
+      {response.graph_data && (
+        <Card className="glow-border bg-purple-500/5 border-purple-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Network className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-400">🧠 Knowledge Graph</span>
+              <Badge variant="outline">{response.graph_data.entities?.length || 0} entities</Badge>
+              <Badge variant="outline">{response.graph_data.relationships?.length || 0} relationships</Badge>
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-glow">PieFi Oracle</h2>
-              <p className="text-sm text-muted-foreground">
-                Your intelligent AI companion for the incubator
-              </p>
+            
+            {response.graph_data.entities && response.graph_data.entities.length > 0 && (
+              <div className="space-y-2 mb-3">
+                <h5 className="text-sm font-medium">Entities Found:</h5>
+                <div className="flex flex-wrap gap-2">
+                  {response.graph_data.entities.slice(0, 6).map((entity: any, idx: number) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">
+                      {entity.name} ({entity.type})
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="text-xs text-muted-foreground">
+              Graph Confidence: {Math.round((response.graph_data.confidence || 0) * 100)}%
             </div>
-            <Badge className="bg-primary/20 text-primary border-primary/30">
-              {selectedRole} Mode
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        
-        <Separator />
-        
-        <CardContent className="flex-1 flex flex-col p-4">
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-4">
-              {messages.map(renderMessage)}
-              {isLoading && (
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>🛸</AvatarFallback>
-                  </Avatar>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Oracle is thinking...</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Multi-Model Insights */}
+      {response.multi_model_insights && Object.keys(response.multi_model_insights).length > 0 && (
+        <Card className="glow-border bg-green-500/5 border-green-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Layers className="h-4 w-4 text-green-400" />
+              <span className="text-sm font-medium text-green-400">🤖 Multi-Model Analysis</span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {Object.entries(response.multi_model_insights).map(([model, insight]: [string, any]) => (
+                <div key={model} className="p-3 rounded-lg bg-background/50 border border-green-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-xs capitalize">{model}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round((insight.confidence || 0) * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-3">
+                    {insight.answer?.substring(0, 100)}...
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resources Section */}
+      {response.resources && response.resources.length > 0 && (
+        <Card className="glow-border bg-blue-500/5 border-blue-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-blue-400" />
+              <span className="text-sm font-medium text-blue-400">📚 Resources Found</span>
+              <Badge variant="outline">{response.resources.length} results</Badge>
+            </div>
+            <div className="space-y-3">
+              {response.resources.slice(0, 5).map((resource: any, idx: number) => (
+                <div key={idx} className="p-3 rounded-lg bg-background/50 border border-blue-500/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-foreground mb-1">
+                        <a href={resource.url} target="_blank" rel="noopener noreferrer" 
+                           className="hover:text-blue-400 transition-colors">
+                          {resource.title}
+                        </a>
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-2">{resource.description}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">{resource.type}</Badge>
+                        {resource.author && <span className="text-xs text-muted-foreground">by {resource.author}</span>}
+                        {resource.duration && <span className="text-xs text-muted-foreground">{resource.duration}</span>}
+                      </div>
+                    </div>
+                    <div className="text-xs text-green-400 font-medium">
+                      {Math.round((resource.relevance || 0.8) * 100)}%
+                    </div>
                   </div>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
+              ))}
             </div>
-          </ScrollArea>
-          
-          <div className="mt-4 space-y-3">
-            <Separator />
-            
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/help')}
-                className="text-xs"
-              >
-                <Hash className="h-3 w-3 mr-1" />
-                Commands
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/chat Hello team! How is everyone doing?')}
-                className="text-xs"
-              >
-                <MessageSquare className="h-3 w-3 mr-1" />
-                Team Chat
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/update Made good progress on the MVP today')}
-                className="text-xs"
-              >
-                <Activity className="h-3 w-3 mr-1" />
-                Log Update
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMessage('/message builders Hey everyone, great work this week!')}
-                className="text-xs"
-              >
-                <Users className="h-3 w-3 mr-1" />
-                Message All
-              </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connections Section */}
+      {response.connections && response.connections.length > 0 && (
+        <Card className="glow-border bg-purple-500/5 border-purple-500/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-400">🤝 People to Connect With</span>
+              <Badge variant="outline">{response.connections.length} results</Badge>
             </div>
-            
-            {/* Message Input */}
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <div className="flex-1 relative">
-                <MessageSquare className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  ref={inputRef}
-                  value={message}
-                  onChange={handleInputChange}
-                  placeholder="Ask questions, send messages, log updates, or use /commands..."
-                  className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
-                  disabled={isLoading}
-                />
-                
-                {/* Mentions Dropdown */}
-                {showMentions && filteredUsers.length > 0 && (
-                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
-                    {filteredUsers.slice(0, 5).map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-muted flex items-center gap-2 text-sm"
-                        onClick={() => handleMentionSelect(user)}
-                      >
-                        <div className="flex items-center gap-2">
-                          {getRoleIcon(user.role as UserRole)}
-                          <span className="font-medium">{user.full_name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {user.role}
-                          </Badge>
-                        </div>
-                      </button>
-                    ))}
+            <div className="space-y-3">
+              {response.connections.slice(0, 4).map((person: any, idx: number) => (
+                <div key={idx} className="p-3 rounded-lg bg-background/50 border border-purple-500/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm text-foreground mb-1">{person.name}</h4>
+                      <p className="text-xs text-muted-foreground mb-1">{person.title} at {person.company}</p>
+                      {person.expertise && (
+                        <p className="text-xs text-muted-foreground mb-2">{person.expertise}</p>
+                      )}
+                      {person.linkedin_url && (
+                        <a href={person.linkedin_url} target="_blank" rel="noopener noreferrer"
+                           className="text-xs text-blue-400 hover:underline">
+                          Connect on LinkedIn →
+                        </a>
+                      )}
+                    </div>
+                    <div className="text-xs text-green-400 font-medium">
+                      {person.relevance || 85}%
+                    </div>
                   </div>
-                )}
-              </div>
-              <Button 
-                type="submit" 
-                disabled={isLoading || !message.trim()}
-                className="ufo-gradient hover:opacity-90"
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main Oracle Response */}
+      <Card className="glow-border bg-card/50 backdrop-blur">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-full bg-primary/20">
+              <Sparkles className="h-3 w-3 text-primary" />
+            </div>
+            <h4 className="font-semibold text-sm text-primary">Super Oracle Response</h4>
+            {response.sources > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {response.sources} sources
+              </Badge>
+            )}
+          </div>
+          
+          <div className="p-4 rounded-lg bg-background/50 border border-primary/10">
+            <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
+              <ReactMarkdown
+                components={{
+                  h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
+                  h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
+                  h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
+                  ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
+                  ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
+                  li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
+                  strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
+                  blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
+                  code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                }}
               >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </form>
-            
-            <p className="text-xs text-muted-foreground text-center">
-              Type <code>/help</code> for commands • Use <code>/chat</code> for team messages • 
-              Say "send [role] that [message]" for natural messaging • <code>/update</code> to log progress
-            </p>
+                {response.answer}
+              </ReactMarkdown>
+            </div>
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+
+  const commandExamples = {
+    builder: [
+      "/resources react hooks tutorials",
+      "/connect frontend developers",
+      "/find UI/UX designers",
+      "/update completed authentication system",
+      "/message mentors: need help with deployment",
+      "Analyze my React component architecture",
+      "Build a knowledge graph for my project"
+    ],
+    mentor: [
+      "/resources startup funding guides", 
+      "/connect experienced CTOs",
+      "/find blockchain experts",
+      "/message builders: great progress this week",
+      "Analyze startup funding strategies",
+      "Build knowledge graph for fintech trends"
+    ],
+    lead: [
+      "/resources team management tools",
+      "/connect venture capitalists",
+      "/update milestone: all teams on track",
+      "/message all: weekly check-in tomorrow",
+      "Analyze team performance metrics",
+      "Multi-model analysis of business strategy"
+    ],
+    guest: [
+      "/motivation startup success stories",
+      "/status show recent team updates",
+      "What is the PieFi accelerator?",
+      "Show me available resources"
+    ]
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <div className="p-3 rounded-full bg-primary/20 ufo-pulse">
+          <Brain className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-glow">Super Oracle Command Center</h2>
+          <p className="text-muted-foreground">Advanced AI with GraphRAG, Multi-Model AI, and Knowledge Graphs</p>
+        </div>
+        <Badge className="bg-primary/20 text-primary border-primary/30">
+          {selectedRole} Mode
+        </Badge>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-7 bg-card/50 backdrop-blur border-primary/20">
+          <TabsTrigger value="chat" className="data-[state=active]:bg-primary/20">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Super Chat
+          </TabsTrigger>
+          <TabsTrigger value="graph" className="data-[state=active]:bg-primary/20">
+            <Network className="h-4 w-4 mr-2" />
+            GraphRAG
+          </TabsTrigger>
+          <TabsTrigger value="multi" className="data-[state=active]:bg-primary/20">
+            <Layers className="h-4 w-4 mr-2" />
+            Multi-Model
+          </TabsTrigger>
+          <TabsTrigger value="advanced" className="data-[state=active]:bg-primary/20">
+            <Brain className="h-4 w-4 mr-2" />
+            Advanced
+          </TabsTrigger>
+          <TabsTrigger value="commands" className="data-[state=active]:bg-primary/20">
+            <Zap className="h-4 w-4 mr-2" />
+            Commands
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="data-[state=active]:bg-primary/20">
+            <Users className="h-4 w-4 mr-2" />
+            Permissions
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20">
+            <Cpu className="h-4 w-4 mr-2" />
+            Settings
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chat" className="space-y-6">
+          {/* Query Input */}
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardContent className="p-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <Brain className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-primary/60" />
+                    <Input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={`Ask the Super Oracle as a ${selectedRole}...`}
+                      className="pl-10 bg-background/50 border-primary/20 focus:border-primary/50"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading || !query.trim()}
+                    className="ufo-gradient hover:opacity-90 min-w-[120px]"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        Transmit
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Query Type Selection */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Query Type:</span>
+                    <Select value={queryType} onValueChange={(value: any) => setQueryType(value)}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="chat">Chat</SelectItem>
+                        <SelectItem value="resources">Resources</SelectItem>
+                        <SelectItem value="connect">Connect</SelectItem>
+                        <SelectItem value="analyze">Analyze</SelectItem>
+                        <SelectItem value="graph">Graph</SelectItem>
+                        <SelectItem value="multi_model">Multi-Model</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Natural Language Examples */}
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">✨ Try these Super Oracle commands:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {commandExamples[selectedRole].map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setQuery(example)}
+                        disabled={isLoading}
+                        className="text-xs border-primary/20 hover:border-primary/40 hover:bg-primary/10"
+                      >
+                        {example}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Response History */}
+          <div className="space-y-4">
+            {responses.map((response, index) => renderResponse(response, index))}
+            {responses.length === 0 && (
+              <Card className="glow-border bg-card/30 backdrop-blur border-dashed">
+                <CardContent className="p-8 text-center">
+                  <Brain className="h-8 w-8 text-primary/60 mx-auto mb-3" />
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">
+                      Welcome to the Super Oracle! Your unified AI agent with GraphRAG, multi-model AI, and advanced capabilities.
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedRole === 'guest' 
+                        ? 'Ask questions about PieFi and available resources'
+                        : 'Use slash commands like /resources, /connect, /find or ask natural questions. All enhanced with GraphRAG and multi-model AI!'
+                      }
+                    </p>
+                    <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                      <p className="text-xs text-primary font-medium mb-2">🚀 Enhanced Features Available:</p>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        <Badge variant="outline" className="text-xs">GraphRAG Knowledge Graphs</Badge>
+                        <Badge variant="outline" className="text-xs">Multi-Model AI (GPT-4, Gemini, Claude)</Badge>
+                        <Badge variant="outline" className="text-xs">Advanced Vector Search</Badge>
+                        <Badge variant="outline" className="text-xs">Slash Commands</Badge>
+                        <Badge variant="outline" className="text-xs">Team Integration</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="graph" className="space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>GraphRAG Knowledge Graph</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={enableGraphRAG}
+                    onCheckedChange={setEnableGraphRAG}
+                    disabled={!permissions.canUseGraphRAG}
+                  />
+                  <span className="text-sm">Enable GraphRAG Knowledge Graph</span>
+                  {!permissions.canUseGraphRAG && (
+                    <Badge variant="outline" className="text-xs">Guest users cannot access</Badge>
+                  )}
+                </div>
+                
+                <p className="text-sm text-muted-foreground">
+                  GraphRAG builds knowledge graphs from your queries, connecting entities and relationships
+                  to provide deeper context and more accurate responses.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-primary">🔍 Entity Extraction</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Automatically identifies people, companies, technologies, and concepts
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-primary">🔗 Relationship Mining</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Discovers connections between entities in your knowledge base
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-primary">🧠 Graph Traversal</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Navigates the knowledge graph to find relevant context
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-primary">📊 Confidence Scoring</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Measures the reliability of graph-based insights
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="multi" className="space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Multi-Model AI Analysis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={enableMultiModel}
+                    onCheckedChange={setEnableMultiModel}
+                    disabled={!permissions.canUseMultiModel}
+                  />
+                  <span className="text-sm">Enable Multi-Model AI Analysis</span>
+                  {!permissions.canUseMultiModel && (
+                    <Badge variant="outline" className="text-xs">Guest users cannot access</Badge>
+                  )}
+                </div>
+                
+                <p className="text-sm text-muted-foreground">
+                  Leverage multiple AI models (OpenAI GPT-4, Google Gemini, Anthropic Claude) 
+                  for comprehensive analysis and higher confidence responses.
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Preferred Model:</label>
+                    <Select value={preferredModel} onValueChange={(value: any) => setPreferredModel(value)}>
+                      <SelectTrigger className="w-full mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto-Select (Recommended)</SelectItem>
+                        <SelectItem value="openai">OpenAI GPT-4</SelectItem>
+                        <SelectItem value="gemini">Google Gemini</SelectItem>
+                        <SelectItem value="claude">Anthropic Claude</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <h4 className="font-medium text-blue-400 mb-2">OpenAI GPT-4</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Excellent for technical tasks, code generation, and structured analysis
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <h4 className="font-medium text-green-400 mb-2">Google Gemini</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Strong on creative tasks, design, and resource discovery
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                      <h4 className="font-medium text-purple-400 mb-2">Anthropic Claude</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Excels at analysis, conversation, and strategic thinking
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="advanced" className="space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>🚀 Advanced AI Capabilities</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-primary">🧠 GraphRAG Knowledge Engine</h4>
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <span>Entity Extraction & Recognition</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <span>Relationship Mining & Mapping</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <span>Knowledge Graph Traversal</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <span>Context-Aware Responses</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <span>Confidence Scoring</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium text-primary">🤖 Multi-Model AI Orchestration</h4>
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                      <span>OpenAI GPT-4 (Technical Tasks)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                      <span>Google Gemini (Creative Tasks)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                      <span>Anthropic Claude (Analysis)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                      <span>Intelligent Model Routing</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                      <span>Response Synthesis</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-medium text-primary">🔍 Enhanced Search & Retrieval</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <h5 className="font-medium text-blue-400 mb-2">Vector Search</h5>
+                    <p className="text-xs text-muted-foreground">
+                      Advanced semantic search with embeddings and similarity matching
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <h5 className="font-medium text-green-400 mb-2">Hybrid Search</h5>
+                    <p className="text-xs text-muted-foreground">
+                      Combines traditional search with AI-powered insights
+                    </p>
+                  </div>
+                  
+                  <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                    <h5 className="font-medium text-purple-400 mb-2">Context Reranking</h5>
+                    <p className="text-xs text-muted-foreground">
+                      Intelligent result ranking based on user context and preferences
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-medium text-primary">⚡ Performance Features</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Processing Time Tracking</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Confidence Metrics</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Search Strategy Logging</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Fallback Handling</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Error Recovery</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Performance Monitoring</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20">
+                <h5 className="font-medium text-primary mb-2">🎯 What This Means for You</h5>
+                <p className="text-sm text-muted-foreground">
+                  The Super Oracle combines the best of multiple AI models with advanced knowledge graphs to provide 
+                  deeper, more contextual, and more accurate responses. Every query is enhanced with GraphRAG insights, 
+                  and the system automatically selects the optimal AI model for your specific needs. This results in 
+                  responses that are not just accurate, but truly intelligent and actionable.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="commands" className="space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Available Natural Language Commands</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {permissions.canEditOwnProgress && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-primary">📝 Progress Logging</h4>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>• "Log today's progress: [description]"</p>
+                    <p>• "Update status: [new status]"</p>
+                    <p>• "Record work: [what you accomplished]"</p>
+                  </div>
+                </div>
+              )}
+
+              {permissions.canSendMessages && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-primary">💬 Messaging</h4>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>• "Send message to [name]: [message]"</p>
+                    <p>• "Tell [person] that [message]"</p>
+                    <p>• "Notify [recipient]: [content]"</p>
+                  </div>
+                </div>
+              )}
+
+              {permissions.canViewTeamData && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-primary">📊 Team Status</h4>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>• "What did [team name] do this week?"</p>
+                    <p>• "Show me the latest updates"</p>
+                    <p>• "Check team progress"</p>
+                  </div>
+                </div>
+              )}
+
+              {permissions.canSendBroadcasts && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-primary">📢 Broadcasting</h4>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>• "Broadcast: [message to all teams]"</p>
+                    <p>• "Announce: [important update]"</p>
+                    <p>• "Tell everyone: [message]"</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <h4 className="font-medium text-primary">🧠 Advanced AI Features</h4>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p>• "Build a knowledge graph for [topic]"</p>
+                  <p>• "Analyze [subject] using multiple AI models"</p>
+                  <p>• "Find deep connections between [concept1] and [concept2]"</p>
+                  <p>• "Multi-model analysis of [topic]"</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="permissions" className="space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Your Role Permissions ({selectedRole})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${permissions.canViewTeamData ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className={`w-3 h-3 rounded-full ${permissions.canViewTeamData ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    <span className="text-sm">View Team Data</span>
+                  </div>
+                  
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${permissions.canEditOwnProgress ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className={`w-3 h-3 rounded-full ${permissions.canEditOwnProgress ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    <span className="text-sm">Edit Progress</span>
+                  </div>
+
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${permissions.canUseGraphRAG ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className={`w-3 h-3 rounded-full ${permissions.canUseGraphRAG ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    <span className="text-sm">GraphRAG Access</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${permissions.canSendMessages ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className={`w-3 h-3 rounded-full ${permissions.canSendMessages ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    <span className="text-sm">Send Messages</span>
+                  </div>
+                  
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${permissions.canSendBroadcasts ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className={`w-3 h-3 rounded-full ${permissions.canSendBroadcasts ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    <span className="text-sm">Send Broadcasts</span>
+                  </div>
+
+                  <div className={`flex items-center gap-3 p-3 rounded-lg ${permissions.canUseMultiModel ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                    <div className={`w-3 h-3 rounded-full ${permissions.canUseMultiModel ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    <span className="text-sm">Multi-Model AI</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle>Super Oracle Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-medium text-primary">Current Configuration</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span>GraphRAG:</span>
+                      <Badge variant={enableGraphRAG ? "default" : "secondary"}>
+                        {enableGraphRAG ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Multi-Model:</span>
+                      <Badge variant={enableMultiModel ? "default" : "secondary"}>
+                        {enableMultiModel ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Preferred Model:</span>
+                      <Badge variant="outline" className="capitalize">
+                        {preferredModel}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Query Type:</span>
+                      <Badge variant="outline" className="capitalize">
+                        {queryType.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium text-primary">Advanced Features</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span>Slash Commands:</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Team Integration:</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Progress Tracking:</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Messaging:</span>
+                      <Badge variant="default">Enabled</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

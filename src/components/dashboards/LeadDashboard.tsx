@@ -225,7 +225,7 @@ export const LeadDashboard = ({ teams, members, updates, teamStatuses, selectedR
         <TabsList className="grid w-full grid-cols-5 bg-card/50 backdrop-blur border-primary/20">
           <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
             <Activity className="h-4 w-4 mr-2" />
-            Enhanced Oracle
+                            Super Oracle
           </TabsTrigger>
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
             <Eye className="h-4 w-4 mr-2" />

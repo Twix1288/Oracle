@@ -142,7 +142,7 @@ export function TeamRoom({ teamId, teamName, userRole, userId }: TeamRoomProps) 
                 try {
                   setAiLoading(true);
                   const prompt = `Summarize the last 20 team messages and recent updates for team ${teamName || ''}. Provide: 1) key themes, 2) blockers/risks, 3) next 3 actions. Be concise for PieFi.`;
-                  const { data, error } = await supabase.functions.invoke('enhanced-oracle', {
+                  const { data, error } = await supabase.functions.invoke('super-oracle', {
                     body: { query: prompt, role: userRole, teamId, userId }
                   });
                   if (error) throw error;

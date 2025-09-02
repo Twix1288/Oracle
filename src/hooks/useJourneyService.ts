@@ -144,7 +144,7 @@ export const useJourneyService = (selectedRole: UserRole) => {
   // Enhanced Oracle query mutation
   const journeyQueryMutation = useMutation({
     mutationFn: async (request: JourneyRequest) => {
-      const { data, error } = await supabase.functions.invoke('enhanced-oracle', {
+              const { data, error } = await supabase.functions.invoke('super-oracle', {
         body: request
       });
       if (error) throw error;
