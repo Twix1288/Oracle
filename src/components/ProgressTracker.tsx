@@ -15,7 +15,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { stageToPercent } from "@/lib/utils";
+import { getStageProgress } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { Team, TeamStage, Update, UserRole } from "@/types/oracle";
 
@@ -26,13 +26,7 @@ interface ProgressTrackerProps {
   onStageUpdate?: (newStage: TeamStage) => void;
 }
 
-interface OracleStageRecommendation {
-  currentStage: TeamStage;
-  recommendedStage: TeamStage;
-  confidence: number;
-  reasoning: string;
-  shouldAdvance: boolean;
-}
+// Removed Oracle recommendation interface - handled by EnhancedOracle
 
 const stages: { 
   key: TeamStage; 
@@ -119,8 +113,6 @@ const colorMap = {
 
 export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: ProgressTrackerProps) => {
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isGettingRecommendation, setIsGettingRecommendation] = useState(false);
-  const [oracleRecommendation, setOracleRecommendation] = useState<OracleStageRecommendation | null>(null);
   const [stageProgress, setStageProgress] = useState<Record<TeamStage, number>>({
     ideation: 0,
     development: 0,
@@ -139,36 +131,18 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
   const currentStageIndex = stages.findIndex(stage => stage.key === actualTeamStage);
   const currentStage = stages[currentStageIndex];
 
-  // Enhanced progress mapping with within-stage progress
+  // Clean progress calculation: 0% (future), 50% (current), 100% (completed)
   useEffect(() => {
     const progressEstimates: Record<TeamStage, number> = {
-      ideation: 0,
-      development: 0,
-      testing: 0,
-      launch: 0,
-      growth: 0
+      ideation: getStageProgress(actualTeamStage, 'ideation'),
+      development: getStageProgress(actualTeamStage, 'development'),
+      testing: getStageProgress(actualTeamStage, 'testing'),
+      launch: getStageProgress(actualTeamStage, 'launch'),
+      growth: getStageProgress(actualTeamStage, 'growth')
     };
 
-    const currentStageOrder = stages.findIndex(s => s.key === actualTeamStage);
-    
-    stages.forEach((s, index) => {
-      if (index < currentStageOrder) {
-        // Completed stages show 100%
-        progressEstimates[s.key] = 100;
-      } else if (index === currentStageOrder) {
-        // Current stage shows base percent + within-stage progress
-        const basePercent = stageToPercent(actualTeamStage);
-        // Add some within-stage progress based on recent updates
-        const withinStageBonus = Math.min(15, updates.length * 2); // Max 15% bonus
-        progressEstimates[s.key] = Math.min(100, basePercent + withinStageBonus);
-      } else {
-        // Future stages show 0%
-        progressEstimates[s.key] = 0;
-      }
-    });
-
     setStageProgress(progressEstimates);
-  }, [actualTeamStage, updates]);
+  }, [actualTeamStage]);
 
   const handleAdvanceStage = async () => {
     if (currentStageIndex >= stages.length - 1) return;
@@ -219,46 +193,7 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
     }
   };
 
-  const getOracleStageRecommendation = async () => {
-    setIsGettingRecommendation(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('unified-oracle', {
-        body: {
-          query: `Analyze our team progress and recommend if we should advance from ${actualTeamStage} stage. Recent updates: ${updates.slice(0, 10).map(u => u.content).join('. ')}`,
-          role: userRole,
-          teamId: team.id,
-          action: 'stage_assessment'
-        }
-      });
-
-      if (error) throw error;
-
-      const recommendation: OracleStageRecommendation = {
-        currentStage: actualTeamStage,
-        recommendedStage: data.recommendedStage || actualTeamStage,
-        confidence: data.confidence || 0.7,
-        reasoning: data.reasoning || 'Analysis based on recent team activity',
-        shouldAdvance: data.shouldAdvance || false
-      };
-
-      setOracleRecommendation(recommendation);
-      
-      toast({
-        title: recommendation.shouldAdvance ? "🚀 Ready to Advance!" : "📊 Stage Analysis Complete",
-        description: recommendation.reasoning,
-      });
-
-    } catch (error) {
-      console.error('Oracle recommendation error:', error);
-      toast({
-        title: "Analysis Failed",
-        description: "Unable to get Oracle recommendation. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGettingRecommendation(false);
-    }
-  };
+  // Oracle recommendations now handled by EnhancedOracle component
 
   const canAdvanceStage = () => {
     return (
@@ -318,53 +253,8 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
             ))}
           </div>
 
-          {/* Oracle Recommendation */}
-          {oracleRecommendation && (
-            <div className={`p-4 rounded-lg border-2 mb-4 ${
-              oracleRecommendation.shouldAdvance 
-                ? 'bg-green-500/10 border-green-500/30' 
-                : 'bg-blue-500/10 border-blue-500/30'
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className={`h-4 w-4 ${
-                  oracleRecommendation.shouldAdvance ? 'text-green-400' : 'text-blue-400'
-                }`} />
-                <span className={`font-medium text-sm ${
-                  oracleRecommendation.shouldAdvance ? 'text-green-400' : 'text-blue-400'
-                }`}>
-                  Oracle Assessment ({Math.round(oracleRecommendation.confidence * 100)}% confidence)
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">{oracleRecommendation.reasoning}</p>
-              {oracleRecommendation.shouldAdvance && (
-                <div className="text-sm font-medium text-green-400">
-                  ✨ Recommended: Advance to {stages[currentStageIndex + 1]?.title}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Button
-              onClick={getOracleStageRecommendation}
-              disabled={isGettingRecommendation}
-              variant="outline"
-              className="text-sm py-3"
-            >
-              {isGettingRecommendation ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Get Oracle Assessment
-                </>
-              )}
-            </Button>
-            
+          <div className="flex justify-end">
             {canAdvanceStage() && currentStageIndex < stages.length - 1 && (
               <Button
                 onClick={handleAdvanceStage}

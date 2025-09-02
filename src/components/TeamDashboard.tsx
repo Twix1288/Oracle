@@ -20,7 +20,7 @@ const stageColors = {
   growth: "bg-pink-500/20 text-pink-300 border-pink-500/30"
 };
 
-import { stageToPercent } from "@/lib/utils";
+import { getStageProgress, STAGE_ORDER } from "@/lib/utils";
 
 export const TeamDashboard = ({ teams, teamStatuses, members, selectedRole }: TeamDashboardProps) => {
   const getTeamMembers = (teamId: string) => {
@@ -93,9 +93,9 @@ export const TeamDashboard = ({ teams, teamStatuses, members, selectedRole }: Te
                       <Target className="h-3 w-3" />
                       Progress
                     </span>
-                    <span className="text-muted-foreground">{stageToPercent(team.stage)}%</span>
+                    <span className="text-muted-foreground">{getStageProgress(team.stage, team.stage)}%</span>
                   </div>
-                  <Progress value={stageToPercent(team.stage)} className="h-2" />
+                  <Progress value={getStageProgress(team.stage, team.stage)} className="h-2" />
                 </div>
 
                 {/* Assigned Mentor */}
