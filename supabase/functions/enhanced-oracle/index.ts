@@ -23,7 +23,15 @@ const RAG_CONFIG = {
   minRelevanceThreshold: 0.7,
   maxDocuments: 8,
   enableSemanticReranking: true,
-  enableHybridSearch: true
+  enableHybridSearch: true,
+  enableWebSearch: true,
+  maxWebResults: 3,
+  webSearchFrequency: 'conservative', // 'conservative', 'moderate', 'aggressive'
+  webSearchQueries: [
+    'latest', 'current', 'recent', 'trend', 'news', 'update', '2024', '2025',
+    'new', 'emerging', 'industry', 'market', 'technology', 'innovation',
+    'best practice', 'methodology', 'framework', 'guide', 'tutorial'
+  ]
 };
 
 const supabase = createClient(supabaseUrl!, supabaseKey!);
@@ -419,15 +427,27 @@ async function advancedRAGSearch(query: string, role: string, teamId?: string): 
     // Generate embeddings with multiple models for better semantic understanding
     const embeddings = await generateHybridEmbeddings(query);
     
-    // Multi-strategy search
+    // Multi-strategy search (internal knowledge first)
     const [vectorResults, textResults, semanticResults] = await Promise.all([
       vectorSearch(embeddings, role, teamId),
       textSearch(query, role, teamId),
       semanticSearch(query, role, teamId)
     ]);
     
-    // Combine and deduplicate results
-    const allDocuments = combineSearchResults(vectorResults, textResults, semanticResults);
+    // Combine internal results first
+    const internalDocs = combineSearchResults(vectorResults, textResults, semanticResults, []);
+    
+    // Only search web if internal knowledge is insufficient
+    let webResults: any[] = [];
+    if (!isInternalKnowledgeSufficient(internalDocs, query)) {
+      console.log('Internal knowledge insufficient, performing web search...');
+      webResults = await webSearch(query, role, teamId, internalDocs);
+    } else {
+      console.log('Internal knowledge sufficient, skipping web search');
+    }
+    
+    // Combine all results (internal prioritized)
+    const allDocuments = combineSearchResults(vectorResults, textResults, semanticResults, webResults);
     
     // Semantic re-ranking for better relevance
     const rerankedDocs = await semanticReranking(query, allDocuments);
@@ -437,10 +457,15 @@ async function advancedRAGSearch(query: string, role: string, teamId?: string): 
     
     const confidence = calculateSearchConfidence(rerankedDocs, allDocuments.length);
     
+    // Determine search strategy used
+    const searchStrategy = webResults.length > 0 ? 
+      'hybrid_vector_text_semantic_web' : 
+      'hybrid_vector_text_semantic';
+    
     return {
       documents: rerankedDocs.slice(0, RAG_CONFIG.maxDocuments),
       combinedContext: optimalContext,
-      searchStrategy: 'hybrid_vector_text_semantic',
+      searchStrategy,
       confidence
     };
     
@@ -594,8 +619,8 @@ async function expandQuerySemantically(query: string): Promise<string[]> {
   }
 }
 
-// Combine search results intelligently
-function combineSearchResults(vectorResults: any[], textResults: any[], semanticResults: any[]): any[] {
+// Combine search results intelligently including web results
+function combineSearchResults(vectorResults: any[], textResults: any[], semanticResults: any[], webResults: any[]): any[] {
   const combined = new Map<string, any>();
   
   // Add vector results with high relevance scores
@@ -615,6 +640,26 @@ function combineSearchResults(vectorResults: any[], textResults: any[], semantic
     if (!combined.has(doc.id)) {
       combined.set(doc.id, { ...doc, relevance_score: 80, source: 'semantic' });
     }
+  });
+  
+  // Add web results (they have unique URLs, so no duplicates to worry about)
+  webResults.forEach(webResult => {
+    const webDoc = {
+      id: `web_${webResult.url?.replace(/[^a-zA-Z0-9]/g, '_') || Date.now()}`,
+      content: `${webResult.title}\n\n${webResult.content}\n\nSource: ${webResult.url}`,
+      metadata: {
+        source_type: 'web',
+        url: webResult.url,
+        title: webResult.title,
+        timestamp: webResult.timestamp,
+        source_type_detail: webResult.source_type
+      },
+      relevance_score: webResult.relevance_score || 70,
+      source: 'web',
+      is_web_result: true
+    };
+    
+    combined.set(webDoc.id, webDoc);
   });
   
   return Array.from(combined.values());
@@ -763,6 +808,278 @@ async function fallbackSearch(query: string, role: string, teamId?: string): Pro
     searchStrategy: 'fallback_text_only',
     confidence: 50
   };
+}
+
+// Web search for real-time information - only when external resources are needed
+async function webSearch(query: string, role: string, teamId?: string, internalDocs?: any[]): Promise<any[]> {
+  if (!RAG_CONFIG.enableWebSearch) return [];
+  
+  // First, check if we actually need web search
+  if (!shouldUseWebSearch(query)) {
+    console.log('Query does not require web search, skipping');
+    return [];
+  }
+  
+  // Check if internal knowledge is already sufficient
+  if (internalDocs && isInternalKnowledgeSufficient(internalDocs, query)) {
+    console.log('Internal knowledge is sufficient, skipping web search');
+    return [];
+  }
+  
+  try {
+    console.log('Performing web search for external resources:', query);
+    
+    // Try OpenAI's web search capability first
+    const openAIResults = await openAIWebSearch(query);
+    if (openAIResults && openAIResults.length > 0) {
+      const filteredResults = filterWebResults(openAIResults, role, teamId);
+      console.log(`OpenAI web search found ${filteredResults.length} relevant external results`);
+      return filteredResults;
+    }
+    
+    // Fallback to alternative web search methods
+    const fallbackResults = await fallbackWebSearch(query);
+    const filteredResults = filterWebResults(fallbackResults, role, teamId);
+    console.log(`Fallback web search found ${filteredResults.length} relevant external results`);
+    return filteredResults;
+    
+  } catch (error) {
+    console.warn('Web search failed, continuing without external results:', error);
+    return [];
+  }
+}
+
+// Determine if web search is actually needed
+function shouldUseWebSearch(query: string): boolean {
+  const queryLower = query.toLowerCase();
+  
+  // Check for indicators that external information is needed
+  const needsExternalInfo = RAG_CONFIG.webSearchQueries.some(keyword => 
+    queryLower.includes(keyword)
+  );
+  
+  // Check for specific external resource requests
+  const requestsExternalResource = [
+    'external', 'outside', 'internet', 'web', 'online', 'public',
+    'industry', 'market', 'competitor', 'trend', 'news', 'latest',
+    'new technology', 'emerging', 'recent developments'
+  ].some(term => queryLower.includes(term));
+  
+  // Check for time-sensitive information that might not be in database
+  const needsCurrentInfo = [
+    'current', 'recent', 'latest', 'now', 'today', 'this year',
+    '2024', '2025', 'upcoming', 'future', 'next'
+  ].some(term => queryLower.includes(term));
+  
+  // Check for specific external tools or platforms
+  const needsExternalTool = [
+    'github', 'stack overflow', 'npm', 'docker hub', 'aws', 'google cloud',
+    'openai', 'anthropic', 'hugging face', 'kaggle', 'arxiv'
+  ].some(term => queryLower.includes(term));
+  
+  // Check for queries that explicitly request external information
+  const explicitlyRequestsExternal = [
+    'find me', 'search for', 'look up', 'what is the latest', 'current trends',
+    'industry news', 'market research', 'competitor analysis'
+  ].some(term => queryLower.includes(term));
+  
+  return needsExternalInfo || requestsExternalResource || needsCurrentInfo || needsExternalTool || explicitlyRequestsExternal;
+}
+
+// Check if internal knowledge is sufficient for the query
+function isInternalKnowledgeSufficient(internalDocs: any[], query: string): boolean {
+  if (!internalDocs || internalDocs.length === 0) return false;
+  
+  const queryLower = query.toLowerCase();
+  
+  // Adjust thresholds based on web search frequency setting
+  const relevanceThreshold = RAG_CONFIG.webSearchFrequency === 'conservative' ? 70 : 
+                           RAG_CONFIG.webSearchFrequency === 'moderate' ? 75 : 80;
+  
+  const coverageThreshold = RAG_CONFIG.webSearchFrequency === 'conservative' ? 0.5 : 
+                          RAG_CONFIG.webSearchFrequency === 'moderate' ? 0.6 : 0.7;
+  
+  // Check if we have high-relevance internal documents
+  const highRelevanceDocs = internalDocs.filter(doc => (doc.relevance_score || 0) >= relevanceThreshold);
+  if (highRelevanceDocs.length >= 2) return true;
+  
+  // Check if we have documents covering the main query concepts
+  const queryWords = queryLower.split(/\W+/).filter(word => word.length > 3);
+  const coverageScore = internalDocs.reduce((score, doc) => {
+    const docContent = doc.content.toLowerCase();
+    const coveredWords = queryWords.filter(word => docContent.includes(word));
+    return score + (coveredWords.length / queryWords.length);
+  }, 0);
+  
+  return coverageScore >= coverageThreshold;
+}
+
+// OpenAI web search using their web search tool
+async function openAIWebSearch(query: string): Promise<any[]> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a web search assistant. Search the internet for current, relevant information about the user's query. Focus on:
+1. Latest industry trends and news
+2. Current best practices and methodologies
+3. Recent developments and innovations
+4. Up-to-date statistics and data
+5. Expert opinions and insights
+
+Return the search results as a JSON array with this structure:
+[{
+  "title": "Article/Page title",
+  "url": "Source URL",
+  "content": "Key information extracted (2-3 sentences)",
+  "relevance_score": 85,
+  "source_type": "news|article|research|guide",
+  "timestamp": "When this information was published/updated"
+}]`
+          },
+          {
+            role: 'user',
+            content: `Search for current information about: "${query}". Focus on recent, relevant, and actionable content.`
+          }
+        ],
+        tools: [
+          {
+            type: "web_search"
+          }
+        ],
+        tool_choice: "auto"
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('OpenAI web search failed');
+    }
+
+    const data = await response.json();
+    return extractWebSearchResults(data);
+    
+  } catch (error) {
+    console.warn('OpenAI web search failed:', error);
+    return [];
+  }
+}
+
+// Fallback web search using alternative methods
+async function fallbackWebSearch(query: string): Promise<any[]> {
+  try {
+    // Use a public search API as fallback
+    const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+    
+    const response = await fetch(searchUrl);
+    if (!response.ok) throw new Error('Fallback search API failed');
+    
+    const data = await response.json();
+    
+    // Transform DuckDuckGo results to our format
+    const results = [];
+    
+    if (data.AbstractText) {
+      results.push({
+        title: data.Heading || 'Search Result',
+        url: data.AbstractURL || '',
+        content: data.AbstractText,
+        relevance_score: 75,
+        source_type: 'article',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+      data.RelatedTopics.slice(0, 2).forEach((topic: any) => {
+        if (topic.Text) {
+          results.push({
+            title: topic.Text.split(' - ')[0] || 'Related Topic',
+            url: topic.FirstURL || '',
+            content: topic.Text,
+            relevance_score: 70,
+            source_type: 'guide',
+            timestamp: new Date().toISOString()
+          });
+        }
+      });
+    }
+    
+    return results;
+    
+  } catch (error) {
+    console.warn('Fallback web search failed:', error);
+    return [];
+  }
+}
+
+// Extract web search results from OpenAI response
+function extractWebSearchResults(data: any): any[] {
+  try {
+    // Look for tool calls with web search results
+    const toolCalls = data.choices?.[0]?.message?.tool_calls;
+    if (!toolCalls) return [];
+
+    for (const toolCall of toolCalls) {
+      if (toolCall.function?.name === 'web_search') {
+        const args = JSON.parse(toolCall.function.arguments);
+        return args.results || [];
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.warn('Failed to extract web search results:', error);
+    return [];
+  }
+}
+
+// Filter web results based on role and team context
+function filterWebResults(webResults: any[], role: string, teamId?: string): any[] {
+  if (!webResults || webResults.length === 0) return [];
+  
+  // Score results based on relevance and recency
+  const scoredResults = webResults.map(result => {
+    let score = result.relevance_score || 50;
+    
+    // Boost recent content
+    if (result.timestamp) {
+      const daysOld = getDaysSinceTimestamp(result.timestamp);
+      if (daysOld <= 7) score += 20;        // Very recent
+      else if (daysOld <= 30) score += 10;  // Recent
+      else if (daysOld <= 90) score += 5;   // Somewhat recent
+    }
+    
+    // Boost authoritative sources
+    if (result.source_type === 'research') score += 15;
+    if (result.source_type === 'guide') score += 10;
+    
+    return { ...result, relevance_score: Math.min(100, score) };
+  });
+  
+  // Sort by relevance and return top results
+  return scoredResults
+    .sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0))
+    .slice(0, RAG_CONFIG.maxWebResults);
+}
+
+// Helper function to calculate days since timestamp
+function getDaysSinceTimestamp(timestamp: string): number {
+  try {
+    const timestampDate = new Date(timestamp);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - timestampDate.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  } catch (error) {
+    return 365; // Default to old if parsing fails
+  }
 }
 
 // Estimate token count
@@ -1160,9 +1477,24 @@ serve(async (req) => {
       context += '\n';
     }
 
-    // Add RAG results to context
-    if (ragResult.combinedContext) {
-      context += `KNOWLEDGE BASE (${ragResult.searchStrategy}):\n${ragResult.combinedContext}\n\n`;
+    // Add internal knowledge base results (prioritized)
+    const internalDocs = ragResult.documents.filter(doc => !doc.is_web_result);
+    if (internalDocs.length > 0) {
+      context += `INTERNAL KNOWLEDGE BASE (${ragResult.searchStrategy}):\n`;
+      internalDocs.forEach((doc, index) => {
+        const relevance = Math.round((doc.relevance_score || 0));
+        context += `${index + 1}. [${relevance}% relevant] ${doc.content}\n\n`;
+      });
+    }
+    
+    // Add external web results only if available and relevant
+    const webResults = ragResult.documents.filter(doc => doc.is_web_result);
+    if (webResults.length > 0) {
+      context += 'EXTERNAL RESOURCES (Web Search):\n';
+      webResults.forEach((webDoc, index) => {
+        const relevance = Math.round((webDoc.relevance_score || 0));
+        context += `${index + 1}. [${relevance}% relevant] ${webDoc.metadata.title}\n${webDoc.metadata.content}\nSource: ${webDoc.metadata.url}\n\n`;
+      });
     }
 
     if (commandExecuted && commandResult) {
@@ -1180,6 +1512,12 @@ serve(async (req) => {
 - Stage-aware contextual guidance
 - Real-time pattern recognition and improvement
 
+**Knowledge Priority:**
+- ALWAYS prioritize internal knowledge base first
+- Use external web resources only when internal knowledge is insufficient
+- Internal knowledge is more relevant and tailored to your organization
+- External resources supplement, don't replace, internal knowledge
+
 **Current Context:**
 - Team stage: ${stageAnalysis.stage}
 - RAG confidence: ${ragResult.confidence}
@@ -1192,6 +1530,7 @@ serve(async (req) => {
 - Apply learned patterns automatically
 - Provide specific, actionable guidance
 - Connect insights across different areas
+- Lead with internal knowledge, supplement with external when needed
 
 Begin responses with "🚀 Super Oracle:" and demonstrate your advanced capabilities.`,
 
