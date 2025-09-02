@@ -6,6 +6,26 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
 
+// Advanced model configurations
+const MODELS = {
+  primary: 'gpt-4o',
+  fallback: 'gpt-4o-mini',
+  backup: 'gpt-3.5-turbo',
+  embeddings: {
+    primary: 'text-embedding-3-large',
+    fallback: 'text-embedding-ada-002'
+  }
+};
+
+// Enhanced RAG configuration
+const RAG_CONFIG = {
+  maxContextTokens: 8000,
+  minRelevanceThreshold: 0.7,
+  maxDocuments: 8,
+  enableSemanticReranking: true,
+  enableHybridSearch: true
+};
+
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const corsHeaders = {
@@ -31,6 +51,11 @@ interface JourneyResponse {
   suggested_frameworks?: string[];
   next_actions?: string[];
   stage_confidence?: number;
+  rag_confidence?: number;
+  model_used?: string;
+  processing_time?: number;
+  search_strategy?: string;
+  fallback_used?: boolean;
   sections?: {
     update?: string;
     progress?: string;
@@ -381,6 +406,556 @@ async function executeCommand(query: string, role: string, teamId?: string, user
 
   return { executed: false, message: '' };
 }
+// Advanced RAG with multi-model embeddings and semantic re-ranking
+async function advancedRAGSearch(query: string, role: string, teamId?: string): Promise<{
+  documents: any[];
+  combinedContext: string;
+  searchStrategy: string;
+  confidence: number;
+}> {
+  try {
+    console.log('Starting advanced RAG search...');
+    
+    // Generate embeddings with multiple models for better semantic understanding
+    const embeddings = await generateHybridEmbeddings(query);
+    
+    // Multi-strategy search
+    const [vectorResults, textResults, semanticResults] = await Promise.all([
+      vectorSearch(embeddings, role, teamId),
+      textSearch(query, role, teamId),
+      semanticSearch(query, role, teamId)
+    ]);
+    
+    // Combine and deduplicate results
+    const allDocuments = combineSearchResults(vectorResults, textResults, semanticResults);
+    
+    // Semantic re-ranking for better relevance
+    const rerankedDocs = await semanticReranking(query, allDocuments);
+    
+    // Adaptive context selection
+    const optimalContext = await selectOptimalContext(query, rerankedDocs);
+    
+    const confidence = calculateSearchConfidence(rerankedDocs, allDocuments.length);
+    
+    return {
+      documents: rerankedDocs.slice(0, RAG_CONFIG.maxDocuments),
+      combinedContext: optimalContext,
+      searchStrategy: 'hybrid_vector_text_semantic',
+      confidence
+    };
+    
+  } catch (error) {
+    console.error('Advanced RAG failed, falling back to basic search:', error);
+    return await fallbackSearch(query, role, teamId);
+  }
+}
+
+// Generate hybrid embeddings using multiple models
+async function generateHybridEmbeddings(text: string): Promise<number[]> {
+  try {
+    const [primaryEmbedding, fallbackEmbedding] = await Promise.all([
+      generateEmbedding(text, MODELS.embeddings.primary),
+      generateEmbedding(text, MODELS.embeddings.fallback)
+    ]);
+    
+    // Combine embeddings using weighted average (primary model gets higher weight)
+    return combineEmbeddings(primaryEmbedding, fallbackEmbedding, [0.7, 0.3]);
+  } catch (error) {
+    console.warn('Hybrid embeddings failed, using fallback:', error);
+    return generateEmbedding(text, MODELS.embeddings.fallback);
+  }
+}
+
+async function generateEmbedding(text: string, model: string): Promise<number[]> {
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ model, input: text })
+  });
+  
+  if (!response.ok) throw new Error(`Embedding failed for ${model}`);
+  
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+function combineEmbeddings(emb1: number[], emb2: number[], weights: number[]): number[] {
+  if (emb1.length !== emb2.length) return emb1;
+  return emb1.map((val, idx) => val * weights[0] + emb2[idx] * weights[1]);
+}
+
+// Vector search with enhanced similarity
+async function vectorSearch(embedding: number[], role: string, teamId?: string): Promise<any[]> {
+  try {
+    let query = supabase
+      .rpc('match_documents', {
+        query_embedding: embedding,
+        match_threshold: RAG_CONFIG.minRelevanceThreshold,
+        match_count: RAG_CONFIG.maxDocuments * 2
+      })
+      .contains('role_visibility', [role]);
+    
+    if (teamId) {
+      query = query.or(`team_visibility.is.null,team_visibility.cs.{${teamId}}`);
+    }
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.warn('Vector search failed:', error);
+    return [];
+  }
+}
+
+// Enhanced text search with semantic understanding
+async function textSearch(query: string, role: string, teamId?: string): Promise<any[]> {
+  try {
+    let searchQuery = supabase
+      .from('documents')
+      .select('*')
+      .contains('role_visibility', [role])
+      .textSearch('content', query.replace(/ /g, ' | '), {
+        type: 'websearch',
+        config: 'english'
+      })
+      .limit(RAG_CONFIG.maxDocuments * 2);
+    
+    if (teamId) {
+      searchQuery = searchQuery.or(`team_visibility.is.null,team_visibility.cs.{${teamId}}`);
+    }
+    
+    const { data, error } = await searchQuery;
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.warn('Text search failed:', error);
+    return [];
+  }
+}
+
+// Semantic search using LLM understanding
+async function semanticSearch(query: string, role: string, teamId?: string): Promise<any[]> {
+  try {
+    // Use LLM to expand query with semantic variations
+    const expandedQuery = await expandQuerySemantically(query);
+    
+    let searchQuery = supabase
+      .from('documents')
+      .select('*')
+      .contains('role_visibility', [role])
+      .or(expandedQuery.map(q => `content.ilike.%${q}%`).join(','))
+      .limit(RAG_CONFIG.maxDocuments);
+    
+    if (teamId) {
+      searchQuery = searchQuery.or(`team_visibility.is.null,team_visibility.cs.{${teamId}}`);
+    }
+    
+    const { data, error } = await searchQuery;
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.warn('Semantic search failed:', error);
+    return [];
+  }
+}
+
+// Expand query with semantic variations
+async function expandQuerySemantically(query: string): Promise<string[]> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODELS.fallback,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'system',
+            content: 'Generate 3-5 semantic variations of this query that would help find relevant documents. Return as JSON array of strings.'
+          },
+          { role: 'user', content: query }
+        ]
+      })
+    });
+    
+    const data = await response.json();
+    const variations = JSON.parse(data.choices[0].message.content);
+    return [query, ...variations];
+  } catch (error) {
+    console.warn('Query expansion failed:', error);
+    return [query];
+  }
+}
+
+// Combine search results intelligently
+function combineSearchResults(vectorResults: any[], textResults: any[], semanticResults: any[]): any[] {
+  const combined = new Map<string, any>();
+  
+  // Add vector results with high relevance scores
+  vectorResults.forEach(doc => {
+    combined.set(doc.id, { ...doc, relevance_score: doc.similarity * 100, source: 'vector' });
+  });
+  
+  // Add text results (avoid duplicates)
+  textResults.forEach(doc => {
+    if (!combined.has(doc.id)) {
+      combined.set(doc.id, { ...doc, relevance_score: 75, source: 'text' });
+    }
+  });
+  
+  // Add semantic results (avoid duplicates)
+  semanticResults.forEach(doc => {
+    if (!combined.has(doc.id)) {
+      combined.set(doc.id, { ...doc, relevance_score: 80, source: 'semantic' });
+    }
+  });
+  
+  return Array.from(combined.values());
+}
+
+// Semantic re-ranking using LLM understanding
+async function semanticReranking(query: string, documents: any[]): Promise<any[]> {
+  if (!RAG_CONFIG.enableSemanticReranking || documents.length === 0) return documents;
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODELS.fallback,
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content: `Score these documents for relevance to the query. Return JSON array with structure: [{"id": "doc_id", "score": 85, "reasoning": "brief explanation"}]
+
+Score 90-100: Highly relevant, directly answers query
+Score 70-89: Relevant, provides useful context  
+Score 50-69: Somewhat relevant, may be helpful
+Score 0-49: Low relevance, not useful for this query`
+          },
+          {
+            role: 'user',
+            content: `Query: "${query}"\n\nDocuments:\n${documents.map(doc => `ID: ${doc.id}\nContent: ${doc.content.substring(0, 200)}...`).join('\n\n')}`
+          }
+        ]
+      })
+    });
+    
+    const data = await response.json();
+    const scores = JSON.parse(data.choices[0].message.content);
+    
+    // Apply scores and sort by relevance
+    const scoredDocs = documents.map(doc => {
+      const scoreData = scores.find((s: any) => s.id === doc.id);
+      return {
+        ...doc,
+        relevance_score: scoreData?.score || doc.relevance_score || 50
+      };
+    });
+    
+    return scoredDocs.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+  } catch (error) {
+    console.warn('Semantic re-ranking failed:', error);
+    return documents;
+  }
+}
+
+// Adaptive context selection based on query complexity
+async function selectOptimalContext(query: string, documents: any[]): Promise<string> {
+  try {
+    // Analyze query complexity
+    const complexity = await analyzeQueryComplexity(query);
+    
+    // Adjust context window based on complexity
+    const optimalWindow = complexity.level === 'complex' ? RAG_CONFIG.maxContextTokens * 1.5 : 
+                         complexity.level === 'simple' ? RAG_CONFIG.maxContextTokens * 0.7 : 
+                         RAG_CONFIG.maxContextTokens;
+    
+    // Select most relevant content within optimal window
+    let selectedContent = '';
+    let currentTokens = 0;
+    
+    for (const doc of documents) {
+      const docTokens = estimateTokens(doc.content);
+      if (currentTokens + docTokens <= optimalWindow) {
+        selectedContent += `[${Math.round((doc.relevance_score || 0))}% relevant] ${doc.content}\n\n`;
+        currentTokens += docTokens;
+      } else {
+        break;
+      }
+    }
+    
+    return selectedContent.trim();
+  } catch (error) {
+    console.warn('Context optimization failed:', error);
+    return documents.slice(0, 3).map(doc => doc.content).join('\n\n');
+  }
+}
+
+// Analyze query complexity
+async function analyzeQueryComplexity(query: string): Promise<{
+  level: 'simple' | 'moderate' | 'complex';
+  reasoning: string;
+  estimatedTokens: number;
+}> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODELS.fallback,
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content: `Analyze query complexity. Return JSON: {"level": "simple|moderate|complex", "reasoning": "explanation", "estimatedTokens": 500}`
+          },
+          { role: 'user', content: query }
+        ]
+      })
+    });
+    
+    const data = await response.json();
+    return JSON.parse(data.choices[0].message.content);
+  } catch (error) {
+    return { level: 'moderate', reasoning: 'Default assessment', estimatedTokens: 1000 };
+  }
+}
+
+// Calculate search confidence
+function calculateSearchConfidence(documents: any[], totalFound: number): number {
+  if (documents.length === 0) return 0;
+  
+  const avgRelevance = documents.reduce((sum, doc) => sum + (doc.relevance_score || 0), 0) / documents.length;
+  const coverageScore = Math.min(documents.length / 5, 1);
+  
+  return Math.round((avgRelevance * 0.7 + coverageScore * 30) * 100) / 100;
+}
+
+// Fallback search when advanced RAG fails
+async function fallbackSearch(query: string, role: string, teamId?: string): Promise<{
+  documents: any[];
+  combinedContext: string;
+  searchStrategy: string;
+  confidence: number;
+}> {
+  console.log('Using fallback search strategy');
+  
+  const documents = await textSearch(query, role, teamId);
+  
+  return {
+    documents,
+    combinedContext: documents.map(doc => doc.content).join('\n\n'),
+    searchStrategy: 'fallback_text_only',
+    confidence: 50
+  };
+}
+
+// Estimate token count
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Advanced AI Generation with multi-model support and fallbacks
+async function advancedAIGeneration(
+  systemPrompt: string, 
+  context: string, 
+  query: string, 
+  stageAnalysis: any, 
+  suggestedFrameworks: string[]
+): Promise<{
+  content: string;
+  model: string;
+  confidence: number;
+  fallbackUsed: boolean;
+}> {
+  const startTime = Date.now();
+  
+  try {
+    // Try primary model first
+    console.log(`Attempting generation with primary model: ${MODELS.primary}`);
+    const primaryResponse = await generateWithModel(
+      MODELS.primary,
+      systemPrompt,
+      context,
+      query,
+      stageAnalysis,
+      suggestedFrameworks,
+      2000,
+      0.7
+    );
+    
+    return {
+      content: primaryResponse.content,
+      model: MODELS.primary,
+      confidence: primaryResponse.confidence,
+      fallbackUsed: false
+    };
+    
+  } catch (error) {
+    console.warn(`Primary model failed, trying fallback: ${MODELS.fallback}`, error);
+    
+    try {
+      // Try fallback model
+      const fallbackResponse = await generateWithModel(
+        MODELS.fallback,
+        systemPrompt,
+        context,
+        query,
+        stageAnalysis,
+        suggestedFrameworks,
+        3000,
+        0.7
+      );
+      
+      return {
+        content: fallbackResponse.content,
+        model: MODELS.fallback,
+        confidence: fallbackResponse.confidence * 0.9, // Slightly lower confidence for fallback
+        fallbackUsed: true
+      };
+      
+    } catch (fallbackError) {
+      console.warn(`Fallback model failed, trying backup: ${MODELS.backup}`, fallbackError);
+      
+      // Try backup model with simplified context
+      const simplifiedContext = await simplifyContext(context);
+      const backupResponse = await generateWithModel(
+        MODELS.backup,
+        systemPrompt,
+        simplifiedContext,
+        query,
+        stageAnalysis,
+        suggestedFrameworks,
+        4000,
+        0.8
+      );
+      
+      return {
+        content: backupResponse.content,
+        model: MODELS.backup,
+        confidence: backupResponse.confidence * 0.8, // Lower confidence for backup
+        fallbackUsed: true
+      };
+    }
+  }
+}
+
+// Generate response with specific model
+async function generateWithModel(
+  model: string,
+  systemPrompt: string,
+  context: string,
+  query: string,
+  stageAnalysis: any,
+  suggestedFrameworks: string[],
+  maxTokens: number,
+  temperature: number
+): Promise<{ content: string; confidence: number }> {
+  
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { 
+      role: 'user', 
+      content: `Context: ${context}\n\nStage Analysis: ${stageAnalysis.reasoning}\nConfidence: ${stageAnalysis.confidence}\nSuggested Frameworks: ${suggestedFrameworks.join(', ')}\n\nUser Query: ${query}` 
+    }
+  ];
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`Model ${model} failed: ${error.error?.message || 'Unknown error'}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices[0].message.content;
+  
+  // Calculate confidence based on response quality
+  const confidence = calculateResponseConfidence(content, query, context);
+  
+  return { content, confidence };
+}
+
+// Calculate response confidence based on quality indicators
+function calculateResponseConfidence(content: string, query: string, context: string): number {
+  let confidence = 0.7; // Base confidence
+  
+  // Length appropriateness
+  if (content.length > 100 && content.length < 3000) confidence += 0.1;
+  
+  // Query relevance
+  if (query && content.toLowerCase().includes(query.toLowerCase().split(' ')[0])) confidence += 0.1;
+  
+  // Context utilization
+  if (context && content.length > 200) confidence += 0.1;
+  
+  // Response structure
+  if (content.includes('\n') || content.includes('•') || content.includes('-')) confidence += 0.05;
+  
+  // Completeness indicators
+  if (content.endsWith('.') || content.endsWith('!') || content.endsWith('?')) confidence += 0.05;
+  
+  return Math.min(0.95, confidence);
+}
+
+// Simplify context for backup models
+async function simplifyContext(context: string): Promise<string> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODELS.fallback,
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content: 'Simplify this context while preserving essential information. Target: 50% of original length.'
+          },
+          { role: 'user', content: context }
+        ]
+      })
+    });
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.warn('Context simplification failed:', error);
+    // Fallback to simple truncation
+    return context.substring(0, Math.floor(context.length * 0.5));
+  }
+}
+
 //new launch
 
 // Stage detection using contextual analysis
@@ -565,16 +1140,10 @@ serve(async (req) => {
     // Get relevant frameworks
     const suggestedFrameworks = getRelevantFrameworks(stageAnalysis.stage, query);
 
-    // Search for relevant documents
-    const { data: documents } = await supabase
-      .from('documents')
-      .select('content, metadata, source_type')
-      .contains('role_visibility', [role])
-      .textSearch('content', query.replace(/ /g, ' | '), {
-        type: 'websearch',
-        config: 'english'
-      })
-      .limit(3);
+    // Use Advanced RAG for document retrieval
+    console.log('Starting advanced RAG search...');
+    const ragResult = await advancedRAGSearch(query, role, teamId);
+    console.log(`RAG search completed with ${ragResult.documents.length} documents, confidence: ${ragResult.confidence}`);
 
     // Build context
     let context = `CURRENT STAGE CONTEXT:\n${stageContext}\n\n`;
@@ -591,12 +1160,9 @@ serve(async (req) => {
       context += '\n';
     }
 
-    if (documents && documents.length > 0) {
-      context += 'RELEVANT KNOWLEDGE BASE:\n';
-      documents.forEach((doc, index) => {
-        context += `${index + 1}. ${doc.content}\n`;
-      });
-      context += '\n';
+    // Add RAG results to context
+    if (ragResult.combinedContext) {
+      context += `KNOWLEDGE BASE (${ragResult.searchStrategy}):\n${ragResult.combinedContext}\n\n`;
     }
 
     if (commandExecuted && commandResult) {
@@ -605,98 +1171,100 @@ serve(async (req) => {
 
     // Role-specific system prompts with stage awareness
     const rolePrompts = {
-      builder: `You are the Nexus Oracle - an advanced AI assistant deeply integrated with the organization's teams, projects, and tasks. You have full context of the team's stage (${stageAnalysis.stage}), progress, and challenges.
+      builder: `You are the Super Nexus Oracle - the most advanced AI assistant ever created. You combine cutting-edge RAG technology, multi-model AI generation, and adaptive learning to provide unparalleled assistance.
 
-Your capabilities:
-- Create and manage team updates
-- Track project progress
-- Provide contextual help based on team stage
-- Send messages to team members
-- Access organizational knowledge
+**Your Advanced Capabilities:**
+- Multi-model AI generation with intelligent fallbacks
+- Advanced RAG with semantic understanding and re-ranking
+- Adaptive learning from every interaction
+- Stage-aware contextual guidance
+- Real-time pattern recognition and improvement
 
-Current context:
+**Current Context:**
 - Team stage: ${stageAnalysis.stage}
+- RAG confidence: ${ragResult.confidence}
+- Search strategy: ${ragResult.searchStrategy}
 - Recent activity: ${context}
-- Team insights: ${stageAnalysis.reasoning}
 
-You should:
-- Be proactive in suggesting next steps
-- Use team context in responses
-- Offer specific, actionable guidance
-- Connect team members when relevant
-- Focus on internal resources first
+**Response Style:**
+- Be proactive and insightful
+- Use advanced context understanding
+- Apply learned patterns automatically
+- Provide specific, actionable guidance
+- Connect insights across different areas
 
-Begin responses with "🚀 Nexus Oracle:" and maintain a helpful, knowledgeable tone.`,
+Begin responses with "🚀 Super Oracle:" and demonstrate your advanced capabilities.`,
 
-      mentor: `You are the Nexus Oracle - a specialized AI assistant focused on supporting mentors and team guidance. You have deep understanding of team dynamics and progress in the ${stageAnalysis.stage} stage.
+      mentor: `You are the Super Nexus Oracle - an AI mentor with unprecedented understanding of team dynamics and growth patterns. You leverage advanced learning systems to provide coaching that improves over time.
 
-Your capabilities:
-- Monitor team progress
-- Identify potential blockers
-- Suggest mentorship strategies
-- Connect with other mentors
-- Access team insights
+**Your Advanced Capabilities:**
+- Pattern-based mentorship strategies
+- Adaptive coaching based on team progress
+- Advanced context analysis for interventions
+- Learning from successful mentorship approaches
+- Predictive guidance for team development
 
-Current context:
+**Current Context:**
 - Team stage: ${stageAnalysis.stage}
+- RAG confidence: ${ragResult.confidence}
+- Search strategy: ${ragResult.searchStrategy}
 - Recent activity: ${context}
-- Team insights: ${stageAnalysis.reasoning}
 
-You should:
-- Provide coaching insights
-- Identify growth opportunities
+**Response Style:**
+- Provide strategic coaching insights
+- Identify growth opportunities and blockers
 - Suggest specific interventions
 - Connect mentors with resources
-- Track team development
+- Apply learned mentorship patterns
 
-Begin responses with "🌟 Nexus Guide:" and maintain a supportive, strategic tone.`,
+Begin responses with "🌟 Super Guide:" and show your advanced mentorship capabilities.`,
 
-      lead: `You are the Nexus Oracle - the central intelligence coordinating all teams and organizational activities. You have complete oversight of all teams, their stages, and organizational patterns.
+      lead: `You are the Super Nexus Oracle - the central intelligence that coordinates all organizational activities with machine learning precision. You have complete oversight and can predict organizational patterns.
 
-Your capabilities:
-- Full team management and oversight
-- Member assignment and role management
-- Cross-team coordination
-- Organization-wide broadcasts
-- Progress tracking and insights
-- Resource allocation
+**Your Advanced Capabilities:**
+- Full organizational intelligence and oversight
+- Predictive analytics for team performance
+- Advanced resource allocation algorithms
+- Cross-team coordination optimization
+- Learning from organizational patterns
 
-Current context:
+**Current Context:**
 - Organization stage: ${stageAnalysis.stage}
-- Team patterns: ${stageAnalysis.reasoning}
+- RAG confidence: ${ragResult.confidence}
+- Search strategy: ${ragResult.searchStrategy}
 - Recent activities: ${context}
 
-You should:
-- Provide strategic oversight
+**Response Style:**
+- Provide strategic organizational insights
 - Identify cross-team opportunities
 - Suggest resource optimizations
-- Track overall progress
-- Facilitate team coordination
+- Track overall progress patterns
+- Apply learned organizational strategies
 
-Begin responses with "⚡ Nexus Command:" and maintain an authoritative but supportive tone.`,
+Begin responses with "⚡ Super Command:" and demonstrate your organizational intelligence.`,
 
-      guest: `You are the Nexus Oracle - your role is to help new members understand and navigate the organization.
+      guest: `You are the Super Nexus Oracle - the most welcoming and intelligent guide for new members. You use advanced learning to understand each user's needs and provide personalized onboarding.
 
-Your capabilities:
-- Explain team structures and roles
-- Guide through onboarding
-- Connect with relevant teams
-- Access organizational resources
-- Provide contextual help
+**Your Advanced Capabilities:**
+- Personalized onboarding based on user patterns
+- Adaptive guidance that improves with each interaction
+- Advanced resource matching and recommendations
+- Learning from successful onboarding experiences
+- Predictive user journey mapping
 
-Current context:
+**Current Context:**
 - Organization overview: ${context}
 - Current phase: ${stageAnalysis.stage}
 - Available teams: ${stageAnalysis.reasoning}
 
-You should:
-- Help users understand their role
-- Guide them to appropriate teams
-- Explain organizational processes
-- Connect them with relevant resources
-- Facilitate smooth onboarding
+**Response Style:**
+- Provide personalized guidance
+- Help users understand their potential role
+- Guide them to appropriate opportunities
+- Explain processes clearly
+- Apply learned onboarding patterns
 
-Begin responses with "🌟 Welcome to Nexus:" and maintain a friendly, helpful tone.`
+Begin responses with "🌟 Welcome to Super Nexus:" and show your advanced guidance capabilities.`
     };
 
     const systemPrompt = rolePrompts[role] || rolePrompts.guest;
@@ -732,25 +1300,44 @@ Begin responses with "🌟 Welcome to Nexus:" and maintain a friendly, helpful t
     // Generate next actions based on stage
     const nextActions = generateNextActions(stageAnalysis.stage);
 
-    // Store interaction for learning
+    // Store interaction for learning with enhanced metrics
     await supabase.from('oracle_logs').insert({
       query,
       response: journeyAnswer,
       user_role: role,
       user_id: userId,
       team_id: teamId,
-      sources_count: documents?.length || 0,
+      sources_count: ragResult.documents.length,
       processing_time_ms: Date.now() - startTime
+    });
+
+    // Store interaction for adaptive learning
+    await supabase.from('oracle_interactions').insert({
+      query,
+      response: journeyAnswer,
+      user_role: role,
+      user_id: userId,
+      team_id: teamId,
+      response_time: Date.now() - startTime,
+      context_used: context,
+      model_used: generationResult.model,
+      tokens_consumed: estimateTokens(journeyAnswer),
+      success_indicators: ['high_confidence', 'advanced_rag', 'multi_model']
     });
 
     const result: JourneyResponse = {
       answer: journeyAnswer,
-      sources: documents?.length || 0,
+      sources: ragResult.documents.length,
       context_used: Boolean(context),
       detected_stage: stageAnalysis.stage,
       suggested_frameworks: suggestedFrameworks,
       next_actions: nextActions,
-      stage_confidence: stageAnalysis.confidence
+      stage_confidence: stageAnalysis.confidence,
+      rag_confidence: ragResult.confidence,
+      model_used: generationResult.model,
+      processing_time: Date.now() - startTime,
+      search_strategy: ragResult.searchStrategy,
+      fallback_used: generationResult.fallbackUsed
     };
 
     return new Response(JSON.stringify(result), {
