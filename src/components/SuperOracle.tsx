@@ -30,6 +30,23 @@ interface SuperOracleResponse {
   relationships?: any[];
   search_strategy: string;
   fallback_used: boolean;
+  // Journey-specific responses
+  detected_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
+  feedback?: string;
+  summary?: string;
+  suggested_actions?: string[];
+  updated_stage?: boolean;
+  created_update_id?: string;
+  // Team management responses
+  stage_analysis?: any;
+  intent_parsed?: any;
+  command_result?: any;
+  team_context?: any;
+  // RAG-specific responses
+  documents?: any[];
+  updates?: any[];
+  embeddings?: number[];
+  // Legacy fields for backward compatibility
   commandExecuted?: boolean;
   commandType?: string;
   commandResult?: any;

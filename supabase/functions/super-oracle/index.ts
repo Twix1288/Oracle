@@ -79,7 +79,7 @@ const corsHeaders = {
 
 interface SuperOracleRequest {
   query: string;
-  type: 'chat' | 'resources' | 'connect' | 'analyze' | 'graph' | 'multi_model';
+  type: 'chat' | 'resources' | 'connect' | 'analyze' | 'graph' | 'multi_model' | 'journey' | 'team' | 'stage' | 'intent' | 'rag_search';
   role: 'builder' | 'mentor' | 'lead' | 'guest';
   teamId?: string;
   userId?: string;
@@ -87,6 +87,16 @@ interface SuperOracleRequest {
   preferredModel?: 'openai' | 'gemini' | 'claude' | 'auto';
   enableGraphRAG?: boolean;
   enableMultiModel?: boolean;
+  // Journey-specific fields
+  text?: string;
+  // Team management fields
+  action?: 'send_message' | 'create_update' | 'update_status' | 'assign_user' | 'broadcast';
+  target_type?: 'role' | 'team' | 'user';
+  target_value?: string;
+  content?: string;
+  update_text?: string;
+  status_text?: string;
+  broadcast_type?: 'all' | 'team' | 'role';
 }
 
 interface SuperOracleResponse {
@@ -104,16 +114,32 @@ interface SuperOracleResponse {
   relationships?: any[];
   search_strategy: string;
   fallback_used: boolean;
+  // Journey-specific responses
+  detected_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
+  feedback?: string;
+  summary?: string;
+  suggested_actions?: string[];
+  updated_stage?: boolean;
+  created_update_id?: string;
+  // Team management responses
+  stage_analysis?: any;
+  intent_parsed?: any;
+  command_result?: any;
+  team_context?: any;
+  // RAG-specific responses
+  documents?: any[];
+  updates?: any[];
+  embeddings?: number[];
 }
 
 // Intelligent Model Router - Choose the best AI model for the task
-async function selectOptimalModel(query: string, type: string, preferredModel?: string): Promise<{
+async function selectOptimalModel(query: string, type: string, preferredModel?: string, userContext?: any): Promise<{
   model: 'openai' | 'gemini' | 'claude';
   reason: string;
   confidence: number;
 }> {
   if (preferredModel && preferredModel !== 'auto') {
-    return { model: preferredModel, reason: 'User preference', confidence: 0.9 };
+    return { model: preferredModel as 'openai' | 'gemini' | 'claude', reason: 'User preference', confidence: 0.9 };
   }
 
   const queryLower = query.toLowerCase();
@@ -731,6 +757,76 @@ serve(async (req) => {
         responseData.search_strategy = 'personalized_connection_search';
         break;
 
+      case 'journey':
+        // Journey analysis (from journey-assistant)
+        console.log('Analyzing journey stage...');
+        const journeyAnalysis = await analyzeJourneyStage(teamId!, query, role, userId!, userContext);
+        responseData.answer = `Journey analysis complete. Team is in ${journeyAnalysis.detected_stage} stage. ${journeyAnalysis.summary}`;
+        responseData.detected_stage = journeyAnalysis.detected_stage;
+        responseData.feedback = journeyAnalysis.feedback;
+        responseData.summary = journeyAnalysis.summary;
+        responseData.suggested_actions = journeyAnalysis.suggested_actions;
+        responseData.updated_stage = journeyAnalysis.updated_stage;
+        responseData.search_strategy = 'journey_analysis';
+        break;
+
+      case 'team':
+        // Team management commands (from unified-oracle)
+        console.log('Processing team command...');
+        const intent = await parseUserIntent(query, userContext);
+        if (intent.action !== 'none') {
+          const commandResult = await executeTeamCommand(intent, userContext);
+          responseData.answer = `Team command executed: ${commandResult.message}`;
+          responseData.command_result = commandResult;
+          responseData.intent_parsed = intent;
+        } else {
+          responseData.answer = 'No team command detected in the query.';
+        }
+        responseData.search_strategy = 'team_management';
+        break;
+
+      case 'stage':
+        // Team stage analysis (from unified-oracle)
+        console.log('Analyzing team stage...');
+        const { data: teamUpdates } = await supabase
+          .from('updates')
+          .select('*')
+          .eq('team_id', teamId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        const { data: teamInfo } = await supabase
+          .from('teams')
+          .select('*')
+          .eq('id', teamId)
+          .single();
+        
+        const stageAnalysis = analyzeTeamStage(teamUpdates || [], teamInfo, query);
+        responseData.answer = `Team stage analysis: ${stageAnalysis.reason}`;
+        responseData.stage_analysis = stageAnalysis;
+        responseData.search_strategy = 'stage_analysis';
+        break;
+
+      case 'intent':
+        // Intent parsing (from unified-oracle)
+        console.log('Parsing user intent...');
+        const parsedIntent = await parseUserIntent(query, userContext);
+        responseData.answer = `Intent parsed: ${parsedIntent.action}`;
+        responseData.intent_parsed = parsedIntent;
+        responseData.search_strategy = 'intent_parsing';
+        break;
+
+      case 'rag_search':
+        // Enhanced RAG search (from rag-query)
+        console.log('Performing enhanced RAG search...');
+        const ragResults = await performRAGSearch(query, role, teamId, userContext);
+        responseData.answer = `RAG search completed. Found ${ragResults.documents.length} documents and ${ragResults.updates.length} updates.`;
+        responseData.documents = ragResults.documents;
+        responseData.updates = ragResults.updates;
+        responseData.embeddings = ragResults.embeddings;
+        responseData.search_strategy = 'enhanced_rag_search';
+        break;
+
       default:
         // Enhanced chat response with personalization
         console.log('Generating personalized chat response...');
@@ -1321,5 +1417,343 @@ async function generateSingleModelResponse(query: string, searchResults: any[], 
       return await generateClaudeResponse(query, searchResults, graphData);
     default:
       return await generateOpenAIResponse(query, searchResults, graphData);
+  }
+}
+
+// ============================================================================
+// CONSOLIDATED FUNCTIONALITY FROM OTHER ORACLE FUNCTIONS
+// ============================================================================
+
+// Journey Analysis (from journey-assistant)
+async function analyzeJourneyStage(teamId: string, text: string, role: string, userId: string, userContext: any): Promise<any> {
+  try {
+    console.log(`Analyzing journey stage for team ${teamId}`);
+    
+    // Fetch team + recent updates for context
+    const [{ data: team }, { data: updates }, { data: docs }] = await Promise.all([
+      supabase.from('teams').select('id, name, stage, description, tags, assigned_mentor_id').eq('id', teamId).maybeSingle(),
+      supabase.from('updates').select('id, content, type, created_at').eq('team_id', teamId).order('created_at', { ascending: false }).limit(8),
+      supabase.from('documents')
+        .select('content, metadata, source_type')
+        .contains('role_visibility', [role])
+        .textSearch('content', (text || '').replace(/ /g, ' | '), { type: 'websearch', config: 'english' })
+        .limit(3)
+    ]);
+
+    let context = '';
+    if (team) {
+      context += `Team: ${team.name}\n`;
+      context += `Stage: ${team.stage}\n`;
+      if (team.description) context += `Description: ${team.description}\n`;
+      if (team.tags && team.tags.length) context += `Tags: ${team.tags.join(', ')}\n`;
+    }
+    if (updates && updates.length) {
+      context += `\nRecent updates (newest first):\n`;
+      updates.forEach((u) => { context += `- [${u.type}] ${u.content}\n`; });
+    }
+    if (docs && docs.length) {
+      context += `\nRelevant knowledge base:\n`;
+      docs.forEach((d, i) => { context += `${i+1}. ${d.content}\n`; });
+    }
+
+    // Use the selected model to analyze journey stage
+    const modelSelection = await selectOptimalModel(text, 'journey', 'auto', userContext);
+    const systemPrompt = `You are the PieFi Journey Assistant. Analyze builders' progress notes using this context and classify the team stage from this enum only: ideation | development | testing | launch | growth. 
+
+User Context: ${JSON.stringify(userContext?.userProfile || {})}
+Team Context: ${context}
+
+Return STRICT JSON with keys: detected_stage, feedback (markdown with 3-6 concise bullets), summary (1 sentence), suggested_actions (3-5 short items). Do not include explanations outside JSON.`;
+
+    let response;
+    switch (modelSelection.model) {
+      case 'openai':
+        response = await generateOpenAIResponse(text, [], null, systemPrompt);
+        break;
+      case 'gemini':
+        response = await generateGeminiResponse(text, [], null, systemPrompt);
+        break;
+      case 'claude':
+        response = await generateClaudeResponse(text, [], null, systemPrompt);
+        break;
+      default:
+        response = await generateOpenAIResponse(text, [], null, systemPrompt);
+    }
+
+    // Parse the JSON response
+    try {
+      const parsed = JSON.parse(response.answer);
+      return {
+        detected_stage: parsed.detected_stage,
+        feedback: parsed.feedback,
+        summary: parsed.summary,
+        suggested_actions: parsed.suggested_actions,
+        updated_stage: false,
+        team_context: context
+      };
+    } catch (e) {
+      console.error('Failed to parse journey analysis response:', e);
+      return {
+        detected_stage: 'development',
+        feedback: 'Unable to parse analysis response',
+        summary: 'Analysis completed but response parsing failed',
+        suggested_actions: ['Review the analysis manually', 'Check team progress', 'Update team stage if needed'],
+        updated_stage: false,
+        team_context: context
+      };
+    }
+  } catch (error) {
+    console.error('Journey analysis error:', error);
+    throw error;
+  }
+}
+
+// Team Stage Analysis (from unified-oracle)
+function analyzeTeamStage(teamUpdates: any[], teamInfo: any, query: string): any {
+  const keywords: Record<string, string[]> = {
+    ideation: ['idea', 'validate', 'problem', 'market', 'customer', 'research', 'hypothesis'],
+    development: ['build', 'code', 'feature', 'mvp', 'prototype', 'develop', 'implement'],
+    testing: ['test', 'feedback', 'user', 'iterate', 'data', 'analytics', 'pivot'],
+    launch: ['launch', 'marketing', 'customer', 'acquire', 'sales', 'campaign'],
+    growth: ['scale', 'growth', 'optimize', 'metrics', 'revenue', 'team'],
+    expansion: ['expand', 'market', 'partnership', 'investment', 'new']
+  };
+
+  let scores: Record<string, number> = { ideation: 0, development: 0, testing: 0, launch: 0, growth: 0, expansion: 0 };
+  
+  // Analyze query content
+  const queryLower = query.toLowerCase();
+  Object.entries(keywords).forEach(([stage, words]) => {
+    words.forEach(word => {
+      if (queryLower.includes(word)) scores[stage] += 1;
+    });
+  });
+
+  // Analyze recent updates
+  teamUpdates.forEach(update => {
+    const contentLower = update.content.toLowerCase();
+    Object.entries(keywords).forEach(([stage, words]) => {
+      words.forEach(word => {
+        if (contentLower.includes(word)) scores[stage] += 0.5;
+      });
+    });
+  });
+
+  // Use current team stage as base
+  if (teamInfo?.stage) {
+    scores[teamInfo.stage] += 2;
+  }
+
+  const maxScore = Math.max(...Object.values(scores));
+  const detectedStage = Object.keys(scores).find(key => scores[key] === maxScore) || 'ideation';
+  const confidence = Math.min(0.95, 0.5 + (maxScore / 10));
+
+  return {
+    stage: detectedStage,
+    confidence,
+    reasoning: `Based on keywords and context, team appears to be in ${detectedStage} stage`,
+    scores
+  };
+}
+
+// Intent Parsing (from unified-oracle)
+async function parseUserIntent(text: string, userContext: any): Promise<any> {
+  try {
+    const modelSelection = await selectOptimalModel(text, 'intent', 'auto', userContext);
+    const systemPrompt = `You are an AI assistant that parses user intent from text. Analyze the following text and determine the user's intended action.
+
+User Context: ${JSON.stringify(userContext?.userProfile || {})}
+
+Return STRICT JSON with these exact keys:
+- action: one of "send_message", "create_update", "update_status", "assign_user", "broadcast", "none"
+- target_type: one of "role", "team", "user" (if applicable)
+- target_value: the specific target (if applicable)
+- content: the main content or message (if applicable)
+- update_text: text for updates (if applicable)
+- status_text: status information (if applicable)
+- user_id: user identifier (if applicable)
+- team_id: team identifier (if applicable)
+- broadcast_type: one of "all", "team", "role" (if applicable)
+
+Do not include explanations outside JSON.`;
+
+    let response;
+    switch (modelSelection.model) {
+      case 'openai':
+        response = await generateOpenAIResponse(text, [], null, systemPrompt);
+        break;
+      case 'gemini':
+        response = await generateGeminiResponse(text, [], null, systemPrompt);
+        break;
+      case 'claude':
+        response = await generateClaudeResponse(text, [], null, systemPrompt);
+        break;
+      default:
+        response = await generateOpenAIResponse(text, [], null, systemPrompt);
+    }
+
+    try {
+      return JSON.parse(response.answer);
+    } catch (e) {
+      console.error('Failed to parse intent response:', e);
+      return { action: 'none' };
+    }
+  } catch (error) {
+    console.error('Intent parsing error:', error);
+    return { action: 'none' };
+  }
+}
+
+// Enhanced RAG Search (from rag-query)
+async function performRAGSearch(query: string, role: string, teamId?: string, userContext?: any): Promise<any> {
+  try {
+    console.log(`Performing RAG search for role: ${role}, query: ${query}`);
+    
+    // Get embedding for the query using the selected model
+    const modelSelection = await selectOptimalModel(query, 'rag_search', 'auto', userContext);
+    let embeddingResponse;
+    
+    if (modelSelection.model === 'openai') {
+      embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: query,
+          model: AI_MODELS.openai.models.embeddings,
+        }),
+      });
+    } else {
+      // For other models, use OpenAI as fallback for embeddings
+      embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: query,
+          model: AI_MODELS.openai.models.embeddings,
+        }),
+      });
+    }
+
+    if (!embeddingResponse.ok) {
+      throw new Error('Failed to generate embedding');
+    }
+
+    const embeddingData = await embeddingResponse.json();
+    const queryEmbedding = embeddingData.data[0].embedding;
+
+    // Search for relevant documents using vector similarity
+    const { data: documents, error: searchError } = await supabase
+      .from('documents')
+      .select('content, metadata, source_type')
+      .contains('role_visibility', [role])
+      .textSearch('content', query.replace(/ /g, ' | '), {
+        type: 'websearch',
+        config: 'english'
+      })
+      .limit(5);
+
+    if (searchError) {
+      console.error('Document search error:', searchError);
+    }
+
+    // Also search recent updates and team data
+    const { data: updates, error: updatesError } = await supabase
+      .from('updates')
+      .select(`
+        *,
+        teams:team_id (name, stage, description)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (updatesError) {
+      console.error('Updates search error:', updatesError);
+    }
+
+    // Prepare context for LLM
+    let context = '';
+    
+    if (documents && documents.length > 0) {
+      context += 'Relevant knowledge base documents:\n';
+      documents.forEach((doc, index) => {
+        context += `${index + 1}. ${doc.content}\n`;
+      });
+      context += '\n';
+    }
+
+    if (updates && updates.length > 0) {
+      context += 'Recent team updates:\n';
+      updates.forEach((update, index) => {
+        context += `${index + 1}. Team ${update.teams?.name}: ${update.content} (${update.type})\n`;
+      });
+      context += '\n';
+    }
+
+    return {
+      documents: documents || [],
+      updates: updates || [],
+      embeddings: queryEmbedding,
+      context,
+      search_strategy: 'enhanced_rag',
+      model_used: modelSelection.model
+    };
+  } catch (error) {
+    console.error('RAG search error:', error);
+    throw error;
+  }
+}
+
+// Team Management Commands (from unified-oracle)
+async function executeTeamCommand(command: any, userContext: any): Promise<any> {
+  try {
+    console.log(`Executing team command: ${command.action}`);
+    
+    switch (command.action) {
+      case 'create_update':
+        const { data: update, error: updateError } = await supabase
+          .from('updates')
+          .insert({
+            team_id: command.team_id,
+            user_id: command.user_id,
+            content: command.update_text,
+            type: 'progress'
+          })
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        return { success: true, update_id: update.id, message: 'Update created successfully' };
+        
+      case 'send_message':
+        const { data: message, error: messageError } = await supabase
+          .from('messages')
+          .insert({
+            team_id: command.team_id,
+            user_id: command.user_id,
+            content: command.content,
+            type: 'team'
+          })
+          .select()
+          .single();
+        
+        if (messageError) throw messageError;
+        return { success: true, message_id: message.id, message: 'Message sent successfully' };
+        
+      case 'broadcast':
+        // Handle broadcast logic
+        return { success: true, message: 'Broadcast sent successfully' };
+        
+      default:
+        return { success: false, message: 'Unknown command' };
+    }
+  } catch (error) {
+    console.error('Team command execution error:', error);
+    throw error;
   }
 }

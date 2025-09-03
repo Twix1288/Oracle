@@ -403,8 +403,14 @@ Investment Opportunity & Funding Needs`;
     try {
       setJourneySubmitting(true);
       setIsPopulating(true);
-      const { data, error } = await supabase.functions.invoke('journey-assistant', {
-        body: { teamId: currentTeam.id, text: journeyText.trim(), role: 'builder', userId: builderName }
+      const { data, error } = await supabase.functions.invoke('super-oracle', {
+        body: { 
+          type: 'journey',
+          query: journeyText.trim(),
+          role: 'builder', 
+          teamId: currentTeam.id, 
+          userId: builderName 
+        }
       });
       if (error) throw error;
 

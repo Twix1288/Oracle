@@ -110,8 +110,13 @@ export const useOracle = (selectedRole: UserRole) => {
   // RAG query mutation
   const ragQueryMutation = useMutation({
     mutationFn: async ({ query, role }: { query: string; role: UserRole }) => {
-      const { data, error } = await supabase.functions.invoke('rag-query', {
-        body: { query, role }
+      const { data, error } = await supabase.functions.invoke('super-oracle', {
+        body: { 
+          type: 'rag_search',
+          query, 
+          role,
+          userId: (await supabase.auth.getUser()).data.user?.id
+        }
       });
       if (error) throw error;
       return data;
