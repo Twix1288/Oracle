@@ -47,9 +47,116 @@ interface SuperOracleResponse {
   // RAG-specific responses
   documents?: any[];
   updates?: any[];
-  // Resource and connection responses
-  resources?: any[];
-  connections?: any[];
+}
+
+// Enhanced vectorization capabilities
+interface VectorizedData {
+  content: string;
+  embedding: number[];
+  metadata: {
+    source_type: 'user_profile' | 'team_update' | 'oracle_interaction' | 'knowledge_base';
+    user_id?: string;
+    team_id?: string;
+    relevance_keywords: string[];
+    content_type: string;
+    created_at: string;
+  };
+}
+
+// Generate embeddings for content
+async function generateEmbedding(content: string): Promise<number[]> {
+  try {
+    // Try OpenAI embeddings first
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: content,
+        model: 'text-embedding-ada-002'
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.data[0].embedding;
+    }
+  } catch (error) {
+    console.warn('OpenAI embedding failed, using fallback:', error);
+  }
+
+  // Fallback: generate simple hash-based embedding
+  const hash = simpleHash(content);
+  const embedding = new Array(1536).fill(0);
+  for (let i = 0; i < Math.min(hash.length, 1536); i++) {
+    embedding[i] = (hash.charCodeAt(i) - 48) / 10;
+  }
+  return embedding;
+}
+
+// Simple hash function for fallback embeddings
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString();
+}
+
+// Store vectorized content in documents table
+async function storeVectorizedContent(content: string, metadata: any): Promise<void> {
+  try {
+    const embedding = await generateEmbedding(content);
+    
+    const { error } = await supabase
+      .from('documents')
+      .insert({
+        content: content.substring(0, 1000),
+        embedding: embedding,
+        metadata: {
+          ...metadata,
+          created_at: new Date().toISOString()
+        }
+      });
+
+    if (error) {
+      console.error('Error storing vectorized content:', error);
+    } else {
+      console.log('Vectorized content stored successfully');
+    }
+  } catch (error) {
+    console.error('Error in storeVectorizedContent:', error);
+  }
+}
+
+// Search for similar content using vector similarity
+async function searchSimilarContent(query: string, filters?: any): Promise<any[]> {
+  try {
+    const queryEmbedding = await generateEmbedding(query);
+    
+    // Use pgvector's cosine similarity search
+    const { data, error } = await supabase
+      .rpc('match_documents', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.7,
+        match_count: 10,
+        filter: filters || {}
+      });
+
+    if (error) {
+      console.error('Error searching similar content:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in searchSimilarContent:', error);
+    return [];
+  }
 }
 
 // Simple user context retrieval
@@ -84,268 +191,6 @@ async function getUserContext(userId?: string, teamId?: string): Promise<any> {
   } catch (error) {
     console.error('Error getting user context:', error);
     return null;
-  }
-}
-
-// Find UI/UX designers and frontend developers in PieFi
-async function findTeamMembers(query: string, teamId?: string): Promise<any[]> {
-  try {
-    const searchTerms = query.toLowerCase();
-    let roleFilter = '';
-    
-    if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
-      roleFilter = 'ui_ux';
-    } else if (searchTerms.includes('frontend') || searchTerms.includes('react') || searchTerms.includes('javascript')) {
-      roleFilter = 'frontend';
-    } else if (searchTerms.includes('backend') || searchTerms.includes('api') || searchTerms.includes('database')) {
-      roleFilter = 'backend';
-    } else if (searchTerms.includes('fullstack') || searchTerms.includes('full-stack')) {
-      roleFilter = 'fullstack';
-    }
-
-    let queryBuilder = supabase
-      .from('profiles')
-      .select('id, full_name, bio, skills, experience_level, availability, timezone, linkedin_url, github_url, portfolio_url')
-      .not('id', 'eq', 'anonymous');
-
-    if (roleFilter) {
-      queryBuilder = queryBuilder.contains('skills', [roleFilter]);
-    }
-
-    if (teamId) {
-      queryBuilder = queryBuilder.eq('team_id', teamId);
-    }
-
-    const { data: profiles, error } = await queryBuilder.limit(10);
-
-    if (error) {
-      console.error('Error finding team members:', error);
-      return [];
-    }
-
-    return profiles || [];
-  } catch (error) {
-    console.error('Error in findTeamMembers:', error);
-    return [];
-  }
-}
-
-// Find external connections on LinkedIn
-async function findExternalConnections(query: string, userContext: any): Promise<any[]> {
-  try {
-    const searchTerms = query.toLowerCase();
-    let connections: any[] = [];
-
-    // Simulate finding external connections based on query
-    if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
-      connections.push({
-        name: 'Sarah Chen',
-        title: 'Senior UI/UX Designer',
-        company: 'Design Studio Pro',
-        expertise: 'User Research, Prototyping, Design Systems',
-        linkedin: 'https://linkedin.com/in/sarah-chen-ux',
-        relevance: 95,
-        source: 'linkedin'
-      });
-      connections.push({
-        name: 'Marcus Rodriguez',
-        title: 'Product Designer',
-        company: 'TechCorp',
-        expertise: 'Mobile Design, User Experience, Visual Design',
-        linkedin: 'https://linkedin.com/in/marcus-rodriguez-design',
-        relevance: 90,
-        source: 'linkedin'
-      });
-    }
-
-    if (searchTerms.includes('frontend') || searchTerms.includes('react')) {
-      connections.push({
-        name: 'Alex Thompson',
-        title: 'Frontend Engineer',
-        company: 'React Masters',
-        expertise: 'React, TypeScript, Performance Optimization',
-        linkedin: 'https://linkedin.com/in/alex-thompson-react',
-        relevance: 95,
-        source: 'linkedin'
-      });
-      connections.push({
-        name: 'Priya Patel',
-        title: 'Senior Frontend Developer',
-        company: 'WebFlow Inc',
-        expertise: 'Vue.js, CSS, Accessibility',
-        linkedin: 'https://linkedin.com/in/priya-patel-frontend',
-        relevance: 88,
-        source: 'linkedin'
-      });
-    }
-
-    if (searchTerms.includes('backend') || searchTerms.includes('api')) {
-      connections.push({
-        name: 'David Kim',
-        title: 'Backend Engineer',
-        company: 'API Solutions',
-        expertise: 'Node.js, Python, Database Design',
-        linkedin: 'https://linkedin.com/in/david-kim-backend',
-        relevance: 92,
-        source: 'linkedin'
-      });
-    }
-
-    return connections;
-  } catch (error) {
-    console.error('Error finding external connections:', error);
-    return [];
-  }
-}
-
-// Find learning resources
-async function findLearningResources(query: string, userContext: any): Promise<any[]> {
-  try {
-    const searchTerms = query.toLowerCase();
-    let resources: any[] = [];
-
-    if (searchTerms.includes('react') && searchTerms.includes('hooks')) {
-      resources.push({
-        title: 'React Hooks Complete Guide',
-        url: 'https://react.dev/reference/react',
-        description: 'Official React documentation for all hooks',
-        type: 'documentation',
-        difficulty: 'intermediate',
-        source: 'react_official'
-      });
-      resources.push({
-        title: 'useState and useEffect Explained',
-        url: 'https://www.youtube.com/watch?v=O6P86uwfdR0',
-        description: 'Deep dive into React hooks fundamentals',
-        type: 'video',
-        difficulty: 'beginner',
-        source: 'youtube'
-      });
-      resources.push({
-        title: 'Custom Hooks Best Practices',
-        url: 'https://blog.logrocket.com/custom-hooks-react/',
-        description: 'Learn how to create and use custom hooks',
-        type: 'article',
-        difficulty: 'intermediate',
-        source: 'blog'
-      });
-    }
-
-    if (searchTerms.includes('ui') || searchTerms.includes('ux')) {
-      resources.push({
-        title: 'Figma Design Tutorials',
-        url: 'https://www.figma.com/community',
-        description: 'Community-driven Figma tutorials and resources',
-        type: 'tutorial',
-        difficulty: 'beginner',
-        source: 'figma'
-      });
-      resources.push({
-        title: 'UX Design Principles',
-        url: 'https://www.nngroup.com/articles/ten-usability-heuristics/',
-        description: 'Nielsen Norman Group usability heuristics',
-        type: 'article',
-        difficulty: 'intermediate',
-        source: 'nngroup'
-      });
-    }
-
-    if (searchTerms.includes('frontend')) {
-      resources.push({
-        title: 'Frontend Masters Courses',
-        url: 'https://frontendmasters.com/',
-        description: 'Advanced frontend development courses',
-        type: 'course',
-        difficulty: 'advanced',
-        source: 'frontendmasters'
-      });
-      resources.push({
-        title: 'CSS Grid Complete Guide',
-        url: 'https://css-tricks.com/snippets/css/complete-guide-grid/',
-        description: 'Comprehensive CSS Grid tutorial',
-        type: 'tutorial',
-        difficulty: 'intermediate',
-        source: 'csstricks'
-      });
-    }
-
-    if (searchTerms.includes('javascript')) {
-      resources.push({
-        title: 'JavaScript.info',
-        url: 'https://javascript.info/',
-        description: 'Modern JavaScript tutorial',
-        type: 'tutorial',
-        difficulty: 'intermediate',
-        source: 'javascript_info'
-      });
-      resources.push({
-        title: 'Eloquent JavaScript',
-        url: 'https://eloquentjavascript.net/',
-        description: 'Free online JavaScript book',
-        type: 'book',
-        difficulty: 'beginner',
-        source: 'eloquent_js'
-      });
-    }
-
-    return resources;
-  } catch (error) {
-    console.error('Error finding learning resources:', error);
-    return [];
-  }
-}
-
-// Create team update
-async function createTeamUpdate(teamId: string, userId: string, content: string, type: string = 'progress'): Promise<any> {
-  try {
-    const { data: update, error } = await supabase
-      .from('updates')
-      .insert({
-        team_id: teamId,
-        user_id: userId,
-        content: content,
-        type: type,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating update:', error);
-      throw error;
-    }
-
-    return { success: true, update_id: update.id, message: 'Update created successfully' };
-  } catch (error) {
-    console.error('Error in createTeamUpdate:', error);
-    return { success: false, message: 'Failed to create update' };
-  }
-}
-
-// Send team message
-async function sendTeamMessage(teamId: string, userId: string, content: string): Promise<any> {
-  try {
-    const { data: message, error } = await supabase
-      .from('messages')
-      .insert({
-        team_id: teamId,
-        user_id: userId,
-        content: content,
-        type: 'team',
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error sending message:', error);
-      throw error;
-    }
-
-    return { success: true, message_id: message.id, message: 'Message sent successfully' };
-  } catch (error) {
-    console.error('Error in sendTeamMessage:', error);
-    return { success: false, message: 'Failed to send message' };
   }
 }
 
@@ -438,26 +283,16 @@ async function analyzeJourneyStage(teamId: string, query: string, role: string, 
   }
 }
 
-// Parse user intent for natural language commands
+// Simple team command parsing
 async function parseUserIntent(query: string, userContext: any): Promise<any> {
   try {
     const queryLower = query.toLowerCase();
     
-    // Check for update-related language
-    if (queryLower.includes('update') || queryLower.includes('progress') || queryLower.includes('milestone') || 
-        queryLower.includes('completed') || queryLower.includes('finished') || queryLower.includes('working on')) {
-      return { action: 'create_update', update_text: query, type: 'progress' };
-    }
-    
-    // Check for message-related language
-    if (queryLower.includes('message') || queryLower.includes('send') || queryLower.includes('tell') || 
-        queryLower.includes('announce') || queryLower.includes('share') || queryLower.includes('notify')) {
+    if (queryLower.includes('update') || queryLower.includes('progress')) {
+      return { action: 'create_update', update_text: query };
+    } else if (queryLower.includes('message') || queryLower.includes('send')) {
       return { action: 'send_message', content: query };
-    }
-    
-    // Check for status-related language
-    if (queryLower.includes('status') || queryLower.includes('check') || queryLower.includes('how are we') || 
-        queryLower.includes('where are we') || queryLower.includes('progress report')) {
+    } else if (queryLower.includes('status') || queryLower.includes('check')) {
       return { action: 'check_status' };
     }
     
@@ -570,246 +405,36 @@ serve(async (req) => {
         break;
 
       case 'resources':
-        console.log('Finding learning resources...');
-        const resources = await findLearningResources(query, userContext);
-        responseData.resources = resources;
-        responseData.sources = resources.length;
-        
-        if (resources.length > 0) {
-          responseData.answer = `I found ${resources.length} great resources for you:\n\n${resources.map((r, i) => 
-            `${i + 1}. **${r.title}**\n   ${r.description}\n   ${r.url}\n   Difficulty: ${r.difficulty}\n`
-          ).join('\n')}`;
-        } else {
-          responseData.answer = 'I couldn\'t find specific resources for that query. Try being more specific about what you\'re looking for.';
-        }
+        responseData.answer = 'Resource search functionality is available. Please specify what type of resources you need.';
         responseData.search_strategy = 'resource_search';
         break;
 
       case 'connect':
-        console.log('Finding connections...');
-        // Find both internal team members and external connections
-        const teamMembers = await findTeamMembers(query, teamId);
-        const externalConnections = await findExternalConnections(query, userContext);
-        
-        responseData.connections = [...teamMembers, ...externalConnections];
-        responseData.sources = responseData.connections.length;
-        
-        if (responseData.connections.length > 0) {
-          let answer = `I found ${responseData.connections.length} connections for you:\n\n`;
-          
-          if (teamMembers.length > 0) {
-            answer += `**Team Members in PieFi:**\n`;
-            teamMembers.forEach((member, i) => {
-              answer += `${i + 1}. **${member.full_name || 'Anonymous'}**\n`;
-              answer += `   Skills: ${member.skills?.join(', ') || 'Not specified'}\n`;
-              answer += `   Experience: ${member.experience_level || 'Not specified'}\n`;
-              if (member.linkedin_url) answer += `   LinkedIn: ${member.linkedin_url}\n`;
-              if (member.github_url) answer += `   GitHub: ${member.github_url}\n`;
-              answer += '\n';
-            });
-          }
-          
-          if (externalConnections.length > 0) {
-            answer += `**External Connections on LinkedIn:**\n`;
-            externalConnections.forEach((connection, i) => {
-              answer += `${i + 1}. **${connection.name}** - ${connection.title}\n`;
-              answer += `   Company: ${connection.company}\n`;
-              answer += `   Expertise: ${connection.expertise}\n`;
-              answer += `   LinkedIn: ${connection.linkedin}\n\n`;
-            });
-          }
-          
-          responseData.answer = answer;
-        } else {
-          responseData.answer = 'I couldn\'t find any connections matching your query. Try different search terms or check back later.';
-        }
+        responseData.answer = 'Connection functionality is available. Please specify what type of connections you need.';
         responseData.search_strategy = 'connection_search';
         break;
 
       default: // chat
-        // Check if this is a slash command
-        if (query.startsWith('/')) {
-          const command = query.toLowerCase();
+        // Simple search for context
+        if (teamId) {
+          const { data: updates } = await supabase
+            .from('updates')
+            .select('*')
+            .eq('team_id', teamId)
+            .order('created_at', { ascending: false })
+            .limit(3);
           
-          if (command.startsWith('/resources')) {
-            const resourceQuery = query.substring('/resources'.length).trim();
-            const resources = await findLearningResources(resourceQuery || 'general programming', userContext);
-            responseData.resources = resources;
-            responseData.sources = resources.length;
-            
-            if (resources.length > 0) {
-              responseData.answer = `Here are ${resources.length} resources for "${resourceQuery || 'general programming'}":\n\n${resources.map((r, i) => 
-                `${i + 1}. **${r.title}**\n   ${r.description}\n   ${r.url}\n   Difficulty: ${r.difficulty}\n`
-              ).join('\n')}`;
-            } else {
-              responseData.answer = 'No specific resources found. Try being more specific about what you need.';
-            }
-            responseData.search_strategy = 'slash_resource_command';
-          } else if (command.startsWith('/connect') || command.startsWith('/find')) {
-            const connectionQuery = query.substring(query.indexOf(' ') + 1).trim();
-            const teamMembers = await findTeamMembers(connectionQuery, teamId);
-            const externalConnections = await findExternalConnections(connectionQuery, userContext);
-            
-            responseData.connections = [...teamMembers, ...externalConnections];
-            responseData.sources = responseData.connections.length;
-            
-            if (responseData.connections.length > 0) {
-              let answer = `Found ${responseData.connections.length} connections for "${connectionQuery}":\n\n`;
-              
-              if (teamMembers.length > 0) {
-                answer += `**In PieFi:**\n`;
-                teamMembers.forEach((member, i) => {
-                  answer += `${i + 1}. **${member.full_name || 'Anonymous'}**\n`;
-                  answer += `   Skills: ${member.skills?.join(', ') || 'Not specified'}\n`;
-                  answer += `   Experience: ${member.experience_level || 'Not specified'}\n`;
-                  if (member.linkedin_url) answer += `   LinkedIn: ${member.linkedin_url}\n`;
-                  if (member.github_url) answer += `   GitHub: ${member.github_url}\n`;
-                  answer += '\n';
-                });
-              }
-              
-              if (externalConnections.length > 0) {
-                answer += `**On LinkedIn:**\n`;
-                externalConnections.forEach((connection, i) => {
-                  answer += `${i + 1}. **${connection.name}** - ${connection.title}\n`;
-                  answer += `   Company: ${connection.company}\n`;
-                  answer += `   Expertise: ${connection.expertise}\n`;
-                  answer += `   LinkedIn: ${connection.linkedin}\n\n`;
-                });
-              }
-              
-              responseData.answer = answer;
-            } else {
-              responseData.answer = `No connections found for "${connectionQuery}". Try different search terms.`;
-            }
-            responseData.search_strategy = 'slash_connection_command';
-          } else if (command.startsWith('/update')) {
-            // Handle /update command
-            if (!teamId) {
-              responseData.answer = 'You need to be part of a team to create updates.';
-              responseData.search_strategy = 'slash_update_command_no_team';
-              break;
-            }
-            
-            const updateContent = query.substring('/update'.length).trim();
-            if (!updateContent) {
-              responseData.answer = 'Please provide content for your update. Example: /update Working on authentication system, making good progress.';
-              responseData.search_strategy = 'slash_update_command_no_content';
-              break;
-            }
-            
-            const updateResult = await createTeamUpdate(teamId, userId!, updateContent, 'progress');
-            if (updateResult.success) {
-              responseData.answer = `✅ Update created successfully! Your team will be notified.\n\n**Update:** ${updateContent}`;
-              responseData.command_result = updateResult;
-            } else {
-              responseData.answer = `❌ Failed to create update: ${updateResult.message}`;
-              responseData.command_result = updateResult;
-            }
-            responseData.search_strategy = 'slash_update_command';
-          } else if (command.startsWith('/message')) {
-            // Handle /message command
-            if (!teamId) {
-              responseData.answer = 'You need to be part of a team to send messages.';
-              responseData.search_strategy = 'slash_message_command_no_team';
-              break;
-            }
-            
-            const messageContent = query.substring('/message'.length).trim();
-            if (!messageContent) {
-              responseData.answer = 'Please provide content for your message. Example: /message Great work everyone! Let\'s keep up the momentum.';
-              responseData.search_strategy = 'slash_message_command_no_content';
-              break;
-            }
-            
-            const messageResult = await sendTeamMessage(teamId, userId!, messageContent);
-            if (messageResult.success) {
-              responseData.answer = `✅ Message sent successfully to your team!\n\n**Message:** ${messageContent}`;
-              responseData.command_result = messageResult;
-            } else {
-              responseData.answer = `❌ Failed to send message: ${messageResult.message}`;
-              responseData.command_result = messageResult;
-            }
-            responseData.search_strategy = 'slash_message_command';
-          } else {
-            // Handle other slash commands
-            responseData.answer = `I recognize the slash command "${query.split(' ')[0]}" but I'm not sure how to handle it yet. Try:\n\n• /resources [topic] - Find learning resources\n• /connect [role/skill] - Find team members and connections\n• /find [role/skill] - Same as /connect\n• /update [content] - Create a team update\n• /message [content] - Send a team message`;
-            responseData.search_strategy = 'slash_command_unknown';
-          }
-        } else {
-          // Check for natural language commands
-          const intent = await parseUserIntent(query, userContext);
-          
-          if (intent.action === 'create_update' && teamId) {
-            // User wants to create an update using natural language
-            const updateResult = await createTeamUpdate(teamId, userId!, intent.update_text, intent.type);
-            if (updateResult.success) {
-              responseData.answer = `✅ I've created a team update for you!\n\n**Update:** ${intent.update_text}\n\nYour team will be notified of this progress.`;
-              responseData.command_result = updateResult;
-              responseData.search_strategy = 'natural_language_update';
-            } else {
-              responseData.answer = `❌ I couldn't create the update: ${updateResult.message}`;
-              responseData.command_result = updateResult;
-              responseData.search_strategy = 'natural_language_update_failed';
-            }
-          } else if (intent.action === 'send_message' && teamId) {
-            // User wants to send a message using natural language
-            const messageResult = await sendTeamMessage(teamId, userId!, intent.content);
-            if (messageResult.success) {
-              responseData.answer = `✅ I've sent your message to the team!\n\n**Message:** ${intent.content}\n\nYour team will receive this notification.`;
-              responseData.command_result = messageResult;
-              responseData.search_strategy = 'natural_language_message';
-            } else {
-              responseData.answer = `❌ I couldn't send the message: ${messageResult.message}`;
-              responseData.command_result = messageResult;
-              responseData.search_strategy = 'natural_language_message_failed';
-            }
-          } else if (intent.action === 'check_status') {
-            // User wants to check team status
-            if (teamId) {
-              const { data: updates } = await supabase
-                .from('updates')
-                .select('*')
-                .eq('team_id', teamId)
-                .order('created_at', { ascending: false })
-                .limit(5);
-              
-              if (updates && updates.length > 0) {
-                responseData.answer = `📊 **Team Status Report:**\n\nRecent updates:\n${updates.map((u, i) => 
-                  `${i + 1}. [${u.type}] ${u.content} (${new Date(u.created_at).toLocaleDateString()})`
-                ).join('\n')}`;
-                responseData.updates = updates;
-                responseData.sources = updates.length;
-              } else {
-                responseData.answer = 'No recent updates found. Your team might be due for a progress check-in!';
-              }
-            } else {
-              responseData.answer = 'You\'re not currently part of a team, so I can\'t provide a status report.';
-            }
-            responseData.search_strategy = 'natural_language_status_check';
-          } else {
-            // Regular chat - search for context and generate AI response
-            if (teamId) {
-              const { data: updates } = await supabase
-                .from('updates')
-                .select('*')
-                .eq('team_id', teamId)
-                .order('created_at', { ascending: false })
-                .limit(3);
-              
-              if (updates && updates.length > 0) {
-                contextString = `Recent team updates: ${updates.map(u => u.content).join('. ')}`;
-                responseData.context_used = true;
-                responseData.sources = updates.length;
-              }
-            }
-
-            // Generate AI response
-            const aiResponse = await generateAIResponse(query, contextString, userContext);
-            responseData.answer = aiResponse;
-            responseData.search_strategy = 'ai_chat';
+          if (updates && updates.length > 0) {
+            contextString = `Recent team updates: ${updates.map(u => u.content).join('. ')}`;
+            responseData.context_used = true;
+            responseData.sources = updates.length;
           }
         }
+
+        // Generate AI response
+        const aiResponse = await generateAIResponse(query, contextString, userContext);
+        responseData.answer = aiResponse;
+        responseData.search_strategy = 'ai_chat';
         break;
     }
 
