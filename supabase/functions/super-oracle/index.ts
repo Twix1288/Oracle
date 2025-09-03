@@ -640,10 +640,14 @@ serve(async (req) => {
     const startTime = Date.now();
     const { query, type, role, teamId, userId, context, preferredModel, enableGraphRAG, enableMultiModel }: SuperOracleRequest = await req.json();
 
-    console.log(`Super Oracle request - Type: ${type}, Role: ${role}, Query: ${query}`);
+    console.log(`Super Oracle request - Type: ${type}, Role: ${role}, Query: ${query}, User: ${userId}`);
 
-    // Select optimal AI model
-    const modelSelection = await selectOptimalModel(query, type, preferredModel);
+    // Get comprehensive user context from database using onboarding data
+    const userContext = await getUserContextFromDatabase(userId, teamId);
+    console.log('User context retrieved:', userContext ? 'Yes' : 'No');
+
+    // Select optimal AI model with personalization
+    const modelSelection = await selectOptimalModel(query, type, preferredModel, userContext);
     console.log(`Selected model: ${modelSelection.model} (${modelSelection.reason})`);
 
     let responseData: SuperOracleResponse = {
@@ -661,7 +665,7 @@ serve(async (req) => {
     let graphData = null;
     if (enableGraphRAG) {
       console.log('Building knowledge graph...');
-      graphData = await buildKnowledgeGraph(query, context);
+      graphData = await buildKnowledgeGraph(query, userContext);
       if (graphData) {
         responseData.graph_data = graphData;
         responseData.context_used = true;
@@ -669,23 +673,31 @@ serve(async (req) => {
       }
     }
 
-    // Enhanced vector search with web search integration
-    const searchResults = await enhancedVectorSearch(query, graphData?.context || [], role, teamId);
+    // Enhanced vector search with personalization
+    const searchResults = await enhancedVectorSearch(query, graphData?.context || [], role, teamId, userContext);
     responseData.sources = searchResults.length;
 
-    // Generate response based on type and configuration
+    // Fetch external resources based on query type and user context
+    let externalResources: any[] = [];
+    if (type === 'resources' || type === 'connect') {
+      console.log('Fetching external resources...');
+      externalResources = await fetchExternalResources(query, userContext, type);
+      console.log(`Found ${externalResources.length} external resources`);
+    }
+
+    // Generate personalized response based on type and configuration
     switch (type) {
       case 'multi_model':
         if (enableMultiModel) {
           console.log('Generating multi-model response...');
-          const multiModelResponse = await generateMultiModelResponse(query, searchResults, graphData);
+          const multiModelResponse = await generateMultiModelResponse(query, searchResults, graphData, userContext);
           responseData.answer = multiModelResponse.answer;
           responseData.multi_model_insights = multiModelResponse.insights;
           responseData.confidence = multiModelResponse.confidence;
           responseData.search_strategy = 'multi_model_enhanced';
         } else {
-          // Fallback to single model
-          const singleModelResponse = await generateSingleModelResponse(query, searchResults, graphData, modelSelection.model);
+          // Fallback to single model with personalization
+          const singleModelResponse = await generateSingleModelResponse(query, searchResults, graphData, modelSelection.model, userContext);
           responseData.answer = singleModelResponse.answer;
           responseData.confidence = singleModelResponse.confidence;
         }
@@ -700,38 +712,38 @@ serve(async (req) => {
         break;
 
       case 'resources':
-        // Enhanced resource finding with GraphRAG
-        console.log('Enhanced resource search with GraphRAG...');
-        const resourceResponse = await generateEnhancedResourceResponse(query, searchResults, graphData, modelSelection.model);
+        // Enhanced resource finding with personalization and external resources
+        console.log('Enhanced resource search with personalization...');
+        const resourceResponse = await generateEnhancedResourceResponse(query, searchResults, graphData, modelSelection.model, userContext, externalResources);
         responseData.answer = resourceResponse.answer;
         responseData.resources = resourceResponse.resources;
         responseData.confidence = resourceResponse.confidence;
-        responseData.search_strategy = 'graphrag_resource_search';
+        responseData.search_strategy = 'personalized_resource_search';
         break;
 
       case 'connect':
-        // Enhanced connection finding with GraphRAG
-        console.log('Enhanced connection search with GraphRAG...');
-        const connectionResponse = await generateEnhancedConnectionResponse(query, searchResults, graphData, modelSelection.model);
+        // Enhanced connection finding with personalization and external connections
+        console.log('Enhanced connection search with personalization...');
+        const connectionResponse = await generateEnhancedConnectionResponse(query, searchResults, graphData, modelSelection.model, userContext, externalResources);
         responseData.answer = connectionResponse.answer;
         responseData.connections = connectionResponse.connections;
         responseData.confidence = connectionResponse.confidence;
-        responseData.search_strategy = 'graphrag_connection_search';
+        responseData.search_strategy = 'personalized_connection_search';
         break;
 
       default:
-        // Enhanced chat response with GraphRAG context
-        console.log('Generating enhanced chat response...');
-        const enhancedResponse = await generateEnhancedChatResponse(query, searchResults, graphData, modelSelection.model, context);
+        // Enhanced chat response with personalization
+        console.log('Generating personalized chat response...');
+        const enhancedResponse = await generateEnhancedChatResponse(query, searchResults, graphData, modelSelection.model, userContext);
         responseData.answer = enhancedResponse.answer;
         responseData.confidence = enhancedResponse.confidence;
-        responseData.search_strategy = graphData ? 'graphrag_enhanced_chat' : 'standard_chat';
+        responseData.search_strategy = graphData ? 'graphrag_enhanced_chat' : 'personalized_chat';
         break;
     }
 
     responseData.processing_time = Date.now() - startTime;
 
-    // Log the interaction
+    // Log the interaction with personalization data
     try {
       await supabase.from('oracle_logs').insert({
         user_id: userId || 'anonymous',
@@ -742,13 +754,17 @@ serve(async (req) => {
         sources_count: responseData.sources,
         processing_time_ms: responseData.processing_time,
         model_used: responseData.model_used,
-        search_strategy: responseData.search_strategy
+        search_strategy: responseData.search_strategy,
+        personalization_data: {
+          userContext: userContext ? 'available' : 'unavailable',
+          externalResources: externalResources.length
+        }
       });
     } catch (logError) {
       console.error('Failed to log Super Oracle interaction:', logError);
     }
 
-    console.log(`Super Oracle response completed in ${responseData.processing_time}ms`);
+    console.log(`Super Oracle response completed in ${responseData.processing_time}ms with personalization`);
     
     return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -771,22 +787,41 @@ serve(async (req) => {
   }
 });
 
-// Enhanced resource response generation with GraphRAG
-async function generateEnhancedResourceResponse(query: string, searchResults: any[], graphData: any, model: string): Promise<any> {
+// Enhanced resource response generation with personalization and external resources
+async function generateEnhancedResourceResponse(query: string, searchResults: any[], graphData: any, model: string, userContext: any, externalResources: any[]): Promise<any> {
   try {
+    // Combine internal and external resources
+    const allResources = [...searchResults, ...externalResources];
+    
+    // Create personalized prompt based on user context
+    const personalizationContext = userContext ? `
+User Context:
+- Experience Level: ${userContext.userProfile?.experienceLevel || 'intermediate'}
+- Skills: ${userContext.userProfile?.skills?.join(', ') || 'general'}
+- Learning Goals: ${userContext.userProfile?.learningGoals?.join(', ') || 'skill development'}
+- Preferred Technologies: ${userContext.userProfile?.preferredTechnologies?.join(', ') || 'modern tech'}
+- Communication Style: ${userContext.userProfile?.communicationStyle || 'collaborative'}
+- Work Style: ${userContext.userProfile?.workStyle || 'flexible'}
+
+Team Context: ${userContext.teamContext ? `${userContext.teamContext.name} (${userContext.teamContext.stage} stage)` : 'Individual user'}
+` : 'No user context available';
+
     const systemPrompt = `You are an expert resource curator with access to knowledge graphs and advanced AI models.
 
 Query: ${query}
 ${graphData ? `Knowledge Graph Context: ${JSON.stringify(graphData)}` : ''}
-Search Results: ${JSON.stringify(searchResults)}
+Available Resources: ${JSON.stringify(allResources)}
+${personalizationContext}
 
 Generate a comprehensive response that:
-1. Explains what resources were found and why they're relevant
+1. Explains what resources were found and why they're relevant to THIS specific user
 2. Leverages the knowledge graph to provide deeper context
-3. Suggests additional resources based on the graph relationships
-4. Provides actionable next steps
+3. Suggests additional resources based on the user's skills and learning goals
+4. Provides actionable next steps tailored to their experience level
+5. Uses their preferred communication style (${userContext?.userProfile?.communicationStyle || 'collaborative'})
+6. Considers their team context and current challenges
 
-Format your response to be helpful and engaging.`;
+Format your response to be helpful, engaging, and perfectly matched to the user's profile.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -801,19 +836,17 @@ Format your response to be helpful and engaging.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query }
         ],
-        max_tokens: 800
+        max_tokens: 1000
       })
     });
 
     const data = await response.json();
     
-    // Generate enhanced resources using the knowledge graph
-    const enhancedResources = await generateResourcesFromGraph(query, graphData, searchResults);
-    
+    // Return personalized resources
     return {
-      answer: data.choices?.[0]?.message?.content || "I found some great resources for you!",
-      resources: enhancedResources,
-      confidence: 0.9
+      answer: data.choices?.[0]?.message?.content || "I found some great personalized resources for you!",
+      resources: allResources,
+      confidence: 0.95
     };
   } catch (error) {
     console.error('Error generating enhanced resource response:', error);
@@ -825,22 +858,43 @@ Format your response to be helpful and engaging.`;
   }
 }
 
-// Enhanced connection response generation with GraphRAG
-async function generateEnhancedConnectionResponse(query: string, searchResults: any[], graphData: any, model: string): Promise<any> {
+// Enhanced connection response generation with personalization and external connections
+async function generateEnhancedConnectionResponse(query: string, searchResults: any[], graphData: any, model: string, userContext: any, externalResources: any[]): Promise<any> {
   try {
+    // Combine internal and external connections
+    const allConnections = [...searchResults, ...externalResources];
+    
+    // Create personalized prompt based on user context
+    const personalizationContext = userContext ? `
+User Context:
+- Role: ${userContext.userProfile?.role || 'builder'}
+- Experience Level: ${userContext.userProfile?.experienceLevel || 'intermediate'}
+- Skills: ${userContext.userProfile?.skills?.join(', ') || 'general'}
+- Current Focus: ${userContext.userProfile?.learningGoals?.join(', ') || 'skill development'}
+- Communication Style: ${userContext.userProfile?.communicationStyle || 'collaborative'}
+- Availability: ${userContext.userProfile?.availability || 'flexible'}
+
+Team Context: ${userContext.teamContext ? `${userContext.teamContext.name} (${userContext.teamContext.stage} stage)` : 'Individual user'}
+Mentorship Needs: ${userContext.userProfile?.mentorshipNeeds || 'Not specified'}
+` : 'No user context available';
+
     const systemPrompt = `You are an expert networking assistant with access to knowledge graphs and advanced AI models.
 
 Query: ${query}
 ${graphData ? `Knowledge Graph Context: ${JSON.stringify(graphData)}` : ''}
-Search Results: ${JSON.stringify(searchResults)}
+Available Connections: ${JSON.stringify(allConnections)}
+${personalizationContext}
 
 Generate a comprehensive response that:
-1. Explains what connections were found and why they're relevant
+1. Explains what connections were found and why they're relevant to THIS specific user
 2. Leverages the knowledge graph to suggest related connections
-3. Provides networking advice and strategies
+3. Provides networking advice and strategies tailored to their role and experience
 4. Suggests next steps for building these relationships
+5. Uses their preferred communication style (${userContext?.userProfile?.communicationStyle || 'collaborative'})
+6. Considers their mentorship needs and team context
+7. Provides personalized introduction messages if appropriate
 
-Format your response to be helpful and actionable.`;
+Format your response to be helpful, actionable, and perfectly matched to the user's profile.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -855,19 +909,17 @@ Format your response to be helpful and actionable.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query }
         ],
-        max_tokens: 800
+        max_tokens: 1000
       })
     });
 
     const data = await response.json();
     
-    // Generate enhanced connections using the knowledge graph
-    const enhancedConnections = await generateConnectionsFromGraph(query, graphData, searchResults);
-    
+    // Return personalized connections
     return {
-      answer: data.choices?.[0]?.message?.content || "I found some great connections for you!",
-      connections: enhancedConnections,
-      confidence: 0.9
+      answer: data.choices?.[0]?.message?.content || "I found some great personalized connections for you!",
+      connections: allConnections,
+      confidence: 0.95
     };
   } catch (error) {
     console.error('Error generating enhanced connection response:', error);
@@ -879,24 +931,52 @@ Format your response to be helpful and actionable.`;
   }
 }
 
-// Enhanced chat response generation with GraphRAG
-async function generateEnhancedChatResponse(query: string, searchResults: any[], graphData: any, model: string, context: any): Promise<any> {
+// Enhanced chat response generation with personalization
+async function generateEnhancedChatResponse(query: string, searchResults: any[], graphData: any, model: string, userContext: any): Promise<any> {
   try {
+    // Create personalized prompt based on user context
+    const personalizationContext = userContext ? `
+User Context:
+- Role: ${userContext.userProfile?.role || 'builder'}
+- Experience Level: ${userContext.userProfile?.experienceLevel || 'intermediate'}
+- Skills: ${userContext.userProfile?.skills?.join(', ') || 'general'}
+- Current Focus: ${userContext.userProfile?.learningGoals?.join(', ') || 'skill development'}
+- Communication Style: ${userContext.userProfile?.communicationStyle || 'collaborative'}
+- Work Style: ${userContext.userProfile?.workStyle || 'flexible'}
+- Availability: ${userContext.userProfile?.availability || 'flexible'}
+- Timezone: ${userContext.userProfile?.timezone || 'flexible'}
+
+Team Context: ${userContext.teamContext ? `${userContext.teamContext.name} (${userContext.teamContext.stage} stage)` : 'Individual user'}
+Recent Updates: ${userContext.recentUpdates?.map(u => u.content).join('; ') || 'None'}
+Project Goal: ${userContext.userProfile?.projectGoal || 'Not specified'}
+Mentorship Needs: ${userContext.userProfile?.mentorshipNeeds || 'Not specified'}
+
+Preferences:
+- Response Detail: ${userContext.preferences?.responseDetail || 'comprehensive'}
+- Technical Depth: ${userContext.preferences?.technicalDepth || 'intermediate'}
+- Learning Style: ${userContext.preferences?.learningStyle || 'balanced'}
+` : 'No user context available';
+
     const systemPrompt = `You are the Super Oracle, an advanced AI assistant with access to knowledge graphs and multiple AI models.
 
 Query: ${query}
 ${graphData ? `Knowledge Graph Context: ${JSON.stringify(graphData)}` : ''}
 Search Results: ${JSON.stringify(searchResults)}
-User Context: ${JSON.stringify(context)}
+${personalizationContext}
 
 Generate a comprehensive, helpful response that:
-1. Directly addresses the user's query
+1. Directly addresses the user's query with perfect personalization
 2. Leverages the knowledge graph for deeper insights
 3. Uses the search results to provide relevant information
-4. Considers the user's role and team context
-5. Provides actionable next steps
+4. Considers the user's role, experience level, and team context
+5. Provides actionable next steps tailored to their situation
+6. Uses their preferred communication style (${userContext?.userProfile?.communicationStyle || 'collaborative'})
+7. Matches their technical depth preference (${userContext?.preferences?.technicalDepth || 'intermediate'})
+8. References their learning goals and current challenges
+9. Considers their team stage and recent progress
+10. Provides motivation and encouragement appropriate to their journey
 
-Format your response to be conversational, helpful, and motivating.`;
+Format your response to be conversational, helpful, and perfectly matched to the user's profile. Every response should feel like it was written specifically for them.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -911,7 +991,7 @@ Format your response to be conversational, helpful, and motivating.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query }
         ],
-        max_tokens: 800
+        max_tokens: 1000
       })
     });
 
@@ -919,7 +999,7 @@ Format your response to be conversational, helpful, and motivating.`;
     
     return {
       answer: data.choices?.[0]?.message?.content || "I'm here to help! Let me know what you need.",
-      confidence: 0.85
+      confidence: 0.9
     };
   } catch (error) {
     console.error('Error generating enhanced chat response:', error);
