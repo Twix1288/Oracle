@@ -47,6 +47,17 @@ interface SuperOracleResponse {
   // RAG-specific responses
   documents?: any[];
   updates?: any[];
+  // Resources and connections
+  resources?: any[];
+  connections?: any[];
+  // Vectorization results
+  vectorized?: boolean;
+  similarity_score?: number;
+  related_content?: any[];
+  // GraphRAG results
+  knowledge_graph?: any;
+  graph_nodes?: any[];
+  graph_relationships?: any[];
 }
 
 // Enhanced vectorization capabilities
@@ -816,9 +827,6 @@ serve(async (req) => {
       search_strategy: 'standard'
     };
 
-    let searchResults: any[] = [];
-    let contextString = '';
-
     // Handle different request types
     switch (type) {
       case 'journey':
@@ -847,49 +855,229 @@ serve(async (req) => {
 
       case 'rag_search':
         console.log('Performing RAG search...');
-        const ragResults = await performRAGSearch(query, role, teamId, userContext);
+        const ragResults = await performEnhancedRAGSearch(query, role, teamId, userContext);
         responseData.documents = ragResults.documents;
         responseData.updates = ragResults.updates;
         responseData.sources = (ragResults.documents?.length || 0) + (ragResults.updates?.length || 0);
         responseData.answer = `Found ${responseData.sources} relevant sources for your query.`;
         responseData.search_strategy = ragResults.search_strategy;
+        responseData.vectorized = ragResults.vectorized;
+        responseData.similarity_score = ragResults.similarity_score;
         break;
 
       case 'resources':
-        responseData.answer = 'Resource search functionality is available. Please specify what type of resources you need.';
+        console.log('Finding learning resources...');
+        const resources = await findLearningResources(query, userContext);
+        responseData.resources = resources;
+        responseData.sources = resources.length;
+        if (resources.length > 0) {
+          responseData.answer = `Found ${resources.length} learning resources for "${query}":\n\n${resources.map(r => `• ${r.title} (${r.type}) - ${r.description}\n  ${r.url}`).join('\n\n')}`;
+        } else {
+          responseData.answer = `No specific resources found for "${query}". Try searching for topics like "React hooks", "UI/UX design", "frontend development", or "JavaScript".`;
+        }
         responseData.search_strategy = 'resource_search';
         break;
 
       case 'connect':
-        responseData.answer = 'Connection functionality is available. Please specify what type of connections you need.';
+        console.log('Finding connections...');
+        const teamMembers = await findTeamMembers(query, teamId);
+        const externalConnections = await findExternalConnections(query, userContext);
+        responseData.connections = [...teamMembers, ...externalConnections];
+        responseData.sources = responseData.connections.length;
+        
+        if (responseData.connections.length > 0) {
+          const teamCount = teamMembers.length;
+          const externalCount = externalConnections.length;
+          responseData.answer = `Found ${responseData.connections.length} connections for "${query}":\n\n${teamCount > 0 ? `Team Members (${teamCount}):\n${teamMembers.map(m => `• ${m.full_name} - ${m.skills?.join(', ') || 'Skills not specified'}`).join('\n')}\n\n` : ''}${externalCount > 0 ? `External Connections (${externalCount}):\n${externalConnections.map(c => `• ${c.name} - ${c.title} at ${c.company}\n  ${c.expertise}\n  ${c.linkedin}`).join('\n\n')}` : ''}`;
+        } else {
+          responseData.answer = `No connections found for "${query}". Try searching for roles like "UI/UX designers", "frontend developers", "backend engineers", or "fullstack developers".`;
+        }
         responseData.search_strategy = 'connection_search';
         break;
 
       default: // chat
-        // Simple search for context
-        if (teamId) {
-          const { data: updates } = await supabase
-            .from('updates')
-            .select('*')
-            .eq('team_id', teamId)
-            .order('created_at', { ascending: false })
-            .limit(3);
+        // Check for slash commands first
+        const slashCommand = detectSlashCommand(query);
+        if (slashCommand) {
+          console.log(`Detected slash command: ${slashCommand.command}`);
           
-          if (updates && updates.length > 0) {
-            contextString = `Recent team updates: ${updates.map(u => u.content).join('. ')}`;
-            responseData.context_used = true;
-            responseData.sources = updates.length;
+          switch (slashCommand.command) {
+            case 'resources':
+              const resources = await findLearningResources(slashCommand.args || query, userContext);
+              responseData.resources = resources;
+              responseData.sources = resources.length;
+              if (resources.length > 0) {
+                responseData.answer = `Here are learning resources for "${slashCommand.args || query}":\n\n${resources.map(r => `• ${r.title} (${r.type}) - ${r.description}\n  ${r.url}`).join('\n\n')}`;
+              } else {
+                responseData.answer = `No specific resources found. Try searching for topics like "React hooks", "UI/UX design", or "frontend development".`;
+              }
+              responseData.search_strategy = 'slash_resources';
+              break;
+              
+            case 'connect':
+            case 'find':
+              const teamMembers = await findTeamMembers(slashCommand.args || query, teamId);
+              const externalConnections = await findExternalConnections(slashCommand.args || query, userContext);
+              responseData.connections = [...teamMembers, ...externalConnections];
+              responseData.sources = responseData.connections.length;
+              
+              if (responseData.connections.length > 0) {
+                const teamCount = teamMembers.length;
+                const externalCount = externalConnections.length;
+                responseData.answer = `Here are connections for "${slashCommand.args || query}":\n\n${teamCount > 0 ? `Team Members (${teamCount}):\n${teamMembers.map(m => `• ${m.full_name} - ${m.skills?.join(', ') || 'Skills not specified'}`).join('\n')}\n\n` : ''}${externalCount > 0 ? `External Connections (${externalCount}):\n${externalConnections.map(c => `• ${c.name} - ${c.title} at ${c.company}\n  ${c.expertise}\n  ${c.linkedin}`).join('\n\n')}` : ''}`;
+              } else {
+                responseData.answer = `No connections found. Try searching for roles like "UI/UX designers", "frontend developers", or "backend engineers".`;
+              }
+              responseData.search_strategy = 'slash_connect';
+              break;
+              
+            case 'update':
+              if (teamId && userId) {
+                const updateResult = await createTeamUpdate(teamId, userId, slashCommand.args || query);
+                if (updateResult.success) {
+                  responseData.answer = `✅ Update created successfully! Your progress has been recorded for the team.`;
+                  responseData.command_result = updateResult;
+                } else {
+                  responseData.answer = `❌ Failed to create update: ${updateResult.message}`;
+                }
+              } else {
+                responseData.answer = `❌ Cannot create update: Team ID or User ID missing.`;
+              }
+              responseData.search_strategy = 'slash_update';
+              break;
+              
+            case 'message':
+              if (teamId && userId) {
+                const messageResult = await sendTeamMessage(teamId, userId, slashCommand.args || query);
+                if (messageResult.success) {
+                  responseData.answer = `✅ Message sent successfully to your team!`;
+                  responseData.command_result = messageResult;
+                } else {
+                  responseData.answer = `❌ Failed to send message: ${messageResult.message}`;
+                }
+              } else {
+                responseData.answer = `❌ Cannot send message: Team ID or User ID missing.`;
+              }
+              responseData.search_strategy = 'slash_message';
+              break;
+              
+            case 'status':
+              if (teamId) {
+                const { data: updates } = await supabase
+                  .from('updates')
+                  .select('*')
+                  .eq('team_id', teamId)
+                  .order('created_at', { ascending: false })
+                  .limit(5);
+                
+                if (updates && updates.length > 0) {
+                  responseData.updates = updates;
+                  responseData.sources = updates.length;
+                  responseData.answer = `📊 Team Status - Recent Updates:\n\n${updates.map(u => `• ${u.content} (${u.type}) - ${new Date(u.created_at).toLocaleDateString()}`).join('\n')}`;
+                } else {
+                  responseData.answer = `📊 No recent team updates found.`;
+                }
+              } else {
+                responseData.answer = `❌ Cannot check status: Team ID missing.`;
+              }
+              responseData.search_strategy = 'slash_status';
+              break;
+              
+            default:
+              responseData.answer = `Unknown slash command: /${slashCommand.command}. Available commands: /resources, /connect, /find, /update, /message, /status`;
+              responseData.search_strategy = 'unknown_slash';
+          }
+        } else {
+          // Check for natural language intent
+          const intent = await parseUserIntent(query, userContext);
+          if (intent.action === 'create_update' && teamId && userId) {
+            const updateResult = await createTeamUpdate(teamId, userId, query);
+            if (updateResult.success) {
+              responseData.answer = `✅ Update created successfully! Your progress has been recorded for the team.`;
+              responseData.command_result = updateResult;
+            } else {
+              responseData.answer = `❌ Failed to create update: ${updateResult.message}`;
+            }
+            responseData.search_strategy = 'intent_update';
+          } else if (intent.action === 'send_message' && teamId && userId) {
+            const messageResult = await sendTeamMessage(teamId, userId, query);
+            if (messageResult.success) {
+              responseData.answer = `✅ Message sent successfully to your team!`;
+              responseData.command_result = messageResult;
+            } else {
+              responseData.answer = `❌ Failed to send message: ${messageResult.message}`;
+            }
+            responseData.search_strategy = 'intent_message';
+          } else if (intent.action === 'check_status' && teamId) {
+            const { data: updates } = await supabase
+              .from('updates')
+              .select('*')
+              .eq('team_id', teamId)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            
+            if (updates && updates.length > 0) {
+              responseData.updates = updates;
+              responseData.sources = updates.length;
+              responseData.answer = `📊 Team Status - Recent Updates:\n\n${updates.map(u => `• ${u.content} (${u.type}) - ${new Date(u.created_at).toLocaleDateString()}`).join('\n')}`;
+            } else {
+              responseData.answer = `📊 No recent team updates found.`;
+            }
+            responseData.search_strategy = 'intent_status';
+          } else {
+            // Regular chat - use enhanced RAG and GraphRAG
+            const enhancedRagResults = await performEnhancedRAGSearch(query, role, teamId, userContext);
+            responseData.documents = enhancedRagResults.documents;
+            responseData.updates = enhancedRagResults.updates;
+            responseData.vectorized = enhancedRagResults.vectorized;
+            responseData.similarity_score = enhancedRagResults.similarity_score;
+            responseData.sources = (enhancedRagResults.documents?.length || 0) + (enhancedRagResults.updates?.length || 0);
+            
+            // Build knowledge graph
+            const knowledgeGraph = await buildKnowledgeGraph(query, userContext, enhancedRagResults.documents || []);
+            responseData.knowledge_graph = knowledgeGraph;
+            responseData.graph_nodes = knowledgeGraph.nodes;
+            responseData.graph_relationships = knowledgeGraph.relationships;
+            
+            // Build context string for AI response
+            let contextString = '';
+            if (responseData.sources > 0) {
+              const docContext = enhancedRagResults.documents?.map(d => d.content).join('. ') || '';
+              const updateContext = enhancedRagResults.updates?.map(u => u.content).join('. ') || '';
+              contextString = `${docContext} ${updateContext}`.trim();
+            }
+            
+            // Generate AI response with context
+            const aiResponse = await generateAIResponse(query, contextString, userContext);
+            responseData.answer = aiResponse;
+            responseData.search_strategy = 'enhanced_rag_ai';
           }
         }
-
-        // Generate AI response
-        const aiResponse = await generateAIResponse(query, contextString, userContext);
-        responseData.answer = aiResponse;
-        responseData.search_strategy = 'ai_chat';
         break;
     }
 
     responseData.processing_time = Date.now() - startTime;
+
+    // Store the interaction with vectorization for learning
+    try {
+      await storeVectorizedContent(query, {
+        source_type: 'oracle_interaction',
+        user_id: userId,
+        team_id: teamId,
+        relevance_keywords: [type, role, 'query'],
+        content_type: 'user_query'
+      });
+      
+      await storeVectorizedContent(responseData.answer, {
+        source_type: 'oracle_interaction',
+        user_id: userId,
+        team_id: teamId,
+        relevance_keywords: [type, role, 'response'],
+        content_type: 'oracle_response'
+      });
+    } catch (vectorError) {
+      console.error('Vectorization error:', vectorError);
+    }
 
     // Log the interaction
     try {

@@ -22,41 +22,32 @@ interface SuperOracleResponse {
   model_used: string;
   confidence: number;
   processing_time: number;
-  graph_data?: any;
-  multi_model_insights?: any;
-  resources?: any[];
-  connections?: any[];
-  entities?: any[];
-  relationships?: any[];
   search_strategy: string;
-  fallback_used: boolean;
+  // Query and timestamp
+  query?: string;
+  timestamp?: string;
   // Journey-specific responses
   detected_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
   feedback?: string;
   summary?: string;
   suggested_actions?: string[];
-  updated_stage?: boolean;
-  created_update_id?: string;
   // Team management responses
-  stage_analysis?: any;
-  intent_parsed?: any;
   command_result?: any;
-  team_context?: any;
+  intent_parsed?: any;
   // RAG-specific responses
   documents?: any[];
   updates?: any[];
-  embeddings?: number[];
-  // Legacy fields for backward compatibility
-  commandExecuted?: boolean;
-  commandType?: string;
-  commandResult?: any;
-  sections?: {
-    update?: string;
-    progress?: string;
-    event?: string;
-  };
-  query?: string;
-  timestamp?: string;
+  // Resources and connections
+  resources?: any[];
+  connections?: any[];
+  // Vectorization results
+  vectorized?: boolean;
+  similarity_score?: number;
+  related_content?: any[];
+  // GraphRAG results
+  knowledge_graph?: any;
+  graph_nodes?: any[];
+  graph_relationships?: any[];
 }
 
 interface RolePermissions {
@@ -461,6 +452,165 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           </div>
         </CardContent>
       </Card>
+
+      {/* Resources Section */}
+      {response.resources && response.resources.length > 0 && (
+        <Card className="glow-border bg-card/50 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full bg-green-500/20">
+                <Sparkles className="h-3 w-3 text-green-500" />
+              </div>
+              <h4 className="font-semibold text-sm text-green-600">Learning Resources</h4>
+              <Badge variant="outline" className="text-xs">
+                {response.resources.length} resources
+              </Badge>
+            </div>
+            
+            <div className="space-y-3">
+              {response.resources.map((resource, idx) => (
+                <div key={idx} className="p-3 rounded-lg bg-background/50 border border-green-200/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h5 className="font-medium text-sm text-green-700 mb-1">
+                        <a 
+                          href={resource.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {resource.title}
+                        </a>
+                      </h5>
+                      <p className="text-xs text-muted-foreground mb-2">{resource.description}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs bg-green-100/50">
+                          {resource.type}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs bg-blue-100/50">
+                          {resource.difficulty}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{resource.source}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Connections Section */}
+      {response.connections && response.connections.length > 0 && (
+        <Card className="glow-border bg-card/50 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full bg-blue-500/20">
+                <Sparkles className="h-3 w-3 text-blue-500" />
+              </div>
+              <h4 className="font-semibold text-sm text-blue-600">Connections</h4>
+              <Badge variant="outline" className="text-xs">
+                {response.connections.length} connections
+              </Badge>
+            </div>
+            
+            <div className="space-y-3">
+              {response.connections.map((connection, idx) => (
+                <div key={idx} className="p-3 rounded-lg bg-background/50 border border-blue-200/20">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h5 className="font-medium text-sm text-blue-700 mb-1">
+                        {connection.full_name || connection.name}
+                      </h5>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {connection.title || connection.bio} {connection.company && `at ${connection.company}`}
+                      </p>
+                      {connection.skills && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {connection.skills.map((skill, skillIdx) => (
+                            <Badge key={skillIdx} variant="outline" className="text-xs bg-blue-100/50">
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {connection.expertise && (
+                        <p className="text-xs text-muted-foreground mb-2">{connection.expertise}</p>
+                      )}
+                      {connection.linkedin && (
+                        <a 
+                          href={connection.linkedin} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          View LinkedIn Profile
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Vectorization Results */}
+      {response.vectorized && (
+        <Card className="glow-border bg-card/50 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full bg-purple-500/20">
+                <Sparkles className="h-3 w-3 text-purple-500" />
+              </div>
+              <h4 className="font-semibold text-sm text-purple-600">AI Intelligence</h4>
+              <Badge variant="outline" className="text-xs">
+                Vector Search
+              </Badge>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-background/50 border border-purple-200/20">
+              <p className="text-sm text-muted-foreground">
+                Similarity Score: <span className="font-medium text-purple-600">{(response.similarity_score * 100).toFixed(1)}%</span>
+              </p>
+              {response.related_content && response.related_content.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Found {response.related_content.length} related content pieces
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Knowledge Graph Results */}
+      {response.knowledge_graph && response.graph_nodes && response.graph_nodes.length > 0 && (
+        <Card className="glow-border bg-card/50 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full bg-orange-500/20">
+                <Sparkles className="h-3 w-3 text-orange-500" />
+              </div>
+              <h4 className="font-semibold text-sm text-orange-600">Knowledge Graph</h4>
+              <Badge variant="outline" className="text-xs">
+                {response.graph_nodes.length} nodes
+              </Badge>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-background/50 border border-orange-200/20">
+              <p className="text-sm text-muted-foreground mb-2">
+                Built knowledge graph with {response.graph_nodes.length} nodes and {response.graph_relationships?.length || 0} relationships
+              </p>
+              <div className="text-xs text-muted-foreground">
+                <p>Query: {response.knowledge_graph.query}</p>
+                <p>User Context: {response.knowledge_graph.user_context}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 
