@@ -75,7 +75,3 @@ port = 54328
 
 # Configure Edge Functions
 [functions]
-[functions.rag-query]
-verify_jwt = false
-[functions.journey-assistant]
-verify_jwt = false
