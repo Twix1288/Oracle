@@ -339,6 +339,457 @@ async function performRAGSearch(query: string, role: string, teamId?: string, us
   }
 }
 
+// Build knowledge graph from query context
+async function buildKnowledgeGraph(query: string, userContext: any, searchResults: any[]): Promise<any> {
+  try {
+    const graphNodes: any[] = [];
+    const graphRelationships: any[] = [];
+
+    // Add user as central node
+    if (userContext?.profile) {
+      graphNodes.push({
+        id: `user_${userContext.profile.id}`,
+        type: 'user',
+        label: userContext.profile.full_name || 'User',
+        properties: {
+          skills: userContext.profile.skills || [],
+          experience: userContext.profile.experience_level || 'beginner',
+          goals: userContext.profile.personal_goals || []
+        }
+      });
+    }
+
+    // Add team context
+    if (userContext?.team) {
+      graphNodes.push({
+        id: `team_${userContext.team.id}`,
+        type: 'team',
+        label: userContext.team.name || 'Team',
+        properties: {
+          description: userContext.team.description || '',
+          goals: userContext.team.goals || []
+        }
+      });
+
+      // Connect user to team
+      if (userContext?.profile?.id) {
+        graphRelationships.push({
+          source: `user_${userContext.profile.id}`,
+          target: `team_${userContext.team.id}`,
+          type: 'MEMBER_OF',
+          properties: { role: userContext.profile?.role || 'member' }
+        });
+      }
+    }
+
+    // Add search result nodes
+    searchResults.forEach((result, index) => {
+      if (result.content) {
+        graphNodes.push({
+          id: `result_${index}`,
+          type: 'content',
+          label: result.content.substring(0, 50) + '...',
+          properties: {
+            source: result.source_type || 'unknown',
+            content: result.content.substring(0, 200)
+          }
+        });
+
+        // Connect to relevant nodes
+        if (userContext?.profile?.id) {
+          graphRelationships.push({
+            source: `user_${userContext.profile.id}`,
+            target: `result_${index}`,
+            type: 'RELEVANT_TO',
+            properties: { relevance: 0.8 }
+          });
+        }
+      }
+    });
+
+    return {
+      nodes: graphNodes,
+      relationships: graphRelationships,
+      query: query,
+      user_context: userContext?.profile?.id || 'anonymous'
+    };
+  } catch (error) {
+    console.error('Error building knowledge graph:', error);
+    return { nodes: [], relationships: [], error: error.message };
+  }
+}
+
+// Find team members in PieFi
+async function findTeamMembers(query: string, teamId?: string): Promise<any[]> {
+  try {
+    const searchTerms = query.toLowerCase();
+    let roleFilter = '';
+    
+    if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
+      roleFilter = 'ui_ux';
+    } else if (searchTerms.includes('frontend') || searchTerms.includes('react') || searchTerms.includes('javascript')) {
+      roleFilter = 'frontend';
+    } else if (searchTerms.includes('backend') || searchTerms.includes('api') || searchTerms.includes('database')) {
+      roleFilter = 'backend';
+    } else if (searchTerms.includes('fullstack') || searchTerms.includes('full-stack')) {
+      roleFilter = 'fullstack';
+    }
+
+    let queryBuilder = supabase
+      .from('profiles')
+      .select('id, full_name, bio, skills, experience_level, availability, timezone, linkedin_url, github_url, portfolio_url')
+      .not('id', 'eq', 'anonymous');
+
+    if (roleFilter) {
+      queryBuilder = queryBuilder.contains('skills', [roleFilter]);
+    }
+
+    if (teamId) {
+      queryBuilder = queryBuilder.eq('team_id', teamId);
+    }
+
+    const { data: profiles, error } = await queryBuilder.limit(10);
+
+    if (error) {
+      console.error('Error finding team members:', error);
+      return [];
+    }
+
+    return profiles || [];
+  } catch (error) {
+    console.error('Error in findTeamMembers:', error);
+    return [];
+  }
+}
+
+// Find external connections on LinkedIn
+async function findExternalConnections(query: string, userContext: any): Promise<any[]> {
+  try {
+    const searchTerms = query.toLowerCase();
+    let connections: any[] = [];
+
+    // Simulate finding external connections based on query
+    if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
+      connections.push({
+        name: 'Sarah Chen',
+        title: 'Senior UI/UX Designer',
+        company: 'Design Studio Pro',
+        expertise: 'User Research, Prototyping, Design Systems',
+        linkedin: 'https://linkedin.com/in/sarah-chen-ux',
+        relevance: 95,
+        source: 'linkedin'
+      });
+      connections.push({
+        name: 'Marcus Rodriguez',
+        title: 'Product Designer',
+        company: 'TechCorp',
+        expertise: 'Mobile Design, User Experience, Visual Design',
+        linkedin: 'https://linkedin.com/in/marcus-rodriguez-design',
+        relevance: 90,
+        source: 'linkedin'
+      });
+    }
+
+    if (searchTerms.includes('frontend') || searchTerms.includes('react')) {
+      connections.push({
+        name: 'Alex Thompson',
+        title: 'Frontend Engineer',
+        company: 'React Masters',
+        expertise: 'React, TypeScript, Performance Optimization',
+        linkedin: 'https://linkedin.com/in/alex-thompson-react',
+        relevance: 95,
+        source: 'linkedin'
+      });
+      connections.push({
+        name: 'Priya Patel',
+        title: 'Senior Frontend Developer',
+        company: 'WebFlow Inc',
+        expertise: 'Vue.js, CSS, Accessibility',
+        linkedin: 'https://linkedin.com/in/priya-patel-frontend',
+        relevance: 88,
+        source: 'linkedin'
+      });
+    }
+
+    if (searchTerms.includes('backend') || searchTerms.includes('api')) {
+      connections.push({
+        name: 'David Kim',
+        title: 'Backend Engineer',
+        company: 'API Solutions',
+        expertise: 'Node.js, Python, Database Design',
+        linkedin: 'https://linkedin.com/in/david-kim-backend',
+        relevance: 92,
+        source: 'linkedin'
+      });
+    }
+
+    return connections;
+  } catch (error) {
+    console.error('Error finding external connections:', error);
+    return [];
+  }
+}
+
+// Find learning resources
+async function findLearningResources(query: string, userContext: any): Promise<any[]> {
+  try {
+    const searchTerms = query.toLowerCase();
+    let resources: any[] = [];
+
+    if (searchTerms.includes('react') && searchTerms.includes('hooks')) {
+      resources.push({
+        title: 'React Hooks Complete Guide',
+        url: 'https://react.dev/reference/react',
+        description: 'Official React documentation for all hooks',
+        type: 'documentation',
+        difficulty: 'intermediate',
+        source: 'react_official'
+      });
+      resources.push({
+        title: 'useState and useEffect Explained',
+        url: 'https://www.youtube.com/watch?v=O6P86uwfdR0',
+        description: 'Deep dive into React hooks fundamentals',
+        type: 'video',
+        difficulty: 'beginner',
+        source: 'youtube'
+      });
+      resources.push({
+        title: 'Custom Hooks Best Practices',
+        url: 'https://blog.logrocket.com/custom-hooks-react/',
+        description: 'Learn how to create and use custom hooks',
+        type: 'article',
+        difficulty: 'intermediate',
+        source: 'blog'
+      });
+    }
+
+    if (searchTerms.includes('ui') || searchTerms.includes('ux')) {
+      resources.push({
+        title: 'Figma Design Tutorials',
+        url: 'https://www.figma.com/community',
+        description: 'Community-driven Figma tutorials and resources',
+        type: 'tutorial',
+        difficulty: 'beginner',
+        source: 'figma'
+      });
+      resources.push({
+        title: 'UX Design Principles',
+        url: 'https://www.nngroup.com/articles/ten-usability-heuristics/',
+        description: 'Nielsen Norman Group usability heuristics',
+        type: 'article',
+        difficulty: 'intermediate',
+        source: 'nngroup'
+      });
+    }
+
+    if (searchTerms.includes('frontend')) {
+      resources.push({
+        title: 'Frontend Masters Courses',
+        url: 'https://frontendmasters.com/',
+        description: 'Advanced frontend development courses',
+        type: 'course',
+        difficulty: 'advanced',
+        source: 'frontendmasters'
+      });
+      resources.push({
+        title: 'CSS Grid Complete Guide',
+        url: 'https://css-tricks.com/snippets/css/complete-guide-grid/',
+        description: 'Comprehensive CSS Grid tutorial',
+        type: 'tutorial',
+        difficulty: 'intermediate',
+        source: 'csstricks'
+      });
+    }
+
+    if (searchTerms.includes('javascript')) {
+      resources.push({
+        title: 'JavaScript.info',
+        url: 'https://javascript.info/',
+        description: 'Modern JavaScript tutorial',
+        type: 'tutorial',
+        difficulty: 'intermediate',
+        source: 'javascript_info'
+      });
+      resources.push({
+        title: 'Eloquent JavaScript',
+        url: 'https://eloquentjavascript.net/',
+        description: 'Free online JavaScript book',
+        type: 'book',
+        difficulty: 'beginner',
+        source: 'eloquent_js'
+      });
+    }
+
+    return resources;
+  } catch (error) {
+    console.error('Error finding learning resources:', error);
+    return [];
+  }
+}
+
+// Create team update
+async function createTeamUpdate(teamId: string, userId: string, content: string, type: string = 'progress'): Promise<any> {
+  try {
+    const { data: update, error } = await supabase
+      .from('updates')
+      .insert({
+        team_id: teamId,
+        user_id: userId,
+        content: content,
+        type: type,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating update:', error);
+      throw error;
+    }
+
+    // Store the update with vectorization for future search
+    await storeVectorizedContent(content, {
+      source_type: 'team_update',
+      user_id: userId,
+      team_id: teamId,
+      relevance_keywords: ['update', 'progress', type],
+      content_type: 'team_update'
+    });
+
+    return { success: true, update_id: update.id, message: 'Update created successfully' };
+  } catch (error) {
+    console.error('Error in createTeamUpdate:', error);
+    return { success: false, message: 'Failed to create update' };
+  }
+}
+
+// Send team message
+async function sendTeamMessage(teamId: string, userId: string, content: string): Promise<any> {
+  try {
+    const { data: message, error } = await supabase
+      .from('messages')
+      .insert({
+        team_id: teamId,
+        user_id: userId,
+        content: content,
+        type: 'team',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+
+    // Store the message with vectorization for future search
+    await storeVectorizedContent(content, {
+      source_type: 'oracle_interaction',
+      user_id: userId,
+      team_id: teamId,
+      relevance_keywords: ['message', 'team', 'communication'],
+      content_type: 'team_message'
+    });
+
+    return { success: true, message_id: message.id, message: 'Message sent successfully' };
+  } catch (error) {
+    console.error('Error in sendTeamMessage:', error);
+    return { success: false, message: 'Failed to send message' };
+  }
+}
+
+// Enhanced RAG search with vectorization
+async function performEnhancedRAGSearch(query: string, role: string, teamId?: string, userContext?: any): Promise<any> {
+  try {
+    // First try vector search
+    const vectorResults = await searchSimilarContent(query, { team_id: teamId });
+    
+    // Fallback to text search if vector search fails
+    let textResults = [];
+    if (!vectorResults || vectorResults.length === 0) {
+      const { data: documents } = await supabase
+        .from('documents')
+        .select('content, metadata, source_type')
+        .textSearch('content', query.replace(/ /g, ' | '), {
+          type: 'websearch',
+          config: 'english'
+        })
+        .limit(3);
+      textResults = documents || [];
+    }
+
+    // Get recent team updates
+    const { data: updates } = await supabase
+      .from('updates')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Combine and rank results
+    const allResults = [...(vectorResults || []), ...textResults];
+    const rankedResults = allResults.sort((a, b) => {
+      // Prioritize vector results
+      if (a.similarity_score && !b.similarity_score) return -1;
+      if (!a.similarity_score && b.similarity_score) return 1;
+      if (a.similarity_score && b.similarity_score) {
+        return b.similarity_score - a.similarity_score;
+      }
+      return 0;
+    });
+
+    return {
+      documents: rankedResults.slice(0, 5),
+      updates: updates || [],
+      search_strategy: vectorResults && vectorResults.length > 0 ? 'vector_rag' : 'text_rag',
+      vectorized: vectorResults && vectorResults.length > 0,
+      similarity_score: vectorResults?.[0]?.similarity_score || 0
+    };
+  } catch (error) {
+    console.error('Enhanced RAG search error:', error);
+    return {
+      documents: [],
+      updates: [],
+      search_strategy: 'error_fallback',
+      vectorized: false,
+      similarity_score: 0
+    };
+  }
+}
+
+// Detect and handle slash commands
+function detectSlashCommand(query: string): { command: string; args: string } | null {
+  const slashCommands = ['/resources', '/connect', '/find', '/update', '/message', '/status'];
+  const queryLower = query.toLowerCase();
+  
+  for (const cmd of slashCommands) {
+    if (queryLower.startsWith(cmd)) {
+      const args = query.substring(cmd.length).trim();
+      return { command: cmd.substring(1), args };
+    }
+  }
+  
+  // Check for natural language equivalents
+  if (queryLower.includes('resources') || queryLower.includes('learn') || queryLower.includes('tutorial')) {
+    return { command: 'resources', args: query };
+  }
+  if (queryLower.includes('connect') || queryLower.includes('find') || queryLower.includes('people')) {
+    return { command: 'connect', args: query };
+  }
+  if (queryLower.includes('update') || queryLower.includes('progress')) {
+    return { command: 'update', args: query };
+  }
+  if (queryLower.includes('message') || queryLower.includes('send')) {
+    return { command: 'message', args: query };
+  }
+  if (queryLower.includes('status') || queryLower.includes('check')) {
+    return { command: 'status', args: query };
+  }
+  
+  return null;
+}
+
 // Main Super Oracle function
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
