@@ -322,7 +322,12 @@ export class OracleContextService {
   getCacheStatus(): { size: number; entries: number } {
     return {
       size: this.contextCache.size,
-      entries: this.cacheExpiry.size
+      entries: this.contextCache.size
     };
   }
 }
+
+// Direct export for backward compatibility
+export const storeUserContext = async (userId: string, data: OnboardingData): Promise<void> => {
+  return OracleContextService.getInstance().storeUserContext(userId, data);
+};
