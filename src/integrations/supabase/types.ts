@@ -114,14 +114,111 @@ export type Database = {
           },
         ]
       }
+      oracle_logs: {
+        Row: {
+          command_executed: boolean | null
+          command_result: Json | null
+          command_type: string | null
+          confidence: number | null
+          context_used: boolean | null
+          created_at: string | null
+          graph_nodes: Json | null
+          graph_relationships: Json | null
+          helpful: boolean | null
+          id: string
+          knowledge_graph: Json | null
+          model_used: string | null
+          processing_time: number | null
+          query: string
+          query_type: string
+          response: string
+          search_strategy: string | null
+          similarity_score: number | null
+          sources: number | null
+          team_id: string | null
+          updated_at: string | null
+          user_feedback: string | null
+          user_id: string | null
+          user_role: Database["public"]["Enums"]["user_role"]
+          user_satisfaction: number | null
+        }
+        Insert: {
+          command_executed?: boolean | null
+          command_result?: Json | null
+          command_type?: string | null
+          confidence?: number | null
+          context_used?: boolean | null
+          created_at?: string | null
+          graph_nodes?: Json | null
+          graph_relationships?: Json | null
+          helpful?: boolean | null
+          id?: string
+          knowledge_graph?: Json | null
+          model_used?: string | null
+          processing_time?: number | null
+          query: string
+          query_type?: string
+          response: string
+          search_strategy?: string | null
+          similarity_score?: number | null
+          sources?: number | null
+          team_id?: string | null
+          updated_at?: string | null
+          user_feedback?: string | null
+          user_id?: string | null
+          user_role: Database["public"]["Enums"]["user_role"]
+          user_satisfaction?: number | null
+        }
+        Update: {
+          command_executed?: boolean | null
+          command_result?: Json | null
+          command_type?: string | null
+          confidence?: number | null
+          context_used?: boolean | null
+          created_at?: string | null
+          graph_nodes?: Json | null
+          graph_relationships?: Json | null
+          helpful?: boolean | null
+          id?: string
+          knowledge_graph?: Json | null
+          model_used?: string | null
+          processing_time?: number | null
+          query?: string
+          query_type?: string
+          response?: string
+          search_strategy?: string | null
+          similarity_score?: number | null
+          sources?: number | null
+          team_id?: string | null
+          updated_at?: string | null
+          user_feedback?: string | null
+          user_id?: string | null
+          user_role?: Database["public"]["Enums"]["user_role"]
+          user_satisfaction?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oracle_logs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           availability: string | null
           avatar_url: string | null
           bio: string | null
+          career_aspirations: string[] | null
+          challenge_areas: string[] | null
+          collaboration_preferences: string | null
+          communication_style: string | null
           created_at: string | null
           email: string
           experience_level: string | null
+          expertise_areas: string[] | null
           full_name: string | null
           github_url: string | null
           help_needed: string[] | null
@@ -129,24 +226,42 @@ export type Database = {
           individual_stage:
             | Database["public"]["Enums"]["individual_stage"]
             | null
+          industry_focus: string | null
+          interests: string[] | null
+          learning_goals: string[] | null
           linkedin_url: string | null
+          mentorship_needs: string | null
+          networking_goals: string[] | null
           onboarding_completed: boolean | null
+          oracle_interaction_count: number | null
+          oracle_last_interaction: string | null
+          oracle_preferences: Json | null
           personal_goals: string[] | null
           portfolio_url: string | null
+          preferred_learning_style: string | null
+          preferred_technologies: string[] | null
+          project_goals: string | null
           project_vision: string | null
           role: Database["public"]["Enums"]["user_role"]
           skills: string[] | null
+          success_metrics: string[] | null
           team_id: string | null
           timezone: string | null
           updated_at: string | null
+          work_style: string | null
         }
         Insert: {
           availability?: string | null
           avatar_url?: string | null
           bio?: string | null
+          career_aspirations?: string[] | null
+          challenge_areas?: string[] | null
+          collaboration_preferences?: string | null
+          communication_style?: string | null
           created_at?: string | null
           email: string
           experience_level?: string | null
+          expertise_areas?: string[] | null
           full_name?: string | null
           github_url?: string | null
           help_needed?: string[] | null
@@ -154,24 +269,42 @@ export type Database = {
           individual_stage?:
             | Database["public"]["Enums"]["individual_stage"]
             | null
+          industry_focus?: string | null
+          interests?: string[] | null
+          learning_goals?: string[] | null
           linkedin_url?: string | null
+          mentorship_needs?: string | null
+          networking_goals?: string[] | null
           onboarding_completed?: boolean | null
+          oracle_interaction_count?: number | null
+          oracle_last_interaction?: string | null
+          oracle_preferences?: Json | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
+          preferred_learning_style?: string | null
+          preferred_technologies?: string[] | null
+          project_goals?: string | null
           project_vision?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           skills?: string[] | null
+          success_metrics?: string[] | null
           team_id?: string | null
           timezone?: string | null
           updated_at?: string | null
+          work_style?: string | null
         }
         Update: {
           availability?: string | null
           avatar_url?: string | null
           bio?: string | null
+          career_aspirations?: string[] | null
+          challenge_areas?: string[] | null
+          collaboration_preferences?: string | null
+          communication_style?: string | null
           created_at?: string | null
           email?: string
           experience_level?: string | null
+          expertise_areas?: string[] | null
           full_name?: string | null
           github_url?: string | null
           help_needed?: string[] | null
@@ -179,16 +312,29 @@ export type Database = {
           individual_stage?:
             | Database["public"]["Enums"]["individual_stage"]
             | null
+          industry_focus?: string | null
+          interests?: string[] | null
+          learning_goals?: string[] | null
           linkedin_url?: string | null
+          mentorship_needs?: string | null
+          networking_goals?: string[] | null
           onboarding_completed?: boolean | null
+          oracle_interaction_count?: number | null
+          oracle_last_interaction?: string | null
+          oracle_preferences?: Json | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
+          preferred_learning_style?: string | null
+          preferred_technologies?: string[] | null
+          project_goals?: string | null
           project_vision?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           skills?: string[] | null
+          success_metrics?: string[] | null
           team_id?: string | null
           timezone?: string | null
           updated_at?: string | null
+          work_style?: string | null
         }
         Relationships: [
           {
@@ -277,41 +423,80 @@ export type Database = {
       teams: {
         Row: {
           access_code: string | null
+          ai_summary: string | null
+          competitive_advantage: string | null
           created_at: string | null
           description: string | null
           id: string
+          market_research: string | null
           max_members: number | null
+          mentorship_areas: string | null
           name: string
+          problem_statement: string | null
           project_description: string | null
           project_name: string | null
+          project_type: string | null
+          skills_needed: string[] | null
+          solution_approach: string | null
           stage: string | null
+          success_metrics: string | null
+          target_audience: string | null
+          team_size_needed: number | null
+          tech_requirements: string[] | null
           tech_stack: string[] | null
+          timeline_months: number | null
           updated_at: string | null
         }
         Insert: {
           access_code?: string | null
+          ai_summary?: string | null
+          competitive_advantage?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          market_research?: string | null
           max_members?: number | null
+          mentorship_areas?: string | null
           name: string
+          problem_statement?: string | null
           project_description?: string | null
           project_name?: string | null
+          project_type?: string | null
+          skills_needed?: string[] | null
+          solution_approach?: string | null
           stage?: string | null
+          success_metrics?: string | null
+          target_audience?: string | null
+          team_size_needed?: number | null
+          tech_requirements?: string[] | null
           tech_stack?: string[] | null
+          timeline_months?: number | null
           updated_at?: string | null
         }
         Update: {
           access_code?: string | null
+          ai_summary?: string | null
+          competitive_advantage?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          market_research?: string | null
           max_members?: number | null
+          mentorship_areas?: string | null
           name?: string
+          problem_statement?: string | null
           project_description?: string | null
           project_name?: string | null
+          project_type?: string | null
+          skills_needed?: string[] | null
+          solution_approach?: string | null
           stage?: string | null
+          success_metrics?: string | null
+          target_audience?: string | null
+          team_size_needed?: number | null
+          tech_requirements?: string[] | null
           tech_stack?: string[] | null
+          timeline_months?: number | null
           updated_at?: string | null
         }
         Relationships: []
