@@ -7,7 +7,7 @@ import { UserIdentityOnboarding } from "@/components/onboarding/UserIdentityOnbo
 import { Hub } from "@/components/Hub";
 import { ProjectOnboarding } from "@/components/ProjectOnboarding";
 import { AccessCodeSuccess } from "@/components/AccessCodeSuccess";
-import { GuestDashboard } from "@/components/GuestDashboard";
+import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { NewBuilderDashboard } from "@/components/NewBuilderDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
 import type { UserRole } from "@/types/oracle";
@@ -121,11 +121,6 @@ const Index = () => {
     );
   }
 
-  // Show guest dashboard if user chose guest role
-  if (profile?.role === 'guest') {
-    return <GuestDashboard />;
-  }
-
   // Show hub if user completed identity but hasn't chosen a specific role yet
   if ((profile?.role as string) === 'unassigned') {
     // Handle different views within the hub flow
@@ -226,7 +221,13 @@ const Index = () => {
           />
         );
       case 'guest':
-        return <GuestDashboard />;
+        return (
+          <GuestDashboard 
+            teams={teams || []}
+            updates={updates || []}
+            onExit={handleExitToGateway}
+          />
+        );
       default:
         console.log('❓ Invalid role:', currentRole);
         return (
