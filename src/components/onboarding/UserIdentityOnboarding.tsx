@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Brain, Search, Sparkles, Code, Palette, Briefcase, Lightbulb, Heart, Users, Trophy } from "lucide-react";
+import { User, Brain, Search, Sparkles, Code, Palette, Briefcase, Lightbulb, Heart, Users, Trophy, Eye } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -354,7 +354,26 @@ export const UserIdentityOnboarding = ({ onComplete }: UserIdentityOnboardingPro
             <CardContent className="p-6">
               {renderContent()}
 
-              <div className="flex justify-end mt-8">
+              <div className="flex justify-between items-center mt-8">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Set role as guest and skip full onboarding
+                    onComplete({ 
+                      user_types: ['explorer'], 
+                      skills: [], 
+                      looking_for_skills: [], 
+                      interests: [],
+                      bio: '',
+                      onboarding_completed: false, // Keep as false for guest
+                      role: 'guest'
+                    });
+                  }}
+                  className="px-6"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Continue as Guest
+                </Button>
                 <Button
                   onClick={handleComplete}
                   disabled={!canComplete() || isLoading}
