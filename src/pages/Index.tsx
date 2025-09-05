@@ -87,6 +87,11 @@ const Index = () => {
     console.log('🎉 Project onboarding completed:', data);
     setProjectData(data);
     setCurrentView('access-code-success');
+    
+    // Force profile refresh after a short delay to ensure the database update has propagated
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
   };
 
   const handleBackToHub = () => {
@@ -144,7 +149,10 @@ const Index = () => {
                   role="builder"
                   isProjectLead={projectData?.isProjectLead || true}
                   onContinue={() => {
-                    window.location.reload();
+                    // Show access code for a moment, then redirect to dashboard
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1000);
                   }}
                 />
               </div>

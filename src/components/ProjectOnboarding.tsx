@@ -187,16 +187,18 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
       
       console.log('Member created successfully');
 
-      toast({
-        title: "Project Created! 🎉",
-        description: "Your team is ready to go!"
-      });
-
       console.log('Calling onComplete with data:', {
         accessCode,
         teamName: formData.projectName,
         teamId: team.id,
         isProjectLead: true
+      });
+      
+      // Show success toast with access code
+      toast({
+        title: "Project Created! 🎉",
+        description: `Your access code: ${accessCode}`,
+        duration: 5000
       });
       
       onComplete({
