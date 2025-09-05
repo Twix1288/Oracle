@@ -133,9 +133,8 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
       
       console.log('Team created successfully:', team);
 
-      if (teamError) throw teamError;
-
       // Create access code
+      console.log('Creating access code...');
       const { error: codeError } = await supabase
         .from('access_codes')
         .insert({
@@ -148,17 +147,29 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
           max_uses: 10
         });
 
-      if (codeError) throw codeError;
+      if (codeError) {
+        console.error('Access code creation error:', codeError);
+        throw codeError;
+      }
+      
+      console.log('Access code created successfully');
 
       // Update user profile to be project owner/builder
+      console.log('Updating user profile...');
       const { error: profileError } = await updateProfile({
         role: 'builder',
         team_id: team.id
       });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
+      
+      console.log('Profile updated successfully');
 
       // Add user as team member
+      console.log('Adding user as team member...');
       const { error: memberError } = await supabase
         .from('members')
         .insert({
@@ -169,13 +180,25 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
           assigned_by: user.id
         });
 
-      if (memberError) throw memberError;
+      if (memberError) {
+        console.error('Member creation error:', memberError);
+        throw memberError;
+      }
+      
+      console.log('Member created successfully');
 
       toast({
         title: "Project Created! 🎉",
         description: "Your team is ready to go!"
       });
 
+      console.log('Calling onComplete with data:', {
+        accessCode,
+        teamName: formData.projectName,
+        teamId: team.id,
+        isProjectLead: true
+      });
+      
       onComplete({
         accessCode,
         teamName: formData.projectName,
