@@ -71,20 +71,9 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
     canUseGraphRAG: true,
     canUseMultiModel: true
   },
-  lead: {
-    canViewTeamData: true,
-    canEditOwnProgress: true,
-    canSendMessages: true,
-    canChangeOracleState: true,
-    canViewAllTeams: true,
-    canSendBroadcasts: true,
-    canEditAnyTeam: true,
-    canUseGraphRAG: true,
-    canUseMultiModel: true
-  },
   mentor: {
     canViewTeamData: true,
-    canEditOwnProgress: false,
+    canEditOwnProgress: true,
     canSendMessages: true,
     canChangeOracleState: false,
     canViewAllTeams: true,
@@ -632,15 +621,13 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
       "Analyze startup funding strategies",
       "Build knowledge graph for fintech trends"
     ],
-    lead: [
-      "/resources team management tools",
-      "/connect venture capitalists",
-      "/update milestone: all teams on track",
-      "/message all: weekly check-in tomorrow",
-      "Analyze team performance metrics",
-      "Multi-model analysis of business strategy"
-    ],
     guest: [
+      "/motivation startup success stories",
+      "/status show recent team updates",
+      "What is the PieFi accelerator?",
+      "Show me available resources"
+    ],
+    unassigned: [
       "/motivation startup success stories",
       "/status show recent team updates",
       "What is the PieFi accelerator?",

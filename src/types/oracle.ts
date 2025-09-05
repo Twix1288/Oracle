@@ -1,4 +1,5 @@
-export type UserRole = 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
+// Updated Oracle types for creator-based system (no lead role)
+export type UserRole = 'builder' | 'mentor' | 'guest' | 'unassigned';
 
 export type TeamStage = 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
 
@@ -575,7 +576,34 @@ export interface UserContextSummary {
   timeAvailability: string;
 }
 
-// Existing Types (keeping for backward compatibility)
+// Project onboarding data structure
+export interface ProjectOnboardingData {
+  project_name: string;
+  project_type: string;
+  target_audience: string;
+  problem_statement: string;
+  solution_approach: string;
+  tech_requirements: string[];
+  timeline_months: number;
+  team_size_needed: number;
+  skills_needed: string[];
+  is_public: boolean;
+}
+
+// Join request for community features
+export interface JoinRequest {
+  id: string;
+  requester_id: string;
+  team_id: string;
+  creator_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  message?: string;
+  created_at: string;
+  updated_at: string;
+  responded_at?: string;
+}
+
+// Enhanced team interface with creator-based management
 export interface Team {
   id: string;
   name: string;
@@ -583,8 +611,21 @@ export interface Team {
   stage: TeamStage;
   tags?: string[];
   assigned_mentor_id?: string;
+  team_creator_id?: string;
   created_at: string;
   updated_at: string;
+  
+  // Project details from onboarding
+  project_type?: string;
+  target_audience?: string;
+  problem_statement?: string;
+  solution_approach?: string;
+  tech_requirements?: string[];
+  timeline_months?: number;
+  team_size_needed?: number;
+  skills_needed?: string[];
+  is_public?: boolean;
+  ai_summary?: string;
 }
 
 export interface Member {

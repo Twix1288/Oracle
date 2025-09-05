@@ -128,7 +128,6 @@ export const useOracle = (selectedRole: UserRole) => {
     switch (selectedRole) {
       case 'builder':
       case 'mentor':
-      case 'lead':
         // Show full data for authenticated roles
         return {
           teams,

@@ -14,29 +14,403 @@ export type Database = {
   }
   public: {
     Tables: {
-      members: {
+      access_codes: {
         Row: {
-          created_at: string | null
+          code: string
+          created_at: string
+          creator_id: string | null
+          current_uses: number | null
+          description: string | null
+          expires_at: string | null
+          generated_by: string | null
           id: string
-          joined_at: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          is_active: boolean | null
+          max_uses: number | null
+          role: Database["public"]["Enums"]["user_role"] | null
           team_id: string | null
+          team_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          creator_id?: string | null
+          current_uses?: number | null
+          description?: string | null
+          expires_at?: string | null
+          generated_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          team_id?: string | null
+          team_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          creator_id?: string | null
+          current_uses?: number | null
+          description?: string | null
+          expires_at?: string | null
+          generated_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          team_id?: string | null
+          team_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_codes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_commands_log: {
+        Row: {
+          command_data: Json | null
+          command_name: string
+          created_at: string
+          error_message: string | null
+          guild_id: string | null
+          id: string
+          response_time_ms: number | null
+          success: boolean | null
           user_id: string | null
         }
         Insert: {
-          created_at?: string | null
+          command_data?: Json | null
+          command_name: string
+          created_at?: string
+          error_message?: string | null
+          guild_id?: string | null
           id?: string
-          joined_at?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          team_id?: string | null
+          response_time_ms?: number | null
+          success?: boolean | null
           user_id?: string | null
         }
         Update: {
-          created_at?: string | null
+          command_data?: Json | null
+          command_name?: string
+          created_at?: string
+          error_message?: string | null
+          guild_id?: string | null
           id?: string
-          joined_at?: string | null
+          response_time_ms?: number | null
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_commands_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      builder_assignments: {
+        Row: {
+          access_code: string
+          assigned_at: string
+          assigned_by: string | null
+          builder_name: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_code: string
+          assigned_at?: string
+          assigned_by?: string | null
+          builder_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          builder_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_assignments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      builder_onboarding: {
+        Row: {
+          builder_member_id: string | null
+          created_at: string
+          current_challenges: string[] | null
+          embedding: string | null
+          goals: string[] | null
+          id: string
+          notes: string | null
+          project_domain: string | null
+          team_id: string | null
+          tech_stack: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          builder_member_id?: string | null
+          created_at?: string
+          current_challenges?: string[] | null
+          embedding?: string | null
+          goals?: string[] | null
+          id?: string
+          notes?: string | null
+          project_domain?: string | null
+          team_id?: string | null
+          tech_stack?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          builder_member_id?: string | null
+          created_at?: string
+          current_challenges?: string[] | null
+          embedding?: string | null
+          goals?: string[] | null
+          id?: string
+          notes?: string | null
+          project_domain?: string | null
+          team_id?: string | null
+          tech_stack?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_onboarding_builder_member_id_fkey"
+            columns: ["builder_member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_onboarding_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          role_visibility: Database["public"]["Enums"]["user_role"][] | null
+          source_reference: string | null
+          source_type: string | null
+          team_visibility: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
+          source_reference?: string | null
+          source_type?: string | null
+          team_visibility?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
+          source_reference?: string | null
+          source_type?: string | null
+          team_visibility?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          attendance: string[] | null
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attendance?: string[] | null
+          created_at?: string
+          date: string
+          description?: string | null
+          id?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attendance?: string[] | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          id?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      join_requests: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          message: string | null
+          requester_id: string
+          responded_at: string | null
+          status: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id?: string
+          message?: string | null
+          requester_id: string
+          responded_at?: string | null
+          status?: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          message?: string | null
+          requester_id?: string
+          responded_at?: string | null
+          status?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "join_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journey_stages: {
+        Row: {
+          ai_impact: string | null
+          cac_focus: string | null
+          characteristics: string[] | null
+          created_at: string
+          description: string
+          frameworks: string[] | null
+          id: string
+          stage_name: string
+          stage_order: number
+          support_needed: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_impact?: string | null
+          cac_focus?: string | null
+          characteristics?: string[] | null
+          created_at?: string
+          description: string
+          frameworks?: string[] | null
+          id?: string
+          stage_name: string
+          stage_order: number
+          support_needed?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_impact?: string | null
+          cac_focus?: string | null
+          characteristics?: string[] | null
+          created_at?: string
+          description?: string
+          frameworks?: string[] | null
+          id?: string
+          stage_name?: string
+          stage_order?: number
+          support_needed?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      members: {
+        Row: {
+          assigned_by: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
           role?: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
+          updated_at?: string
           user_id?: string | null
         }
         Relationships: [
@@ -47,9 +421,100 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      mentor_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          embedding: string | null
+          id: string
+          industries: string[]
+          member_id: string
+          skills: string[]
+          strengths: string | null
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          industries?: string[]
+          member_id: string
+          skills?: string[]
+          strengths?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          industries?: string[]
+          member_id?: string
+          skills?: string[]
+          strengths?: string | null
+          updated_at?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "members_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "mentor_profiles_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentor_requests: {
+        Row: {
+          builder_id: string
+          created_at: string
+          id: string
+          initial_message: string
+          mentor_id: string
+          mentor_response: string | null
+          responded_at: string | null
+          status: string
+          updated_at: string
+          verification_responses: string[] | null
+        }
+        Insert: {
+          builder_id: string
+          created_at?: string
+          id?: string
+          initial_message: string
+          mentor_id: string
+          mentor_response?: string | null
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+          verification_responses?: string[] | null
+        }
+        Update: {
+          builder_id?: string
+          created_at?: string
+          id?: string
+          initial_message?: string
+          mentor_id?: string
+          mentor_response?: string | null
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+          verification_responses?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_requests_builder_id_fkey"
+            columns: ["builder_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_requests_mentor_id_fkey"
+            columns: ["mentor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -59,7 +524,7 @@ export type Database = {
       messages: {
         Row: {
           content: string
-          created_at: string | null
+          created_at: string
           id: string
           read_at: string | null
           receiver_id: string | null
@@ -67,10 +532,11 @@ export type Database = {
           sender_id: string | null
           sender_role: Database["public"]["Enums"]["user_role"]
           team_id: string | null
+          updated_at: string
         }
         Insert: {
           content: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           read_at?: string | null
           receiver_id?: string | null
@@ -78,10 +544,11 @@ export type Database = {
           sender_id?: string | null
           sender_role: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
+          updated_at?: string
         }
         Update: {
           content?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           read_at?: string | null
           receiver_id?: string | null
@@ -89,24 +556,55 @@ export type Database = {
           sender_id?: string | null
           sender_role?: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "messages_receiver_id_fkey"
-            columns: ["receiver_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "messages_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oracle_logs: {
+        Row: {
+          created_at: string
+          id: string
+          processing_time_ms: number | null
+          query: string
+          response: string
+          sources_count: number | null
+          team_id: string | null
+          user_id: string | null
+          user_role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          processing_time_ms?: number | null
+          query: string
+          response: string
+          sources_count?: number | null
+          team_id?: string | null
+          user_id?: string | null
+          user_role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          processing_time_ms?: number | null
+          query?: string
+          response?: string
+          sources_count?: number | null
+          team_id?: string | null
+          user_id?: string | null
+          user_role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oracle_logs_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
@@ -119,80 +617,83 @@ export type Database = {
           availability: string | null
           avatar_url: string | null
           bio: string | null
-          created_at: string | null
+          created_at: string
           email: string
           experience_level: string | null
           full_name: string | null
           github_url: string | null
           help_needed: string[] | null
           id: string
-          individual_stage:
-            | Database["public"]["Enums"]["individual_stage"]
-            | null
+          individual_stage: Database["public"]["Enums"]["team_stage"] | null
+          interests: string[] | null
           linkedin_url: string | null
+          looking_for_skills: string[] | null
           onboarding_completed: boolean | null
           personal_goals: string[] | null
           portfolio_url: string | null
           project_vision: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          role: Database["public"]["Enums"]["user_role"] | null
           skills: string[] | null
           team_id: string | null
           timezone: string | null
-          updated_at: string | null
+          updated_at: string
+          user_types: string[] | null
         }
         Insert: {
           availability?: string | null
           avatar_url?: string | null
           bio?: string | null
-          created_at?: string | null
+          created_at?: string
           email: string
           experience_level?: string | null
           full_name?: string | null
           github_url?: string | null
           help_needed?: string[] | null
           id: string
-          individual_stage?:
-            | Database["public"]["Enums"]["individual_stage"]
-            | null
+          individual_stage?: Database["public"]["Enums"]["team_stage"] | null
+          interests?: string[] | null
           linkedin_url?: string | null
+          looking_for_skills?: string[] | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
           project_vision?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["user_role"] | null
           skills?: string[] | null
           team_id?: string | null
           timezone?: string | null
-          updated_at?: string | null
+          updated_at?: string
+          user_types?: string[] | null
         }
         Update: {
           availability?: string | null
           avatar_url?: string | null
           bio?: string | null
-          created_at?: string | null
+          created_at?: string
           email?: string
           experience_level?: string | null
           full_name?: string | null
           github_url?: string | null
           help_needed?: string[] | null
           id?: string
-          individual_stage?:
-            | Database["public"]["Enums"]["individual_stage"]
-            | null
+          individual_stage?: Database["public"]["Enums"]["team_stage"] | null
+          interests?: string[] | null
           linkedin_url?: string | null
+          looking_for_skills?: string[] | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
           project_vision?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          role?: Database["public"]["Enums"]["user_role"] | null
           skills?: string[] | null
           team_id?: string | null
           timezone?: string | null
-          updated_at?: string | null
+          updated_at?: string
+          user_types?: string[] | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_profiles_team"
+            foreignKeyName: "profiles_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
@@ -204,26 +705,29 @@ export type Database = {
         Row: {
           assigned_by: string | null
           assigned_role: Database["public"]["Enums"]["user_role"]
-          created_at: string | null
+          created_at: string
           id: string
           reason: string | null
-          user_id: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
           assigned_by?: string | null
           assigned_role: Database["public"]["Enums"]["user_role"]
-          created_at?: string | null
+          created_at?: string
           id?: string
           reason?: string | null
-          user_id?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
           assigned_by?: string | null
           assigned_role?: Database["public"]["Enums"]["user_role"]
-          created_at?: string | null
+          created_at?: string
           id?: string
           reason?: string | null
-          user_id?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -244,25 +748,31 @@ export type Database = {
       }
       team_status: {
         Row: {
+          created_at: string
+          current_status: string | null
           id: string
-          last_activity: string | null
-          status: string | null
-          team_id: string | null
-          updated_at: string | null
+          last_update: string | null
+          pending_actions: string[] | null
+          team_id: string
+          updated_at: string
         }
         Insert: {
+          created_at?: string
+          current_status?: string | null
           id?: string
-          last_activity?: string | null
-          status?: string | null
-          team_id?: string | null
-          updated_at?: string | null
+          last_update?: string | null
+          pending_actions?: string[] | null
+          team_id: string
+          updated_at?: string
         }
         Update: {
+          created_at?: string
+          current_status?: string | null
           id?: string
-          last_activity?: string | null
-          status?: string | null
-          team_id?: string | null
-          updated_at?: string | null
+          last_update?: string | null
+          pending_actions?: string[] | null
+          team_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -276,79 +786,107 @@ export type Database = {
       }
       teams: {
         Row: {
-          access_code: string | null
-          created_at: string | null
+          ai_summary: string | null
+          assigned_mentor_id: string | null
+          created_at: string
           description: string | null
           id: string
-          max_members: number | null
+          is_public: boolean | null
           name: string
-          project_description: string | null
-          project_name: string | null
-          stage: string | null
-          tech_stack: string[] | null
-          updated_at: string | null
+          problem_statement: string | null
+          project_type: string | null
+          skills_needed: string[] | null
+          solution_approach: string | null
+          stage: Database["public"]["Enums"]["team_stage"] | null
+          tags: string[] | null
+          target_audience: string | null
+          team_creator_id: string | null
+          team_size_needed: number | null
+          tech_requirements: string[] | null
+          timeline_months: number | null
+          updated_at: string
         }
         Insert: {
-          access_code?: string | null
-          created_at?: string | null
+          ai_summary?: string | null
+          assigned_mentor_id?: string | null
+          created_at?: string
           description?: string | null
           id?: string
-          max_members?: number | null
+          is_public?: boolean | null
           name: string
-          project_description?: string | null
-          project_name?: string | null
-          stage?: string | null
-          tech_stack?: string[] | null
-          updated_at?: string | null
+          problem_statement?: string | null
+          project_type?: string | null
+          skills_needed?: string[] | null
+          solution_approach?: string | null
+          stage?: Database["public"]["Enums"]["team_stage"] | null
+          tags?: string[] | null
+          target_audience?: string | null
+          team_creator_id?: string | null
+          team_size_needed?: number | null
+          tech_requirements?: string[] | null
+          timeline_months?: number | null
+          updated_at?: string
         }
         Update: {
-          access_code?: string | null
-          created_at?: string | null
+          ai_summary?: string | null
+          assigned_mentor_id?: string | null
+          created_at?: string
           description?: string | null
           id?: string
-          max_members?: number | null
+          is_public?: boolean | null
           name?: string
-          project_description?: string | null
-          project_name?: string | null
-          stage?: string | null
-          tech_stack?: string[] | null
-          updated_at?: string | null
+          problem_statement?: string | null
+          project_type?: string | null
+          skills_needed?: string[] | null
+          solution_approach?: string | null
+          stage?: Database["public"]["Enums"]["team_stage"] | null
+          tags?: string[] | null
+          target_audience?: string | null
+          team_creator_id?: string | null
+          team_size_needed?: number | null
+          tech_requirements?: string[] | null
+          timeline_months?: number | null
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_assigned_mentor_id_fkey"
+            columns: ["assigned_mentor_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       updates: {
         Row: {
           content: string
-          created_at: string | null
+          created_at: string
           created_by: string | null
           id: string
-          team_id: string | null
-          type: Database["public"]["Enums"]["update_type"] | null
+          team_id: string
+          type: Database["public"]["Enums"]["update_type"]
+          updated_at: string
         }
         Insert: {
           content: string
-          created_at?: string | null
+          created_at?: string
           created_by?: string | null
           id?: string
-          team_id?: string | null
-          type?: Database["public"]["Enums"]["update_type"] | null
+          team_id: string
+          type: Database["public"]["Enums"]["update_type"]
+          updated_at?: string
         }
         Update: {
           content?: string
-          created_at?: string | null
+          created_at?: string
           created_by?: string | null
           id?: string
-          team_id?: string | null
-          type?: Database["public"]["Enums"]["update_type"] | null
+          team_id?: string
+          type?: Database["public"]["Enums"]["update_type"]
+          updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "updates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "updates_team_id_fkey"
             columns: ["team_id"]
@@ -363,46 +901,163 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      assign_user_role: {
-        Args: {
-          p_role: Database["public"]["Enums"]["user_role"]
-          p_user_id: string
-        }
+      approve_join_request: {
+        Args: { p_request_id: string }
         Returns: Json
+      }
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      check_user_role_simple: {
+        Args: { required_role: string; user_id: string }
+        Returns: boolean
       }
       create_team_with_project_data: {
         Args: {
-          p_description?: string
-          p_name: string
-          p_project_description?: string
-          p_project_name?: string
-          p_tech_stack?: string[]
-          p_user_id?: string
+          p_description: string
+          p_problem_statement: string
+          p_project_type: string
+          p_skills_needed: string[]
+          p_solution_approach: string
+          p_target_audience: string
+          p_team_name: string
+          p_team_size_needed: number
+          p_tech_requirements: string[]
+          p_timeline_months: number
         }
         Returns: Json
       }
-      generate_access_code: {
-        Args: Record<PropertyKey, never>
+      enhance_oracle_response: {
+        Args: { query_text: string; response_text: string; user_role: string }
+        Returns: Json
+      }
+      get_user_dashboard_stage: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["team_stage"]
+      }
+      get_user_role: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
         Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
       }
       join_team_with_code: {
         Args: { p_code: string; p_user_id: string }
         Returns: Json
       }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      notify_mentor_request: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
       use_access_code: {
         Args: { p_builder_name?: string; p_code: string; p_user_id: string }
         Returns: Json
       }
+      validate_team_access_code: {
+        Args: { p_code: string }
+        Returns: {
+          current_uses: number
+          description: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          max_uses: number
+          team_id: string
+          team_name: string
+        }[]
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
     }
     Enums: {
-      individual_stage:
-        | "ideation"
-        | "development"
-        | "testing"
-        | "launch"
-        | "growth"
-      update_type: "progress" | "milestone" | "issue" | "note"
-      user_role: "builder" | "mentor" | "lead" | "guest" | "unassigned"
+      team_stage: "ideation" | "development" | "testing" | "launch" | "growth"
+      update_type: "daily" | "milestone" | "mentor_meeting"
+      user_role: "builder" | "mentor" | "guest" | "unassigned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -530,15 +1185,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      individual_stage: [
-        "ideation",
-        "development",
-        "testing",
-        "launch",
-        "growth",
-      ],
-      update_type: ["progress", "milestone", "issue", "note"],
-      user_role: ["builder", "mentor", "lead", "guest", "unassigned"],
+      team_stage: ["ideation", "development", "testing", "launch", "growth"],
+      update_type: ["daily", "milestone", "mentor_meeting"],
+      user_role: ["builder", "mentor", "guest", "unassigned"],
     },
   },
 } as const

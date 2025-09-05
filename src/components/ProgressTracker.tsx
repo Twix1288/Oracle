@@ -197,7 +197,6 @@ export const ProgressTracker = ({ team, updates, userRole, onStageUpdate }: Prog
 
   const canAdvanceStage = () => {
     return (
-      userRole === 'lead' || 
       userRole === 'mentor' ||
       userRole === 'builder'
     ) && currentStageIndex < stages.length - 1;

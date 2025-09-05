@@ -186,11 +186,11 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
   };
 
   const canSendMessages = () => {
-    return userRole === 'mentor' || userRole === 'lead' || userRole === 'builder';
+    return userRole === 'mentor' || userRole === 'builder';
   };
 
   const canBroadcast = () => {
-    return userRole === 'mentor' || userRole === 'lead';
+    return userRole === 'mentor';
   };
 
   const receivedMessages = messages.filter(msg => 
