@@ -222,7 +222,6 @@ export type Database = {
           embedding: string | null
           id: string
           metadata: Json | null
-          role_visibility: Database["public"]["Enums"]["user_role"][] | null
           source_reference: string | null
           source_type: string | null
           team_visibility: string[] | null
@@ -234,7 +233,6 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
-          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
           source_reference?: string | null
           source_type?: string | null
           team_visibility?: string[] | null
@@ -246,7 +244,6 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
-          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
           source_reference?: string | null
           source_type?: string | null
           team_visibility?: string[] | null
@@ -824,13 +821,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      assign_user_role: {
-        Args: {
-          p_role: Database["public"]["Enums"]["user_role"]
-          p_user_id: string
-        }
-        Returns: Json
-      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -843,50 +833,9 @@ export type Database = {
         Args: { query_text: string; response_text: string; user_role: string }
         Returns: Json
       }
-      generate_team_access_code: {
-        Args: {
-          p_generated_by?: string
-          p_role: Database["public"]["Enums"]["user_role"]
-          p_team_id: string
-        }
-        Returns: string
-      }
-      get_access_codes_overview: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          created_at: string
-          description: string
-          expires_at: string
-          generated_by: string
-          id: string
-          is_active: boolean
-          member_id: string
-          role: Database["public"]["Enums"]["user_role"]
-          team_id: string
-          updated_at: string
-        }[]
-      }
-      get_team_member_profiles: {
-        Args: { p_team_id: string }
-        Returns: {
-          avatar_url: string
-          bio: string
-          experience_level: string
-          full_name: string
-          github_url: string
-          id: string
-          portfolio_url: string
-          role: Database["public"]["Enums"]["user_role"]
-          skills: string[]
-        }[]
-      }
       get_user_dashboard_stage: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["team_stage"]
-      }
-      get_user_role: {
-        Args: { p_user_id: string }
-        Returns: Database["public"]["Enums"]["user_role"]
       }
       halfvec_avg: {
         Args: { "": number[] }
@@ -964,20 +913,6 @@ export type Database = {
         Args: { p_builder_name?: string; p_code: string; p_user_id: string }
         Returns: Json
       }
-      validate_access_code: {
-        Args: {
-          p_code: string
-          p_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: {
-          description: string
-          expires_at: string
-          id: string
-          is_active: boolean
-          role: Database["public"]["Enums"]["user_role"]
-          team_id: string
-        }[]
-      }
       validate_team_access_code: {
         Args: { p_code: string }
         Returns: {
@@ -1019,7 +954,7 @@ export type Database = {
     Enums: {
       team_stage: "ideation" | "development" | "testing" | "launch" | "growth"
       update_type: "daily" | "milestone" | "mentor_meeting"
-      user_role: "builder" | "mentor" | "lead" | "guest" | "unassigned"
+      user_role: "builder" | "mentor" | "guest" | "unassigned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1149,7 +1084,7 @@ export const Constants = {
     Enums: {
       team_stage: ["ideation", "development", "testing", "launch", "growth"],
       update_type: ["daily", "milestone", "mentor_meeting"],
-      user_role: ["builder", "mentor", "lead", "guest", "unassigned"],
+      user_role: ["builder", "mentor", "guest", "unassigned"],
     },
   },
 } as const
