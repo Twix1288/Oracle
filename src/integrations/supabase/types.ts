@@ -836,12 +836,24 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      store_message_as_document: {
+        Args: { p_message_id: string }
+        Returns: undefined
+      }
       store_onboarding_as_documents: {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      store_oracle_log_as_document: {
+        Args: { p_log_id: string }
+        Returns: undefined
+      }
       store_team_as_document: {
         Args: { p_team_id: string }
+        Returns: undefined
+      }
+      store_update_as_document: {
+        Args: { p_update_id: string }
         Returns: undefined
       }
       use_access_code: {
