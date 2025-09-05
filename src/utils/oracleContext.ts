@@ -10,9 +10,12 @@ interface OracleContext {
     email: string;
     full_name?: string;
     bio?: string;
+    user_types?: string[];
+    skills?: string[];
+    looking_for_skills?: string[];
+    interests?: string[];
     personal_goals?: string[];
     project_vision?: string;
-    skills?: string[];
     help_needed?: string[];
     experience_level?: string;
     availability?: string;
@@ -21,6 +24,8 @@ interface OracleContext {
     github_url?: string;
     portfolio_url?: string;
     team_id?: string;
+    role?: string;
+    individual_stage?: string;
     onboarding_completed?: boolean;
   };
   team?: {
@@ -45,9 +50,10 @@ export class OracleContextService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   private constructor() {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    // Import the supabase client directly 
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      this.supabase = supabase;
+    });
   }
 
   static getInstance(): OracleContextService {
@@ -57,25 +63,21 @@ export class OracleContextService {
     return OracleContextService.instance;
   }
 
-  async storeUserContext(userId: string, data: OnboardingData): Promise<void> {
+  async storeUserContext(userId: string, data: any): Promise<void> {
     try {
       console.log('Storing user context for:', userId);
       
-      // Update the profiles table with onboarding data
+      // Update the profiles table with new onboarding data structure
       const { error: profileError } = await this.supabase
         .from('profiles')
         .update({
-          full_name: data.name,
-          bio: data.bio,
-          personal_goals: data.learningGoals,
-          project_vision: data.projectGoal,
+          user_types: data.user_types,
           skills: data.skills,
-          experience_level: data.experienceLevel,
-          availability: data.availability,
-          timezone: data.timezone,
-          linkedin_url: data.portfolioUrl,
-          github_url: data.githubUsername,
-          onboarding_completed: true,
+          looking_for_skills: data.looking_for_skills,
+          interests: data.interests,
+          bio: data.bio,
+          onboarding_completed: data.onboarding_completed,
+          role: data.role,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -235,7 +237,7 @@ export class OracleContextService {
 
   async updateInteractionHistory(userId: string, query: string, response: any, satisfaction?: number): Promise<void> {
     try {
-      // Log to oracle_logs table (which exists)
+      // Log to oracle_logs table with correct fields
       const { error } = await this.supabase
         .from('oracle_logs')
         .insert({
@@ -244,8 +246,6 @@ export class OracleContextService {
           response: typeof response === 'string' ? response.substring(0, 500) : JSON.stringify(response).substring(0, 500),
           sources_count: response.sources || 0,
           processing_time_ms: response.processing_time || 0,
-          model_used: response.model_used || 'unknown',
-          search_strategy: response.search_strategy || 'unknown',
           created_at: new Date().toISOString()
         });
 
@@ -266,18 +266,26 @@ export class OracleContextService {
       if (context.profile) {
         prompt += `\n\nUser Context:\n`;
         prompt += `- Name: ${context.profile.full_name || 'Not specified'}\n`;
-        prompt += `- Experience Level: ${context.profile.experience_level || 'Not specified'}\n`;
+        prompt += `- Role: ${context.profile.role || 'Not specified'}\n`;
+        
+        if (context.profile.user_types && context.profile.user_types.length > 0) {
+          prompt += `- User Types: ${context.profile.user_types.join(', ')}\n`;
+        }
         
         if (context.profile.skills && context.profile.skills.length > 0) {
           prompt += `- Skills: ${context.profile.skills.join(', ')}\n`;
         }
         
-        if (context.profile.personal_goals && context.profile.personal_goals.length > 0) {
-          prompt += `- Learning Goals: ${context.profile.personal_goals.join(', ')}\n`;
+        if (context.profile.looking_for_skills && context.profile.looking_for_skills.length > 0) {
+          prompt += `- Looking for Skills: ${context.profile.looking_for_skills.join(', ')}\n`;
         }
         
-        if (context.profile.project_vision) {
-          prompt += `- Project Vision: ${context.profile.project_vision}\n`;
+        if (context.profile.interests && context.profile.interests.length > 0) {
+          prompt += `- Interests: ${context.profile.interests.join(', ')}\n`;
+        }
+        
+        if (context.profile.bio) {
+          prompt += `- Bio: ${context.profile.bio}\n`;
         }
       }
 
@@ -328,6 +336,6 @@ export class OracleContextService {
 }
 
 // Direct export for backward compatibility
-export const storeUserContext = async (userId: string, data: OnboardingData): Promise<void> => {
+export const storeUserContext = async (userId: string, data: any): Promise<void> => {
   return OracleContextService.getInstance().storeUserContext(userId, data);
 };

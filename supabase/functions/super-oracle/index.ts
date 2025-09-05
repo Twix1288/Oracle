@@ -334,10 +334,10 @@ async function getRoleContext(supabase: any, role: string, userId: string) {
   // Get role-specific context
   const context: any = { role };
   
-  if (role === 'builder') {
+  if (userId) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('team_id, skills, individual_stage')
+      .select('team_id, skills, user_types, interests, looking_for_skills, individual_stage, role')
       .eq('id', userId)
       .single();
     context.profile = profile;
@@ -480,11 +480,22 @@ function getRoleSuggestions(role: string): string[] {
 async function logOracleInteraction(supabase: any, userId: string, role: string, query: string, response: string, sourcesCount: number) {
   try {
     if (userId) {
+      // Get user role from profile if not provided
+      let userRole = role;
+      if (!userRole) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        userRole = profile?.role || 'guest';
+      }
+
       await supabase
         .from('oracle_logs')
         .insert({
           user_id: userId,
-          user_role: role,
+          user_role: userRole,
           query,
           response,
           sources_count: sourcesCount
