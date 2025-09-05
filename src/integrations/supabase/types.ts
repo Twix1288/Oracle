@@ -578,6 +578,7 @@ export type Database = {
           help_needed: string[] | null
           id: string
           individual_stage: Database["public"]["Enums"]["team_stage"] | null
+          interests: string[] | null
           linkedin_url: string | null
           onboarding_completed: boolean | null
           personal_goals: string[] | null
@@ -601,6 +602,7 @@ export type Database = {
           help_needed?: string[] | null
           id: string
           individual_stage?: Database["public"]["Enums"]["team_stage"] | null
+          interests?: string[] | null
           linkedin_url?: string | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
@@ -624,6 +626,7 @@ export type Database = {
           help_needed?: string[] | null
           id?: string
           individual_stage?: Database["public"]["Enums"]["team_stage"] | null
+          interests?: string[] | null
           linkedin_url?: string | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
