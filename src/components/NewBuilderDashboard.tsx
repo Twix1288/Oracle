@@ -1,29 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Plus, 
   Rocket, 
   Users, 
   Target, 
-  Settings, 
   CheckCircle,
-  MessageSquare
+  MessageSquare,
+  TrendingUp,
+  Calendar,
+  Activity
 } from "lucide-react";
 import { DashboardHeader } from "./DashboardHeader";
 import { SuperOracle } from "./SuperOracle";
 import { BuilderLounge } from "./BuilderLounge";
 import { ProgressTracker } from "./ProgressTracker";
-import { useLegacyProjects, type LegacyProject } from "@/hooks/useLegacyProjects";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { Team, Member, Update } from "@/types/oracle";
 
 interface NewBuilderDashboardProps {
@@ -35,72 +30,42 @@ interface NewBuilderDashboardProps {
 
 export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuilderDashboardProps) => {
   const { user } = useAuth();
-  const {
-    projects,
-    isLoading,
-    createProject,
-    updateProject,
-    createProjectLoading,
-    updateProjectLoading
-  } = useLegacyProjects();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [teamData, setTeamData] = useState<Team | null>(null);
+  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
+  const [recentUpdates, setRecentUpdates] = useState<Update[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState("projects");
-  const [showCreateProject, setShowCreateProject] = useState(false);
-  const [editingProject, setEditingProject] = useState<LegacyProject | null>(null);
-
-  const [projectForm, setProjectForm] = useState({
-    title: "",
-    description: "",
-    stage: "ideation" as "ideation" | "development" | "testing" | "launch" | "growth"
-  });
-
-  // Find the user's team (they should have one after creating a project)
+  // Find the user's team
   const userTeam = teams?.find(team => 
     members?.some(member => member.team_id === team.id && member.user_id === user?.id)
   );
 
-  const teamUpdates = updates?.filter(update => update.team_id === userTeam?.id) || [];
-
-  const handleCreateProject = () => {
-    if (!projectForm.title.trim()) {
-      toast.error("Project title is required");
-      return;
+  useEffect(() => {
+    if (userTeam) {
+      setTeamData(userTeam);
+      setTeamMembers(members?.filter(m => m.team_id === userTeam.id) || []);
+      setRecentUpdates(updates?.filter(u => u.team_id === userTeam.id) || []);
     }
+    setIsLoading(false);
+  }, [userTeam, members, updates]);
 
-    createProject(projectForm);
-    setShowCreateProject(false);
-    setProjectForm({
-      title: "",
-      description: "",
-      stage: "ideation"
-    });
-  };
-
-  const handleUpdateProject = () => {
-    if (!editingProject || !projectForm.title.trim()) {
-      toast.error("Project title is required");
-      return;
+  const refreshTeamData = async () => {
+    if (!userTeam) return;
+    
+    try {
+      const { data: updatedTeam } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('id', userTeam.id)
+        .single();
+      
+      if (updatedTeam) {
+        setTeamData(updatedTeam);
+      }
+    } catch (error) {
+      console.error('Error refreshing team data:', error);
     }
-
-    updateProject({
-      id: editingProject.id,
-      ...projectForm
-    });
-    setEditingProject(null);
-    setProjectForm({
-      title: "",
-      description: "",
-      stage: "ideation"
-    });
-  };
-
-  const handleEditProject = (project: LegacyProject) => {
-    setProjectForm({
-      title: project.title,
-      description: project.description || "",
-      stage: project.stage
-    });
-    setEditingProject(project);
   };
 
   const getStageColor = (stage: string) => {
@@ -114,6 +79,13 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
     }
   };
 
+  const getStageProgress = () => {
+    if (!teamData) return 0;
+    const stages = ['ideation', 'development', 'testing', 'launch', 'growth'];
+    const currentIndex = stages.indexOf(teamData.stage || 'ideation');
+    return ((currentIndex + 1) / stages.length) * 100;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
@@ -121,9 +93,35 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
           <div className="ufo-pulse">
             <Rocket className="h-12 w-12 text-primary mx-auto" />
           </div>
-          <h2 className="text-2xl font-semibold cosmic-text">Loading Projects...</h2>
+          <h2 className="text-2xl font-semibold cosmic-text">Loading Project...</h2>
         </div>
       </div>
+    );
+  }
+
+  if (!teamData) {
+    return (
+      <>
+        <DashboardHeader 
+          role="builder" 
+          userName="Project Builder"
+          onExit={onExit}
+        />
+        <div className="container mx-auto px-6 pb-6 space-y-6">
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardContent className="p-8 text-center">
+              <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Project Found</h3>
+              <p className="text-muted-foreground mb-4">
+                You need to create a project through onboarding to access the Innovation Hub
+              </p>
+              <Button onClick={onExit} className="ufo-gradient">
+                Return to Onboarding
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
@@ -143,25 +141,29 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
               <Rocket className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-glow">Innovation Hub</h1>
-              <p className="text-muted-foreground">Your projects and collaborations</p>
+              <h1 className="text-3xl font-bold text-glow">{teamData.name}</h1>
+              <p className="text-muted-foreground">Innovation Hub - {teamData.description}</p>
             </div>
           </div>
-          <Button onClick={() => setShowCreateProject(true)} className="ufo-gradient">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Project
-          </Button>
+          <div className="flex items-center gap-2">
+            <Badge className={getStageColor(teamData.stage || 'ideation')}>
+              {teamData.stage || 'ideation'}
+            </Badge>
+            <div className="text-sm text-muted-foreground">
+              {Math.round(getStageProgress())}% Complete
+            </div>
+          </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="glow-border bg-card/50 backdrop-blur">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <Target className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm text-muted-foreground">My Projects</p>
-                  <p className="text-2xl font-bold">{projects?.length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Current Stage</p>
+                  <p className="text-lg font-bold capitalize">{teamData.stage || 'ideation'}</p>
                 </div>
               </div>
             </CardContent>
@@ -172,8 +174,8 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Teams</p>
-                  <p className="text-2xl font-bold">{teams?.length || 0}</p>
+                  <p className="text-sm text-muted-foreground">Team Members</p>
+                  <p className="text-lg font-bold">{teamMembers.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -182,12 +184,22 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
           <Card className="glow-border bg-card/50 backdrop-blur">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-primary" />
+                <Activity className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Projects</p>
-                  <p className="text-2xl font-bold">
-                    {projects?.filter(p => p.stage !== 'ideation').length || 0}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Recent Updates</p>
+                  <p className="text-lg font-bold">{recentUpdates.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Progress</p>
+                  <p className="text-lg font-bold">{Math.round(getStageProgress())}%</p>
                 </div>
               </div>
             </CardContent>
@@ -197,9 +209,9 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
-            <TabsTrigger value="projects" className="data-[state=active]:bg-primary/20">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20">
               <Target className="h-4 w-4 mr-2" />
-              My Projects
+              Overview
             </TabsTrigger>
             <TabsTrigger value="progress" className="data-[state=active]:bg-primary/20">
               <CheckCircle className="h-4 w-4 mr-2" />
@@ -215,86 +227,95 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="projects">
-            <div className="space-y-4">
-              {!projects?.length ? (
-                <Card className="glow-border bg-card/50 backdrop-blur">
-                  <CardContent className="p-8 text-center">
-                    <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No Projects Yet</h3>
+          <TabsContent value="overview">
+            <div className="space-y-6">
+              {/* Project Overview Card */}
+              <Card className="glow-border bg-card/50 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Rocket className="h-5 w-5 text-primary" />
+                    Project Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">{teamData.name}</h3>
                     <p className="text-muted-foreground mb-4">
-                      Start your innovation journey by creating your first project
+                      {teamData.description || 'No description available'}
                     </p>
-                    <Button onClick={() => setShowCreateProject(true)} className="ufo-gradient">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Your First Project
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {projects.map((project) => (
-                    <Card key={project.id} className="glow-border bg-card/50 backdrop-blur">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-lg">{project.title}</CardTitle>
+                    {teamData.ai_summary && (
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                        <h4 className="font-medium text-sm text-primary mb-2">🛸 AI Project Summary:</h4>
+                        <p className="text-sm text-muted-foreground">{teamData.ai_summary}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <Badge className={getStageColor(teamData.stage || 'ideation')}>
+                      Current Stage: {teamData.stage || 'ideation'}
+                    </Badge>
+                    <div className="text-sm text-muted-foreground">
+                      Progress: {Math.round(getStageProgress())}%
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recent Activity */}
+              <Card className="glow-border bg-card/50 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-primary" />
+                    Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {recentUpdates.length > 0 ? (
+                    <div className="space-y-3">
+                      {recentUpdates.slice(0, 5).map((update) => (
+                        <div key={update.id} className="flex items-start gap-3 p-3 rounded-lg bg-background/30 border border-primary/10">
+                          <div className="p-1 rounded-full bg-primary/20 mt-1">
+                            <Calendar className="h-3 w-3 text-primary" />
                           </div>
-                          <Badge className={getStageColor(project.stage)}>
-                            {project.stage}
-                          </Badge>
+                          <div className="flex-1">
+                            <p className="text-sm">{update.content}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {update.type}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(update.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        {project.description && (
-                          <p className="text-sm text-muted-foreground mb-3">
-                            {project.description}
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditProject(project)}
-                          >
-                            <Settings className="h-3 w-3 mr-1" />
-                            Edit
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">No recent activity</p>
+                      <p className="text-sm text-muted-foreground">Updates will appear here as you make progress</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="progress">
-            {userTeam ? (
-              <ProgressTracker 
-                team={userTeam}
-                updates={teamUpdates}
-                userRole="builder"
-                onStageUpdate={(newStage) => {
-                  // Refresh team data after stage update
-                  window.location.reload();
-                }}
-              />
-            ) : (
-              <Card className="glow-border bg-card/50 backdrop-blur">
-                <CardContent className="p-8 text-center">
-                  <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Team Yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create a project to automatically create your team and track progress
-                  </p>
-                  <Button onClick={() => setShowCreateProject(true)} className="ufo-gradient">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Project
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            <ProgressTracker 
+              team={teamData}
+              updates={recentUpdates}
+              userRole="builder"
+              onStageUpdate={(newStage) => {
+                // Update local state immediately
+                setTeamData(prev => prev ? { ...prev, stage: newStage } : null);
+                // Refresh team data from database
+                refreshTeamData();
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="lounge">
@@ -316,84 +337,12 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
           <TabsContent value="oracle">
             <SuperOracle 
               selectedRole="builder" 
-              teamId={userTeam?.id}
+              teamId={teamData.id}
               userId={user?.id}
             />
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Create/Edit Project Dialog */}
-      <Dialog open={showCreateProject || !!editingProject} onOpenChange={(open) => {
-        if (!open) {
-          setShowCreateProject(false);
-          setEditingProject(null);
-          setProjectForm({
-            title: "",
-            description: "",
-            stage: "ideation"
-          });
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px] bg-card/95 backdrop-blur border-primary/20">
-          <DialogHeader>
-            <DialogTitle>
-              {editingProject ? 'Edit Project' : 'Create New Project'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingProject ? 'Update your project details' : 'Start your innovation journey'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Project Title</Label>
-              <Input
-                id="title"
-                value={projectForm.title}
-                onChange={(e) => setProjectForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="What are you building?"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={projectForm.description}
-                onChange={(e) => setProjectForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Describe your project in detail..."
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="stage">Stage</Label>
-              <Select
-                value={projectForm.stage}
-                onValueChange={(value: any) => setProjectForm(prev => ({ ...prev, stage: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ideation">Ideation</SelectItem>
-                  <SelectItem value="development">Development</SelectItem>
-                  <SelectItem value="testing">Testing</SelectItem>
-                  <SelectItem value="launch">Launch</SelectItem>
-                  <SelectItem value="growth">Growth</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="submit"
-              onClick={editingProject ? handleUpdateProject : handleCreateProject}
-              disabled={createProjectLoading || updateProjectLoading}
-            >
-              {editingProject ? 'Update Project' : 'Create Project'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

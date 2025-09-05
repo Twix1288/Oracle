@@ -209,9 +209,13 @@ async function handleJourney(supabase: any, query: string, role: string, userId:
 }
 
 async function handleUpdate(supabase: any, query: string, role: string, userId: string, teamId?: string) {
+  const startTime = Date.now();
   const updateType = detectUpdateType(query);
+  let stageAdvanced = false;
+  let newStage = null;
   
-  if (teamId) {
+  if (teamId && userId) {
+    // Store the update
     await supabase
       .from('updates')
       .insert({
@@ -220,23 +224,102 @@ async function handleUpdate(supabase: any, query: string, role: string, userId: 
         type: updateType,
         created_by: userId
       });
+
+    // AI-driven stage progression logic
+    const shouldAdvanceStage = analyzeProgressForStageAdvancement(query, updateType);
+    
+    if (shouldAdvanceStage) {
+      // Get current user's individual stage
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('individual_stage')
+        .eq('id', userId)
+        .single();
+
+      if (profile) {
+        const stages = ['ideation', 'development', 'testing', 'launch', 'growth'];
+        const currentIndex = stages.indexOf(profile.individual_stage || 'ideation');
+        
+        if (currentIndex < stages.length - 1) {
+          newStage = stages[currentIndex + 1];
+          
+          // Update user's individual stage
+          await supabase
+            .from('profiles')
+            .update({ individual_stage: newStage })
+            .eq('id', userId);
+          
+          // Add milestone update
+          await supabase
+            .from('updates')
+            .insert({
+              team_id: teamId,
+              content: `🚀 AI detected significant progress! Advanced to ${newStage} stage based on recent updates.`,
+              type: 'milestone',
+              created_by: 'ai_oracle'
+            });
+          
+          stageAdvanced = true;
+        }
+      }
+    }
   }
 
+  const processingTime = Date.now() - startTime;
+  
   return new Response(
     JSON.stringify({
-      message: 'Update recorded successfully',
+      message: stageAdvanced ? `Update recorded and advanced to ${newStage} stage!` : 'Update recorded successfully',
       type: updateType,
+      stage_advanced: stageAdvanced,
+      new_stage: newStage,
       suggestions: getUpdateSuggestions(updateType, role),
-      answer: `Update recorded successfully as ${updateType} update.`,
+      answer: stageAdvanced 
+        ? `🎉 Update recorded successfully! Based on your progress, I've advanced you to the ${newStage} stage. Keep up the great work!`
+        : `Update recorded successfully as ${updateType} update. Keep making progress to advance to the next stage!`,
       sources: 1,
       confidence: 1.0,
-      processing_time: 25,
-      model_used: 'Update Handler',
-      search_strategy: 'Update Classification',
+      processing_time: processingTime,
+      model_used: 'AI Progress Analyzer',
+      search_strategy: 'Progress Analysis',
       context_used: true
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
+}
+
+// AI function to determine if progress warrants stage advancement
+function analyzeProgressForStageAdvancement(query: string, updateType: string): boolean {
+  const lowerQuery = query.toLowerCase();
+  
+  // Milestone updates are strong indicators for advancement
+  if (updateType === 'milestone') return true;
+  
+  // Look for completion keywords
+  const completionKeywords = [
+    'completed', 'finished', 'done', 'achieved', 'accomplished', 'delivered',
+    'shipped', 'launched', 'deployed', 'released', 'built', 'created',
+    'validated', 'tested', 'proven', 'successful', 'working'
+  ];
+  
+  // Look for significant progress indicators
+  const progressKeywords = [
+    'breakthrough', 'major progress', 'significant', 'milestone reached',
+    'ready for', 'moving to', 'next phase', 'phase complete'
+  ];
+  
+  const hasCompletion = completionKeywords.some(keyword => lowerQuery.includes(keyword));
+  const hasSignificantProgress = progressKeywords.some(keyword => lowerQuery.includes(keyword));
+  
+  // Also check for specific achievements per stage
+  const stageSpecificProgress = [
+    'mvp', 'prototype', 'user testing', 'feedback collected', 'market validation',
+    'first users', 'beta test', 'product ready', 'go live', 'marketing campaign'
+  ];
+  
+  const hasStageProgress = stageSpecificProgress.some(keyword => lowerQuery.includes(keyword));
+  
+  return hasCompletion || hasSignificantProgress || hasStageProgress;
 }
 
 function detectSlashCommand(query: string): string | null {

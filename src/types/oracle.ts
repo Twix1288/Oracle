@@ -582,6 +582,7 @@ export interface Team {
   description?: string;
   stage: TeamStage;
   tags?: string[];
+  ai_summary?: string;
   assigned_mentor_id?: string;
   created_at: string;
   updated_at: string;
