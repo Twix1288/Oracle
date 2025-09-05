@@ -94,6 +94,19 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
       // Generate access code
       const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       
+      // Map old stage values to new ones for backwards compatibility
+      const validStages = ['ideation', 'development', 'testing', 'launch', 'growth'];
+      let mappedStage = formData.stage;
+      if (formData.stage === 'prototype') mappedStage = 'development';
+      if (formData.stage === 'mvp') mappedStage = 'testing';
+      if (formData.stage === 'idea') mappedStage = 'ideation';
+      if (formData.stage === 'scaling') mappedStage = 'growth';
+      
+      // Ensure stage is valid
+      if (!validStages.includes(mappedStage)) {
+        mappedStage = 'ideation'; // Default fallback
+      }
+      
       // Create team
       const { data: team, error: teamError } = await supabase
         .from('teams')
@@ -101,7 +114,7 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
           name: formData.projectName,
           description: formData.problemDescription,
           tags: [...formData.problemCategory, ...formData.skillsNeeded],
-          stage: formData.stage as any
+          stage: mappedStage as 'ideation' | 'development' | 'testing' | 'launch' | 'growth'
         })
         .select()
         .single();
