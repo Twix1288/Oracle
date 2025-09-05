@@ -578,9 +578,7 @@ export type Database = {
           help_needed: string[] | null
           id: string
           individual_stage: Database["public"]["Enums"]["team_stage"] | null
-          interests: string[] | null
           linkedin_url: string | null
-          looking_for_skills: string[] | null
           onboarding_completed: boolean | null
           personal_goals: string[] | null
           portfolio_url: string | null
@@ -590,7 +588,6 @@ export type Database = {
           team_id: string | null
           timezone: string | null
           updated_at: string
-          user_types: string[] | null
         }
         Insert: {
           availability?: string | null
@@ -604,9 +601,7 @@ export type Database = {
           help_needed?: string[] | null
           id: string
           individual_stage?: Database["public"]["Enums"]["team_stage"] | null
-          interests?: string[] | null
           linkedin_url?: string | null
-          looking_for_skills?: string[] | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
@@ -616,7 +611,6 @@ export type Database = {
           team_id?: string | null
           timezone?: string | null
           updated_at?: string
-          user_types?: string[] | null
         }
         Update: {
           availability?: string | null
@@ -630,9 +624,7 @@ export type Database = {
           help_needed?: string[] | null
           id?: string
           individual_stage?: Database["public"]["Enums"]["team_stage"] | null
-          interests?: string[] | null
           linkedin_url?: string | null
-          looking_for_skills?: string[] | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
@@ -642,7 +634,6 @@ export type Database = {
           team_id?: string | null
           timezone?: string | null
           updated_at?: string
-          user_types?: string[] | null
         }
         Relationships: [
           {
@@ -739,7 +730,6 @@ export type Database = {
       }
       teams: {
         Row: {
-          ai_summary: string | null
           assigned_mentor_id: string | null
           created_at: string
           description: string | null
@@ -750,7 +740,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          ai_summary?: string | null
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
@@ -761,7 +750,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          ai_summary?: string | null
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
@@ -838,10 +826,6 @@ export type Database = {
       check_user_role_simple: {
         Args: { required_role: string; user_id: string }
         Returns: boolean
-      }
-      enhance_oracle_response: {
-        Args: { query_text: string; response_text: string; user_role: string }
-        Returns: Json
       }
       generate_team_access_code: {
         Args: {

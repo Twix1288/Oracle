@@ -17,7 +17,7 @@ interface MentorDashboardProps {
   members: Member[];
   updates: Update[];
   teamStatuses: any[];
-  selectedRole: UserRole | null;
+  selectedRole: UserRole;
   mentorId?: string;
   onExit: () => void;
 }

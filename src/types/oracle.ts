@@ -582,7 +582,6 @@ export interface Team {
   description?: string;
   stage: TeamStage;
   tags?: string[];
-  ai_summary?: string;
   assigned_mentor_id?: string;
   created_at: string;
   updated_at: string;
@@ -593,9 +592,6 @@ export interface Member {
   name: string;
   role: UserRole;
   team_id?: string;
-  user_id?: string;
-  assigned_by?: string;
-  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -405,14 +405,14 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
       {/* Model and Strategy Info */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Badge variant="outline" className="text-xs">
-          {response.model_used || 'GPT-4o'}
+          {response.model_used}
         </Badge>
         <Badge variant="outline" className="text-xs">
-          {response.search_strategy || 'RAG Search'}
+          {response.search_strategy}
         </Badge>
-        <span>Confidence: {Math.round((response.confidence || 0) * 100)}%</span>
-        <span>Sources: {response.sources || 0}</span>
-        <span>Time: {response.processing_time || 0}ms</span>
+        <span>Confidence: {Math.round(response.confidence * 100)}%</span>
+        <span>Sources: {response.sources}</span>
+        <span>Time: {response.processing_time}ms</span>
       </div>
 
       {/* Main Oracle Response */}
@@ -463,12 +463,12 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               </div>
               <h4 className="font-semibold text-sm text-green-600">Learning Resources</h4>
               <Badge variant="outline" className="text-xs">
-                {response.resources?.length || 0} resources
+                {response.resources.length} resources
               </Badge>
             </div>
             
             <div className="space-y-3">
-              {response.resources?.map((resource, idx) => (
+              {response.resources.map((resource, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-background/50 border border-green-200/20">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -511,12 +511,12 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               </div>
               <h4 className="font-semibold text-sm text-blue-600">Connections</h4>
               <Badge variant="outline" className="text-xs">
-                {response.connections?.length || 0} connections
+                {response.connections.length} connections
               </Badge>
             </div>
             
             <div className="space-y-3">
-              {response.connections?.map((connection, idx) => (
+              {response.connections.map((connection, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-background/50 border border-blue-200/20">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

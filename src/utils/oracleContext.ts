@@ -10,12 +10,9 @@ interface OracleContext {
     email: string;
     full_name?: string;
     bio?: string;
-    user_types?: string[];
-    skills?: string[];
-    looking_for_skills?: string[];
-    interests?: string[];
     personal_goals?: string[];
     project_vision?: string;
+    skills?: string[];
     help_needed?: string[];
     experience_level?: string;
     availability?: string;
@@ -24,8 +21,6 @@ interface OracleContext {
     github_url?: string;
     portfolio_url?: string;
     team_id?: string;
-    role?: string;
-    individual_stage?: string;
     onboarding_completed?: boolean;
   };
   team?: {
@@ -50,16 +45,9 @@ export class OracleContextService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   private constructor() {
-    // Initialize supabase client when methods are called
-    this.initSupabase();
-  }
-
-  private async initSupabase() {
-    if (!this.supabase) {
-      const { supabase } = await import('@/integrations/supabase/client');
-      this.supabase = supabase;
-    }
-    return this.supabase;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
   static getInstance(): OracleContextService {
@@ -69,24 +57,25 @@ export class OracleContextService {
     return OracleContextService.instance;
   }
 
-  async storeUserContext(userId: string, data: any): Promise<void> {
+  async storeUserContext(userId: string, data: OnboardingData): Promise<void> {
     try {
       console.log('Storing user context for:', userId);
       
-      // Ensure supabase is initialized
-      const supabase = await this.initSupabase();
-      
-      // Update the profiles table with new onboarding data structure
-      const { error: profileError } = await supabase
+      // Update the profiles table with onboarding data
+      const { error: profileError } = await this.supabase
         .from('profiles')
         .update({
-          user_types: data.user_types,
-          skills: data.skills,
-          looking_for_skills: data.looking_for_skills,
-          interests: data.interests,
+          full_name: data.name,
           bio: data.bio,
-          onboarding_completed: data.onboarding_completed,
-          role: data.role,
+          personal_goals: data.learningGoals,
+          project_vision: data.projectGoal,
+          skills: data.skills,
+          experience_level: data.experienceLevel,
+          availability: data.availability,
+          timezone: data.timezone,
+          linkedin_url: data.portfolioUrl,
+          github_url: data.githubUsername,
+          onboarding_completed: true,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -98,7 +87,7 @@ export class OracleContextService {
 
       // If teamId is provided, update the team_id
       if (data.teamId) {
-        const { error: teamError } = await supabase
+        const { error: teamError } = await this.supabase
           .from('profiles')
           .update({ team_id: data.teamId })
           .eq('id', userId);
@@ -180,11 +169,8 @@ export class OracleContextService {
 
       console.log('Fetching fresh context for:', userId);
 
-      // Ensure supabase is initialized
-      const supabase = await this.initSupabase();
-
       // Get user profile
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await this.supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -200,7 +186,7 @@ export class OracleContextService {
 
       // Get team information if user has a team
       if (profile.team_id) {
-        const { data: teamData, error: teamError } = await supabase
+        const { data: teamData, error: teamError } = await this.supabase
           .from('teams')
           .select('id, name, stage, description')
           .eq('id', profile.team_id)
@@ -210,7 +196,7 @@ export class OracleContextService {
           team = teamData;
 
           // Get recent team updates
-          const { data: updates, error: updatesError } = await supabase
+          const { data: updates, error: updatesError } = await this.supabase
             .from('updates')
             .select('id, content, type, created_at')
             .eq('team_id', profile.team_id)
@@ -249,11 +235,8 @@ export class OracleContextService {
 
   async updateInteractionHistory(userId: string, query: string, response: any, satisfaction?: number): Promise<void> {
     try {
-      // Ensure supabase is initialized
-      const supabase = await this.initSupabase();
-      
-      // Log to oracle_logs table with correct fields
-      const { error } = await supabase
+      // Log to oracle_logs table (which exists)
+      const { error } = await this.supabase
         .from('oracle_logs')
         .insert({
           user_id: userId,
@@ -261,6 +244,8 @@ export class OracleContextService {
           response: typeof response === 'string' ? response.substring(0, 500) : JSON.stringify(response).substring(0, 500),
           sources_count: response.sources || 0,
           processing_time_ms: response.processing_time || 0,
+          model_used: response.model_used || 'unknown',
+          search_strategy: response.search_strategy || 'unknown',
           created_at: new Date().toISOString()
         });
 
@@ -281,26 +266,18 @@ export class OracleContextService {
       if (context.profile) {
         prompt += `\n\nUser Context:\n`;
         prompt += `- Name: ${context.profile.full_name || 'Not specified'}\n`;
-        prompt += `- Role: ${context.profile.role || 'Not specified'}\n`;
-        
-        if (context.profile.user_types && context.profile.user_types.length > 0) {
-          prompt += `- User Types: ${context.profile.user_types.join(', ')}\n`;
-        }
+        prompt += `- Experience Level: ${context.profile.experience_level || 'Not specified'}\n`;
         
         if (context.profile.skills && context.profile.skills.length > 0) {
           prompt += `- Skills: ${context.profile.skills.join(', ')}\n`;
         }
         
-        if (context.profile.looking_for_skills && context.profile.looking_for_skills.length > 0) {
-          prompt += `- Looking for Skills: ${context.profile.looking_for_skills.join(', ')}\n`;
+        if (context.profile.personal_goals && context.profile.personal_goals.length > 0) {
+          prompt += `- Learning Goals: ${context.profile.personal_goals.join(', ')}\n`;
         }
         
-        if (context.profile.interests && context.profile.interests.length > 0) {
-          prompt += `- Interests: ${context.profile.interests.join(', ')}\n`;
-        }
-        
-        if (context.profile.bio) {
-          prompt += `- Bio: ${context.profile.bio}\n`;
+        if (context.profile.project_vision) {
+          prompt += `- Project Vision: ${context.profile.project_vision}\n`;
         }
       }
 
@@ -351,6 +328,6 @@ export class OracleContextService {
 }
 
 // Direct export for backward compatibility
-export const storeUserContext = async (userId: string, data: any): Promise<void> => {
+export const storeUserContext = async (userId: string, data: OnboardingData): Promise<void> => {
   return OracleContextService.getInstance().storeUserContext(userId, data);
 };

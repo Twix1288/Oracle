@@ -91,16 +91,18 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle flex items-center justify-center p-4">
-      <Card className="w-full max-w-md relative z-10 glow-border bg-card/95 backdrop-blur">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-2">
+    <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-cosmic-pattern opacity-20"></div>
+      
+      <Card className="w-full max-w-md relative z-10 bg-background/95 backdrop-blur-sm border-border/50">
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
             <Sparkles className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold cosmic-text">
-              Innovation Hub
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+              PieFi Oracle
             </span>
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome!</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome to PieFi</CardTitle>
           <CardDescription>
             Join the community of builders, mentors, and innovators
           </CardDescription>
@@ -153,7 +155,7 @@ export default function Auth() {
                   </Alert>
                 )}
                 
-                <Button type="submit" className="w-full ufo-gradient" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -223,7 +225,7 @@ export default function Auth() {
                   </Alert>
                 )}
                 
-                <Button type="submit" className="w-full ufo-gradient" disabled={loading}>
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -238,7 +240,7 @@ export default function Auth() {
           </Tabs>
           
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            By signing up, you agree to join the Innovation Hub community and connect with other builders, mentors, and innovators.
+            By signing up, you agree to join the PieFi community and connect with other builders, mentors, and innovators.
           </div>
         </CardContent>
       </Card>

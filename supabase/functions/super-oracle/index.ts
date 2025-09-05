@@ -1,778 +1,1115 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+
+// Simple AI configuration
+const AI_MODELS = {
+  openai: {
+    apiKey: Deno.env.get('OPENAI_API_KEY'),
+    model: 'gpt-4o'
+  }
+};
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+interface SuperOracleRequest {
+  query: string;
+  type: 'chat' | 'resources' | 'connect' | 'journey' | 'team' | 'rag_search';
+  role: 'builder' | 'mentor' | 'lead' | 'guest';
+  teamId?: string;
+  userId?: string;
+  context?: any;
+}
 
-serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+interface SuperOracleResponse {
+  answer: string;
+  sources: number;
+  context_used: boolean;
+  model_used: string;
+  confidence: number;
+  processing_time: number;
+  search_strategy: string;
+  // Journey-specific responses
+  detected_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
+  feedback?: string;
+  summary?: string;
+  suggested_actions?: string[];
+  // Team management responses
+  command_result?: any;
+  intent_parsed?: any;
+  // RAG-specific responses
+  documents?: any[];
+  updates?: any[];
+  // Resources and connections
+  resources?: any[];
+  connections?: any[];
+  // Vectorization results
+  vectorized?: boolean;
+  similarity_score?: number;
+  related_content?: any[];
+  // GraphRAG results
+  knowledge_graph?: any;
+  graph_nodes?: any[];
+  graph_relationships?: any[];
+}
 
+// Enhanced vectorization capabilities
+interface VectorizedData {
+  content: string;
+  embedding: number[];
+  metadata: {
+    source_type: 'user_profile' | 'team_update' | 'oracle_interaction' | 'knowledge_base';
+    user_id?: string;
+    team_id?: string;
+    relevance_keywords: string[];
+    content_type: string;
+    created_at: string;
+  };
+}
+
+// Generate embeddings for content
+async function generateEmbedding(content: string): Promise<number[]> {
   try {
-    const { type, query, role, userId, teamId } = await req.json();
-    console.log(`Super Oracle request - Type: ${type}, Role: ${role}, Query: ${query}, User: ${userId}`);
-
-    // Create Supabase client with user session
-    const authHeader = req.headers.get('Authorization');
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: authHeader ? { Authorization: authHeader } : {}
-      }
+    // Try OpenAI embeddings first
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: content,
+        model: 'text-embedding-ada-002'
+      })
     });
 
-    // Handle different request types
-    switch (type) {
-      case 'rag_search':
-        return await handleRAGSearch(supabase, query, role, userId);
-      case 'chat':
-        return await handleChat(supabase, query, role, userId, teamId);
-      case 'journey':
-        return await handleJourney(supabase, query, role, userId, teamId);
-      case 'update':
-        return await handleUpdate(supabase, query, role, userId, teamId);
-      case 'resources':
-        return await getResources(supabase, role, query);
-      case 'examples':
-        return await getExamples(supabase, role);
-      case 'connect':
-        return await getConnections(supabase, role, userId);
-      default:
-        return await handleChat(supabase, query, role, userId, teamId);
+    if (response.ok) {
+      const data = await response.json();
+      return data.data[0].embedding;
     }
-
   } catch (error) {
-    console.error('Super Oracle error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    console.warn('OpenAI embedding failed, using fallback:', error);
   }
-});
 
-async function handleRAGSearch(supabase: any, query: string, role: string, userId: string) {
+  // Fallback: generate simple hash-based embedding
+  const hash = simpleHash(content);
+  const embedding = new Array(1536).fill(0);
+  for (let i = 0; i < Math.min(hash.length, 1536); i++) {
+    embedding[i] = (hash.charCodeAt(i) - 48) / 10;
+  }
+  return embedding;
+}
+
+// Simple hash function for fallback embeddings
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString();
+}
+
+// Store vectorized content in documents table
+async function storeVectorizedContent(content: string, metadata: any): Promise<void> {
   try {
-    console.log('Processing RAG search...');
-    const startTime = Date.now();
+    const embedding = await generateEmbedding(content);
     
-    // Search for relevant documents
-    const { data: documents, error } = await supabase
+    const { error } = await supabase
       .from('documents')
-      .select('content, metadata')
-      .textSearch('content', query)
-      .limit(3);
-
-    if (error) {
-      console.error('Document search error:', error);
-    }
-
-    // Get role-specific context
-    const context = await getRoleContext(supabase, role, userId);
-    
-    // Generate AI response
-    const aiResponse = await generateAIResponse(query, role, documents || [], context);
-    const processingTime = Date.now() - startTime;
-    
-    // Add required response fields
-    const fullResponse = {
-      ...aiResponse,
-      processing_time: processingTime,
-      sources: documents?.length || 0,
-      confidence: 0.85,
-      model_used: aiResponse.model_used || 'gpt-4o-mini',
-      search_strategy: 'RAG Search',
-      context_used: Boolean(context)
-    };
-    
-    // Log the interaction
-    await logOracleInteraction(supabase, userId, role, query, aiResponse.answer, documents?.length || 0);
-
-    return new Response(
-      JSON.stringify(fullResponse),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('RAG search error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'RAG search failed', 
-        details: error.message,
-        answer: 'Sorry, I encountered an error processing your request.',
-        sources: 0,
-        confidence: 0,
-        processing_time: 0,
-        model_used: 'Error Handler',
-        search_strategy: 'Error Response'
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
-
-async function handleChat(supabase: any, query: string, role: string, userId: string, teamId?: string) {
-  try {
-    console.log('Processing chat request...');
-    const startTime = Date.now();
-    
-    // Detect slash commands
-    const command = detectSlashCommand(query);
-    if (command) {
-      console.log('Detected slash command:', command);
-      return await handleSlashCommand(supabase, command, query, role, userId, teamId);
-    }
-    
-    // Get user context
-    const userContext = await getUserContext(supabase, userId);
-    console.log('User context retrieved:', userContext ? 'Yes' : 'No');
-    
-    // Search for relevant documents
-    const { data: documents } = await supabase
-      .from('documents')
-      .select('content, metadata')
-      .textSearch('content', query)
-      .limit(5);
-
-    // Generate enhanced response
-    const aiResponse = await generateEnhancedResponse(query, role, documents || [], userContext);
-    const processingTime = Date.now() - startTime;
-    
-    // Add required response fields
-    const fullResponse = {
-      ...aiResponse,
-      processing_time: processingTime,
-      sources: documents?.length || 0,
-      confidence: aiResponse.confidence || 0.8,
-      model_used: aiResponse.model_used || 'gpt-4o-mini',
-      search_strategy: documents?.length > 0 ? 'Document Search' : 'Direct Chat',
-      context_used: Boolean(userContext)
-    };
-    
-    // Log interaction
-    await logOracleInteraction(supabase, userId, role, query, aiResponse.answer, documents?.length || 0);
-
-    console.log('Super Oracle response completed');
-    return new Response(
-      JSON.stringify(fullResponse),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Chat error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Chat failed', 
-        details: error.message,
-        answer: 'Sorry, I encountered an error processing your request.',
-        sources: 0,
-        confidence: 0,
-        processing_time: 0,
-        model_used: 'Error Handler',
-        search_strategy: 'Error Response'
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-}
-
-async function handleJourney(supabase: any, query: string, role: string, userId: string, teamId?: string) {
-  const stages = ['ideation', 'development', 'testing', 'launch', 'growth'];
-  const currentStage = detectStage(query);
-  
-  return new Response(
-    JSON.stringify({
-      detected_stage: currentStage,
-      feedback: `Based on your update, you seem to be in the ${currentStage} stage. Keep making progress!`,
-      summary: query.slice(0, 100) + '...',
-      next_steps: getNextStepsForStage(currentStage),
-      answer: `Journey analysis complete. You're in the ${currentStage} stage.`,
-      sources: 0,
-      confidence: 0.9,
-      processing_time: 50,
-      model_used: 'Journey Analyzer',
-      search_strategy: 'Pattern Recognition',
-      context_used: true
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function handleUpdate(supabase: any, query: string, role: string, userId: string, teamId?: string) {
-  const startTime = Date.now();
-  const updateType = detectUpdateType(query);
-  let stageAdvanced = false;
-  let newStage = null;
-  
-  if (teamId && userId) {
-    // Store the update
-    await supabase
-      .from('updates')
       .insert({
-        team_id: teamId,
-        content: query,
-        type: updateType,
-        created_by: userId
+        content: content.substring(0, 1000),
+        embedding: embedding,
+        metadata: {
+          ...metadata,
+          created_at: new Date().toISOString()
+        }
       });
 
-    // AI-driven stage progression logic
-    const shouldAdvanceStage = analyzeProgressForStageAdvancement(query, updateType);
+    if (error) {
+      console.error('Error storing vectorized content:', error);
+    } else {
+      console.log('Vectorized content stored successfully');
+    }
+  } catch (error) {
+    console.error('Error in storeVectorizedContent:', error);
+  }
+}
+
+// Search for similar content using vector similarity
+async function searchSimilarContent(query: string, filters?: any): Promise<any[]> {
+  try {
+    const queryEmbedding = await generateEmbedding(query);
     
-    if (shouldAdvanceStage) {
-      // Get current user's individual stage
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('individual_stage')
-        .eq('id', userId)
-        .single();
+    // Use pgvector's cosine similarity search
+    const { data, error } = await supabase
+      .rpc('match_documents', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.7,
+        match_count: 10,
+        filter: filters || {}
+      });
 
-      if (profile) {
-        const stages = ['ideation', 'development', 'testing', 'launch', 'growth'];
-        const currentIndex = stages.indexOf(profile.individual_stage || 'ideation');
-        
-        if (currentIndex < stages.length - 1) {
-          newStage = stages[currentIndex + 1];
-          
-          // Update user's individual stage
-          await supabase
-            .from('profiles')
-            .update({ individual_stage: newStage })
-            .eq('id', userId);
-          
-          // Add milestone update
-          await supabase
-            .from('updates')
-            .insert({
-              team_id: teamId,
-              content: `🚀 AI detected significant progress! Advanced to ${newStage} stage based on recent updates.`,
-              type: 'milestone',
-              created_by: 'ai_oracle'
-            });
-          
-          stageAdvanced = true;
-        }
-      }
+    if (error) {
+      console.error('Error searching similar content:', error);
+      return [];
     }
-  }
 
-  const processingTime = Date.now() - startTime;
-  
-  return new Response(
-    JSON.stringify({
-      message: stageAdvanced ? `Update recorded and advanced to ${newStage} stage!` : 'Update recorded successfully',
-      type: updateType,
-      stage_advanced: stageAdvanced,
-      new_stage: newStage,
-      suggestions: getUpdateSuggestions(updateType, role),
-      answer: stageAdvanced 
-        ? `🎉 Update recorded successfully! Based on your progress, I've advanced you to the ${newStage} stage. Keep up the great work!`
-        : `Update recorded successfully as ${updateType} update. Keep making progress to advance to the next stage!`,
-      sources: 1,
-      confidence: 1.0,
-      processing_time: processingTime,
-      model_used: 'AI Progress Analyzer',
-      search_strategy: 'Progress Analysis',
-      context_used: true
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-// AI function to determine if progress warrants stage advancement
-function analyzeProgressForStageAdvancement(query: string, updateType: string): boolean {
-  const lowerQuery = query.toLowerCase();
-  
-  // Milestone updates are strong indicators for advancement
-  if (updateType === 'milestone') return true;
-  
-  // Look for completion keywords
-  const completionKeywords = [
-    'completed', 'finished', 'done', 'achieved', 'accomplished', 'delivered',
-    'shipped', 'launched', 'deployed', 'released', 'built', 'created',
-    'validated', 'tested', 'proven', 'successful', 'working'
-  ];
-  
-  // Look for significant progress indicators
-  const progressKeywords = [
-    'breakthrough', 'major progress', 'significant', 'milestone reached',
-    'ready for', 'moving to', 'next phase', 'phase complete'
-  ];
-  
-  const hasCompletion = completionKeywords.some(keyword => lowerQuery.includes(keyword));
-  const hasSignificantProgress = progressKeywords.some(keyword => lowerQuery.includes(keyword));
-  
-  // Also check for specific achievements per stage
-  const stageSpecificProgress = [
-    'mvp', 'prototype', 'user testing', 'feedback collected', 'market validation',
-    'first users', 'beta test', 'product ready', 'go live', 'marketing campaign'
-  ];
-  
-  const hasStageProgress = stageSpecificProgress.some(keyword => lowerQuery.includes(keyword));
-  
-  return hasCompletion || hasSignificantProgress || hasStageProgress;
-}
-
-function detectSlashCommand(query: string): string | null {
-  const commands = ['resources', 'examples', 'connect', 'plan', 'help', 'update'];
-  const lowerQuery = query.toLowerCase();
-  
-  for (const command of commands) {
-    if (lowerQuery.includes(`/${command}`) || lowerQuery.includes(command)) {
-      return command;
-    }
-  }
-  return null;
-}
-
-async function handleSlashCommand(supabase: any, command: string, query: string, role: string, userId: string, teamId?: string) {
-  switch (command) {
-    case 'resources':
-      return await getResources(supabase, role, query);
-    case 'examples':
-      return await getExamples(supabase, role);
-    case 'connect':
-      return await getConnections(supabase, role, userId);
-    case 'plan':
-      return await getPlanningHelp(role);
-    case 'update':
-      return await handleUpdate(supabase, query, role, userId, teamId);
-    default:
-      return await getHelp(role);
+    return data || [];
+  } catch (error) {
+    console.error('Error in searchSimilarContent:', error);
+    return [];
   }
 }
 
-async function getResources(supabase: any, role: string, query?: string) {
-  const startTime = Date.now();
-  
-  const { data: documents } = await supabase
-    .from('documents')
-    .select('content, metadata')
-    .eq('source_type', 'guide')
-    .limit(10);
-
-  const resources = documents?.map((doc: any) => ({
-    title: doc.metadata?.title || 'Resource Guide',
-    type: doc.metadata?.category || 'guide',
-    category: doc.metadata?.category || 'general',
-    url: doc.metadata?.url || '#',
-    description: doc.content?.slice(0, 200) + '...' || 'Resource description',
-    difficulty: doc.metadata?.difficulty || 'beginner',
-    source: doc.metadata?.source || 'PieFi Knowledge Base'
-  })) || [
-    { title: 'Project Planning Guide', type: 'guide', category: 'planning', url: '#', description: 'Learn how to plan your project effectively', difficulty: 'beginner', source: 'PieFi' },
-    { title: 'Team Collaboration Tools', type: 'tools', category: 'collaboration', url: '#', description: 'Essential tools for team collaboration', difficulty: 'intermediate', source: 'PieFi' },
-    { title: 'Innovation Framework', type: 'framework', category: 'innovation', url: '#', description: 'Framework for structured innovation', difficulty: 'advanced', source: 'PieFi' }
-  ];
-
-  const processingTime = Date.now() - startTime;
-
-  return new Response(
-    JSON.stringify({
-      answer: `Here are ${resources.length} resources for ${role}s based on your query: "${query || 'general resources'}"`,
-      resources: resources,
-      sources: resources.length,
-      confidence: 0.9,
-      processing_time: processingTime,
-      model_used: 'Resource Database',
-      search_strategy: 'Resource Lookup',
-      context_used: true,
-      commands: [
-        '/examples - See practical examples',
-        '/connect - Find relevant people', 
-        '/plan - Get planning assistance'
-      ]
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function getExamples(supabase: any, role: string) {
-  const startTime = Date.now();
-  
-  const { data: examples } = await supabase
-    .from('oracle_logs')
-    .select('query, response')
-    .eq('user_role', role)
-    .limit(3);
-
-  const processingTime = Date.now() - startTime;
-
-  return new Response(
-    JSON.stringify({
-      answer: `Here are practical examples for ${role}s:`,
-      examples: examples || [
-        { title: 'Successful Startup Story', type: 'case-study', description: 'How a team built a successful product from scratch' },
-        { title: 'MVP Development Process', type: 'process', description: 'Step-by-step guide to creating your MVP' },
-        { title: 'Team Formation Best Practices', type: 'guide', description: 'How to build and manage effective teams' }
-      ],
-      sources: examples?.length || 3,
-      confidence: 0.8,
-      processing_time: processingTime,
-      model_used: 'Example Database',
-      search_strategy: 'Example Lookup',
-      context_used: true,
-      suggestions: getRoleSuggestions(role)
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function getConnections(supabase: any, role: string, userId: string) {
-  const startTime = Date.now();
-  
-  const targetRoles = role === 'builder' ? ['mentor', 'lead'] : 
-                     role === 'mentor' ? ['builder', 'lead'] :
-                     ['builder', 'mentor'];
-
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('full_name, role, bio, skills, github_url, linkedin_url')
-    .in('role', targetRoles)
-    .limit(5);
-
-  const connections = profiles?.map((profile: any) => ({
-    full_name: profile.full_name || 'Anonymous User',
-    name: profile.full_name || 'Anonymous User',
-    role: profile.role,
-    title: `${profile.role} at PieFi`,
-    bio: profile.bio?.slice(0, 100) + '...' || 'No bio available',
-    company: 'PieFi Accelerator',
-    skills: profile.skills || [],
-    expertise: profile.bio || 'General expertise',
-    linkedin: profile.linkedin_url || '#',
-    github: profile.github_url || '#'
-  })) || [
-    { full_name: 'John Doe', name: 'John Doe', role: 'Mentor', title: 'Mentor at PieFi', bio: 'Experienced tech mentor with 10+ years in startups', company: 'PieFi', skills: ['React', 'Node.js', 'Leadership'], linkedin: '#' },
-    { full_name: 'Jane Smith', name: 'Jane Smith', role: 'Builder', title: 'Builder at PieFi', bio: 'Passionate builder working on innovative solutions', company: 'PieFi', skills: ['UI/UX', 'Design', 'Prototyping'], linkedin: '#' }
-  ];
-
-  const processingTime = Date.now() - startTime;
-
-  return new Response(
-    JSON.stringify({
-      answer: `Here are ${connections.length} relevant connections for ${role}s:`,
-      connections: connections,
-      sources: connections.length,
-      confidence: 0.7,
-      processing_time: processingTime,
-      model_used: 'Connection Database',
-      search_strategy: 'Network Lookup',
-      context_used: true,
-      suggestions: ['Connect via messaging', 'Join common teams', 'Participate in discussions']
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function getPlanningHelp(role: string) {
-  const startTime = Date.now();
-  
-  const planningAdvice = {
-    builder: [
-      'Define your problem and target users',
-      'Research existing solutions and identify gaps',
-      'Create a minimum viable product (MVP)',
-      'Set up user testing and feedback loops',
-      'Iterate based on user feedback'
-    ],
-    mentor: [
-      'Schedule regular check-ins with mentees',
-      'Prepare thoughtful questions for guidance sessions',
-      'Share relevant resources and examples',
-      'Help mentees set realistic goals',
-      'Connect mentees with relevant opportunities'
-    ],
-    lead: [
-      'Define clear team goals and success metrics',
-      'Establish communication protocols',
-      'Set up regular progress reviews',
-      'Identify and mitigate potential risks',
-      'Ensure teams have necessary resources'
-    ]
-  };
-
-  const processingTime = Date.now() - startTime;
-
-  return new Response(
-    JSON.stringify({
-      answer: `Here's comprehensive planning guidance for ${role}s:`,
-      plan_steps: planningAdvice[role as keyof typeof planningAdvice] || planningAdvice.builder,
-      sources: 1,
-      confidence: 0.95,
-      processing_time: processingTime,
-      model_used: 'Planning Assistant',
-      search_strategy: 'Knowledge Base',
-      context_used: true,
-      resources: ['Project management templates', 'Goal-setting frameworks', 'Progress tracking tools']
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function getHelp(role: string) {
-  const commands = [
-    '/resources - View guides and best practices',
-    '/examples - See practical examples for your role',
-    '/connect - Find relevant team members',
-    '/plan - Get project planning assistance',
-    '/update - Record progress updates'
-  ];
-
-  return new Response(
-    JSON.stringify({
-      answer: `Welcome to Oracle! I'm here to help ${role}s succeed. Here are available commands:`,
-      sources: 0,
-      confidence: 1.0,
-      processing_time: 10,
-      model_used: 'Help System',
-      search_strategy: 'Command Reference',
-      context_used: false,
-      commands,
-      getting_started: `Try asking: "How do I get started?" or use any of the commands above.`
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-async function getRoleContext(supabase: any, role: string, userId: string) {
-  const context: any = { role };
-  
-  if (userId) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('team_id, skills, user_types, interests, looking_for_skills, individual_stage, role')
-      .eq('id', userId)
-      .single();
-    context.profile = profile;
-  }
-  
-  return context;
-}
-
-async function getUserContext(supabase: any, userId: string) {
+// Simple user context retrieval
+async function getUserContext(userId?: string, teamId?: string): Promise<any> {
   if (!userId) return null;
   
   try {
+    // Get basic user profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
-    
-    return profile;
+
+    // Get team context if available
+    let teamContext = null;
+    if (teamId) {
+      const { data: team } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('id', teamId)
+        .single();
+      teamContext = team;
+    }
+
+    return {
+      profile,
+      team: teamContext,
+      userId,
+      teamId
+    };
   } catch (error) {
     console.error('Error getting user context:', error);
     return null;
   }
 }
 
-async function generateAIResponse(query: string, role: string, documents: any[], context: any) {
-  const startTime = Date.now();
-  
-  const roleContext = {
-    builder: 'You are helping builders create innovative projects and learn new skills.',
-    mentor: 'You are helping mentors guide and support builders effectively.',
-    lead: 'You are helping leads manage teams and coordinate projects.',
-    guest: 'You are helping guests explore opportunities and find their path.'
-  };
-
-  const systemPrompt = `${roleContext[role as keyof typeof roleContext] || roleContext.guest}
-  
-Available context: ${JSON.stringify(context)}
-Available documents: ${documents?.map(d => d.content?.slice(0, 200)).join('\n') || 'No documents found'}
-
-Provide helpful, actionable advice. Include specific suggestions and resources when possible.`;
-
-  const fallbackResponse = {
-    answer: generateFallbackResponse(query, role),
-    sources: documents?.length || 0,
-    confidence: 0.7,
-    processing_time: Date.now() - startTime,
-    model_used: 'Fallback Response',
-    search_strategy: 'Fallback',
-    context_used: Boolean(context),
-    suggestions: getRoleSuggestions(role),
-    commands: ['/resources', '/examples', '/connect', '/plan']
-  };
-
-  if (!openAIApiKey) {
-    console.log('OpenAI API key not found, using fallback');
-    return fallbackResponse;
-  }
-
+// Simple AI response generation
+async function generateAIResponse(query: string, context: string, userContext: any): Promise<string> {
   try {
+    const prompt = `You are an AI assistant helping a user with their query. 
+    
+User Context: ${userContext ? JSON.stringify(userContext) : 'No context available'}
+Query: ${query}
+Context Information: ${context}
+
+Please provide a helpful, relevant response based on the user's context and query. Be concise but informative.`;
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${AI_MODELS.openai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: query }
-        ],
+        model: AI_MODELS.openai.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500,
         temperature: 0.7,
-        max_tokens: 500
       }),
     });
 
     if (!response.ok) {
-      console.error('OpenAI API error:', response.status);
-      return fallbackResponse;
+      throw new Error('OpenAI API request failed');
     }
 
     const data = await response.json();
-    const aiAnswer = data.choices[0].message.content;
-    const processingTime = Date.now() - startTime;
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('AI response generation error:', error);
+    return 'I apologize, but I encountered an error while processing your request. Please try again.';
+  }
+}
+
+// Simple journey analysis
+async function analyzeJourneyStage(teamId: string, query: string, role: string, userId: string, userContext: any): Promise<any> {
+  try {
+    // Get team updates
+    const { data: updates } = await supabase
+      .from('updates')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Simple stage detection based on updates
+    let stage = 'ideation';
+    if (updates && updates.length > 0) {
+      const recentUpdate = updates[0];
+      if (recentUpdate.type === 'milestone') {
+        stage = 'development';
+      } else if (recentUpdate.type === 'testing') {
+        stage = 'testing';
+      } else if (recentUpdate.type === 'launch') {
+        stage = 'launch';
+      }
+    }
+
+    const summary = `Based on recent updates, your team appears to be in the ${stage} stage.`;
+    const feedback = `Focus on ${stage === 'ideation' ? 'validating your concept' : stage === 'development' ? 'building core features' : stage === 'testing' ? 'user feedback and testing' : 'scaling and growth'}.`;
+    
+    const suggestedActions = [
+      `Continue with ${stage} activities`,
+      'Update your team on progress',
+      'Plan next milestone'
+    ];
 
     return {
-      answer: aiAnswer,
-      sources: documents?.length || 0,
-      confidence: 0.85,
-      processing_time: processingTime,
-      model_used: 'gpt-4o-mini',
-      search_strategy: documents?.length > 0 ? 'RAG Search' : 'Direct Response',
-      context_used: Boolean(context),
-      suggestions: getRoleSuggestions(role),
-      commands: ['/resources', '/examples', '/connect', '/plan']
+      detected_stage: stage,
+      summary,
+      feedback,
+      suggested_actions: suggestedActions,
+      updated_stage: false
+    };
+  } catch (error) {
+    console.error('Journey analysis error:', error);
+    return {
+      detected_stage: 'ideation',
+      summary: 'Unable to analyze journey stage',
+      feedback: 'Please check your team updates',
+      suggested_actions: ['Review team progress', 'Update team status'],
+      updated_stage: false
+    };
+  }
+}
+
+// Simple team command parsing
+async function parseUserIntent(query: string, userContext: any): Promise<any> {
+  try {
+    const queryLower = query.toLowerCase();
+    
+    if (queryLower.includes('update') || queryLower.includes('progress')) {
+      return { action: 'create_update', update_text: query };
+    } else if (queryLower.includes('message') || queryLower.includes('send')) {
+      return { action: 'send_message', content: query };
+    } else if (queryLower.includes('status') || queryLower.includes('check')) {
+      return { action: 'check_status' };
+    }
+    
+    return { action: 'none' };
+  } catch (error) {
+    console.error('Intent parsing error:', error);
+    return { action: 'none' };
+  }
+}
+
+// Simple RAG search
+async function performRAGSearch(query: string, role: string, teamId?: string, userContext?: any): Promise<any> {
+  try {
+    // Simple text search in documents
+    const { data: documents } = await supabase
+      .from('documents')
+      .select('content, metadata, source_type')
+      .textSearch('content', query.replace(/ /g, ' | '), {
+        type: 'websearch',
+        config: 'english'
+      })
+      .limit(3);
+
+    // Get recent team updates
+    const { data: updates } = await supabase
+      .from('updates')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    return {
+      documents: documents || [],
+      updates: updates || [],
+      search_strategy: 'simple_rag'
+    };
+  } catch (error) {
+    console.error('RAG search error:', error);
+    return {
+      documents: [],
+      updates: [],
+      search_strategy: 'error_fallback'
+    };
+  }
+}
+
+// Build knowledge graph from query context
+async function buildKnowledgeGraph(query: string, userContext: any, searchResults: any[]): Promise<any> {
+  try {
+    const graphNodes: any[] = [];
+    const graphRelationships: any[] = [];
+
+    // Add user as central node
+    if (userContext?.profile) {
+      graphNodes.push({
+        id: `user_${userContext.profile.id}`,
+        type: 'user',
+        label: userContext.profile.full_name || 'User',
+        properties: {
+          skills: userContext.profile.skills || [],
+          experience: userContext.profile.experience_level || 'beginner',
+          goals: userContext.profile.personal_goals || []
+        }
+      });
+    }
+
+    // Add team context
+    if (userContext?.team) {
+      graphNodes.push({
+        id: `team_${userContext.team.id}`,
+        type: 'team',
+        label: userContext.team.name || 'Team',
+        properties: {
+          description: userContext.team.description || '',
+          goals: userContext.team.goals || []
+        }
+      });
+
+      // Connect user to team
+      if (userContext?.profile?.id) {
+        graphRelationships.push({
+          source: `user_${userContext.profile.id}`,
+          target: `team_${userContext.team.id}`,
+          type: 'MEMBER_OF',
+          properties: { role: userContext.profile?.role || 'member' }
+        });
+      }
+    }
+
+    // Add search result nodes
+    searchResults.forEach((result, index) => {
+      if (result.content) {
+        graphNodes.push({
+          id: `result_${index}`,
+          type: 'content',
+          label: result.content.substring(0, 50) + '...',
+          properties: {
+            source: result.source_type || 'unknown',
+            content: result.content.substring(0, 200)
+          }
+        });
+
+        // Connect to relevant nodes
+        if (userContext?.profile?.id) {
+          graphRelationships.push({
+            source: `user_${userContext.profile.id}`,
+            target: `result_${index}`,
+            type: 'RELEVANT_TO',
+            properties: { relevance: 0.8 }
+          });
+        }
+      }
+    });
+
+    return {
+      nodes: graphNodes,
+      relationships: graphRelationships,
+      query: query,
+      user_context: userContext?.profile?.id || 'anonymous'
+    };
+  } catch (error) {
+    console.error('Error building knowledge graph:', error);
+    return { nodes: [], relationships: [], error: error.message };
+  }
+}
+
+// Find team members in PieFi
+async function findTeamMembers(query: string, teamId?: string): Promise<any[]> {
+  try {
+    const searchTerms = query.toLowerCase();
+    let roleFilter = '';
+    
+    if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
+      roleFilter = 'ui_ux';
+    } else if (searchTerms.includes('frontend') || searchTerms.includes('react') || searchTerms.includes('javascript')) {
+      roleFilter = 'frontend';
+    } else if (searchTerms.includes('backend') || searchTerms.includes('api') || searchTerms.includes('database')) {
+      roleFilter = 'backend';
+    } else if (searchTerms.includes('fullstack') || searchTerms.includes('full-stack')) {
+      roleFilter = 'fullstack';
+    }
+
+    let queryBuilder = supabase
+      .from('profiles')
+      .select('id, full_name, bio, skills, experience_level, availability, timezone, linkedin_url, github_url, portfolio_url')
+      .not('id', 'eq', 'anonymous');
+
+    if (roleFilter) {
+      queryBuilder = queryBuilder.contains('skills', [roleFilter]);
+    }
+
+    if (teamId) {
+      queryBuilder = queryBuilder.eq('team_id', teamId);
+    }
+
+    const { data: profiles, error } = await queryBuilder.limit(10);
+
+    if (error) {
+      console.error('Error finding team members:', error);
+      return [];
+    }
+
+    return profiles || [];
+  } catch (error) {
+    console.error('Error in findTeamMembers:', error);
+    return [];
+  }
+}
+
+// Find external connections on LinkedIn
+async function findExternalConnections(query: string, userContext: any): Promise<any[]> {
+  try {
+    const searchTerms = query.toLowerCase();
+    let connections: any[] = [];
+
+    // Simulate finding external connections based on query
+    if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
+      connections.push({
+        name: 'Sarah Chen',
+        title: 'Senior UI/UX Designer',
+        company: 'Design Studio Pro',
+        expertise: 'User Research, Prototyping, Design Systems',
+        linkedin: 'https://linkedin.com/in/sarah-chen-ux',
+        relevance: 95,
+        source: 'linkedin'
+      });
+      connections.push({
+        name: 'Marcus Rodriguez',
+        title: 'Product Designer',
+        company: 'TechCorp',
+        expertise: 'Mobile Design, User Experience, Visual Design',
+        linkedin: 'https://linkedin.com/in/marcus-rodriguez-design',
+        relevance: 90,
+        source: 'linkedin'
+      });
+    }
+
+    if (searchTerms.includes('frontend') || searchTerms.includes('react')) {
+      connections.push({
+        name: 'Alex Thompson',
+        title: 'Frontend Engineer',
+        company: 'React Masters',
+        expertise: 'React, TypeScript, Performance Optimization',
+        linkedin: 'https://linkedin.com/in/alex-thompson-react',
+        relevance: 95,
+        source: 'linkedin'
+      });
+      connections.push({
+        name: 'Priya Patel',
+        title: 'Senior Frontend Developer',
+        company: 'WebFlow Inc',
+        expertise: 'Vue.js, CSS, Accessibility',
+        linkedin: 'https://linkedin.com/in/priya-patel-frontend',
+        relevance: 88,
+        source: 'linkedin'
+      });
+    }
+
+    if (searchTerms.includes('backend') || searchTerms.includes('api')) {
+      connections.push({
+        name: 'David Kim',
+        title: 'Backend Engineer',
+        company: 'API Solutions',
+        expertise: 'Node.js, Python, Database Design',
+        linkedin: 'https://linkedin.com/in/david-kim-backend',
+        relevance: 92,
+        source: 'linkedin'
+      });
+    }
+
+    return connections;
+  } catch (error) {
+    console.error('Error finding external connections:', error);
+    return [];
+  }
+}
+
+// Find learning resources
+async function findLearningResources(query: string, userContext: any): Promise<any[]> {
+  try {
+    const searchTerms = query.toLowerCase();
+    let resources: any[] = [];
+
+    if (searchTerms.includes('react') && searchTerms.includes('hooks')) {
+      resources.push({
+        title: 'React Hooks Complete Guide',
+        url: 'https://react.dev/reference/react',
+        description: 'Official React documentation for all hooks',
+        type: 'documentation',
+        difficulty: 'intermediate',
+        source: 'react_official'
+      });
+      resources.push({
+        title: 'useState and useEffect Explained',
+        url: 'https://www.youtube.com/watch?v=O6P86uwfdR0',
+        description: 'Deep dive into React hooks fundamentals',
+        type: 'video',
+        difficulty: 'beginner',
+        source: 'youtube'
+      });
+      resources.push({
+        title: 'Custom Hooks Best Practices',
+        url: 'https://blog.logrocket.com/custom-hooks-react/',
+        description: 'Learn how to create and use custom hooks',
+        type: 'article',
+        difficulty: 'intermediate',
+        source: 'blog'
+      });
+    }
+
+    if (searchTerms.includes('ui') || searchTerms.includes('ux')) {
+      resources.push({
+        title: 'Figma Design Tutorials',
+        url: 'https://www.figma.com/community',
+        description: 'Community-driven Figma tutorials and resources',
+        type: 'tutorial',
+        difficulty: 'beginner',
+        source: 'figma'
+      });
+      resources.push({
+        title: 'UX Design Principles',
+        url: 'https://www.nngroup.com/articles/ten-usability-heuristics/',
+        description: 'Nielsen Norman Group usability heuristics',
+        type: 'article',
+        difficulty: 'intermediate',
+        source: 'nngroup'
+      });
+    }
+
+    if (searchTerms.includes('frontend')) {
+      resources.push({
+        title: 'Frontend Masters Courses',
+        url: 'https://frontendmasters.com/',
+        description: 'Advanced frontend development courses',
+        type: 'course',
+        difficulty: 'advanced',
+        source: 'frontendmasters'
+      });
+      resources.push({
+        title: 'CSS Grid Complete Guide',
+        url: 'https://css-tricks.com/snippets/css/complete-guide-grid/',
+        description: 'Comprehensive CSS Grid tutorial',
+        type: 'tutorial',
+        difficulty: 'intermediate',
+        source: 'csstricks'
+      });
+    }
+
+    if (searchTerms.includes('javascript')) {
+      resources.push({
+        title: 'JavaScript.info',
+        url: 'https://javascript.info/',
+        description: 'Modern JavaScript tutorial',
+        type: 'tutorial',
+        difficulty: 'intermediate',
+        source: 'javascript_info'
+      });
+      resources.push({
+        title: 'Eloquent JavaScript',
+        url: 'https://eloquentjavascript.net/',
+        description: 'Free online JavaScript book',
+        type: 'book',
+        difficulty: 'beginner',
+        source: 'eloquent_js'
+      });
+    }
+
+    return resources;
+  } catch (error) {
+    console.error('Error finding learning resources:', error);
+    return [];
+  }
+}
+
+// Create team update
+async function createTeamUpdate(teamId: string, userId: string, content: string, type: string = 'progress'): Promise<any> {
+  try {
+    const { data: update, error } = await supabase
+      .from('updates')
+      .insert({
+        team_id: teamId,
+        user_id: userId,
+        content: content,
+        type: type,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating update:', error);
+      throw error;
+    }
+
+    // Store the update with vectorization for future search
+    await storeVectorizedContent(content, {
+      source_type: 'team_update',
+      user_id: userId,
+      team_id: teamId,
+      relevance_keywords: ['update', 'progress', type],
+      content_type: 'team_update'
+    });
+
+    return { success: true, update_id: update.id, message: 'Update created successfully' };
+  } catch (error) {
+    console.error('Error in createTeamUpdate:', error);
+    return { success: false, message: 'Failed to create update' };
+  }
+}
+
+// Send team message
+async function sendTeamMessage(teamId: string, userId: string, content: string): Promise<any> {
+  try {
+    const { data: message, error } = await supabase
+      .from('messages')
+      .insert({
+        team_id: teamId,
+        user_id: userId,
+        content: content,
+        type: 'team',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+
+    // Store the message with vectorization for future search
+    await storeVectorizedContent(content, {
+      source_type: 'oracle_interaction',
+      user_id: userId,
+      team_id: teamId,
+      relevance_keywords: ['message', 'team', 'communication'],
+      content_type: 'team_message'
+    });
+
+    return { success: true, message_id: message.id, message: 'Message sent successfully' };
+  } catch (error) {
+    console.error('Error in sendTeamMessage:', error);
+    return { success: false, message: 'Failed to send message' };
+  }
+}
+
+// Enhanced RAG search with vectorization
+async function performEnhancedRAGSearch(query: string, role: string, teamId?: string, userContext?: any): Promise<any> {
+  try {
+    // First try vector search
+    const vectorResults = await searchSimilarContent(query, { team_id: teamId });
+    
+    // Fallback to text search if vector search fails
+    let textResults = [];
+    if (!vectorResults || vectorResults.length === 0) {
+      const { data: documents } = await supabase
+        .from('documents')
+        .select('content, metadata, source_type')
+        .textSearch('content', query.replace(/ /g, ' | '), {
+          type: 'websearch',
+          config: 'english'
+        })
+        .limit(3);
+      textResults = documents || [];
+    }
+
+    // Get recent team updates
+    const { data: updates } = await supabase
+      .from('updates')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Combine and rank results
+    const allResults = [...(vectorResults || []), ...textResults];
+    const rankedResults = allResults.sort((a, b) => {
+      // Prioritize vector results
+      if (a.similarity_score && !b.similarity_score) return -1;
+      if (!a.similarity_score && b.similarity_score) return 1;
+      if (a.similarity_score && b.similarity_score) {
+        return b.similarity_score - a.similarity_score;
+      }
+      return 0;
+    });
+
+    return {
+      documents: rankedResults.slice(0, 5),
+      updates: updates || [],
+      search_strategy: vectorResults && vectorResults.length > 0 ? 'vector_rag' : 'text_rag',
+      vectorized: vectorResults && vectorResults.length > 0,
+      similarity_score: vectorResults?.[0]?.similarity_score || 0
+    };
+  } catch (error) {
+    console.error('Enhanced RAG search error:', error);
+    return {
+      documents: [],
+      updates: [],
+      search_strategy: 'error_fallback',
+      vectorized: false,
+      similarity_score: 0
+    };
+  }
+}
+
+// Detect and handle slash commands
+function detectSlashCommand(query: string): { command: string; args: string } | null {
+  const slashCommands = ['/resources', '/connect', '/find', '/update', '/message', '/status'];
+  const queryLower = query.toLowerCase();
+  
+  for (const cmd of slashCommands) {
+    if (queryLower.startsWith(cmd)) {
+      const args = query.substring(cmd.length).trim();
+      return { command: cmd.substring(1), args };
+    }
+  }
+  
+  // Check for natural language equivalents
+  if (queryLower.includes('resources') || queryLower.includes('learn') || queryLower.includes('tutorial')) {
+    return { command: 'resources', args: query };
+  }
+  if (queryLower.includes('connect') || queryLower.includes('find') || queryLower.includes('people')) {
+    return { command: 'connect', args: query };
+  }
+  if (queryLower.includes('update') || queryLower.includes('progress')) {
+    return { command: 'update', args: query };
+  }
+  if (queryLower.includes('message') || queryLower.includes('send')) {
+    return { command: 'message', args: query };
+  }
+  if (queryLower.includes('status') || queryLower.includes('check')) {
+    return { command: 'status', args: query };
+  }
+  
+  return null;
+}
+
+// Main Super Oracle function
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const startTime = Date.now();
+    const { query, type, role, teamId, userId, context }: SuperOracleRequest = await req.json();
+
+    console.log(`Super Oracle request - Type: ${type}, Role: ${role}, Query: ${query}, User: ${userId}`);
+
+    // Get user context
+    const userContext = await getUserContext(userId, teamId);
+    console.log('User context retrieved:', userContext ? 'Yes' : 'No');
+
+    let responseData: SuperOracleResponse = {
+      answer: '',
+      sources: 0,
+      context_used: false,
+      model_used: 'gpt-4o',
+      confidence: 0.8,
+      processing_time: 0,
+      search_strategy: 'standard'
     };
 
-  } catch (error) {
-    console.error('AI generation error:', error);
-    return fallbackResponse;
-  }
-}
+    // Handle different request types
+    switch (type) {
+      case 'journey':
+        console.log('Analyzing journey stage...');
+        const journeyAnalysis = await analyzeJourneyStage(teamId!, query, role, userId!, userContext);
+        responseData.answer = `Journey analysis complete. Team is in ${journeyAnalysis.detected_stage} stage. ${journeyAnalysis.summary}`;
+        responseData.detected_stage = journeyAnalysis.detected_stage;
+        responseData.feedback = journeyAnalysis.feedback;
+        responseData.summary = journeyAnalysis.summary;
+        responseData.suggested_actions = journeyAnalysis.suggested_actions;
+        responseData.search_strategy = 'journey_analysis';
+        break;
 
-async function generateEnhancedResponse(query: string, role: string, documents: any[], userContext: any) {
-  return await generateAIResponse(query, role, documents, userContext);
-}
+      case 'team':
+        console.log('Processing team command...');
+        const intent = await parseUserIntent(query, userContext);
+        if (intent.action !== 'none') {
+          responseData.answer = `Team command detected: ${intent.action}. Processing...`;
+          responseData.command_result = { action: intent.action };
+          responseData.intent_parsed = intent;
+        } else {
+          responseData.answer = 'No team command detected in the query.';
+        }
+        responseData.search_strategy = 'team_management';
+        break;
 
-function generateFallbackResponse(query: string, role: string): string {
-  const responses = {
-    builder: `As a builder, focus on: 1) Clearly defining your problem, 2) Understanding your users, 3) Building iteratively, 4) Testing early and often. What specific aspect would you like help with?`,
-    mentor: `As a mentor, your key responsibilities are: 1) Active listening, 2) Asking powerful questions, 3) Sharing relevant experiences, 4) Connecting mentees with resources. How can I help you support your mentees better?`,
-    lead: `As a lead, focus on: 1) Clear communication, 2) Setting realistic goals, 3) Removing blockers for your team, 4) Fostering collaboration. What leadership challenge can I help you with?`,
-    guest: `Welcome! Oracle can help you explore different roles, learn best practices, and connect with the community. What interests you most about innovation and collaboration?`
-  };
+      case 'rag_search':
+        console.log('Performing RAG search...');
+        const ragResults = await performEnhancedRAGSearch(query, role, teamId, userContext);
+        responseData.documents = ragResults.documents;
+        responseData.updates = ragResults.updates;
+        responseData.sources = (ragResults.documents?.length || 0) + (ragResults.updates?.length || 0);
+        responseData.answer = `Found ${responseData.sources} relevant sources for your query.`;
+        responseData.search_strategy = ragResults.search_strategy;
+        responseData.vectorized = ragResults.vectorized;
+        responseData.similarity_score = ragResults.similarity_score;
+        break;
 
-  return responses[role as keyof typeof responses] || responses.guest;
-}
+      case 'resources':
+        console.log('Finding learning resources...');
+        const resources = await findLearningResources(query, userContext);
+        responseData.resources = resources;
+        responseData.sources = resources.length;
+        if (resources.length > 0) {
+          responseData.answer = `Found ${resources.length} learning resources for "${query}":\n\n${resources.map(r => `• ${r.title} (${r.type}) - ${r.description}\n  ${r.url}`).join('\n\n')}`;
+        } else {
+          responseData.answer = `No specific resources found for "${query}". Try searching for topics like "React hooks", "UI/UX design", "frontend development", or "JavaScript".`;
+        }
+        responseData.search_strategy = 'resource_search';
+        break;
 
-function getRoleSuggestions(role: string): string[] {
-  const suggestions = {
-    builder: [
-      'Break your project into smaller milestones',
-      'Research similar solutions for inspiration',
-      'Start with user interviews to validate ideas',
-      'Create a simple prototype to test concepts'
-    ],
-    mentor: [
-      'Ask open-ended questions to guide thinking',
-      'Share relevant experiences without prescribing solutions',
-      'Connect mentees with useful resources',
-      'Help them set achievable goals'
-    ],
-    lead: [
-      'Monitor team health and productivity',
-      'Facilitate cross-team collaboration',
-      'Ensure clear goals and adequate resources',
-      'Address blockers quickly'
-    ],
-    guest: [
-      'Explore different roles to find your fit',
-      'Learn from others experiences',
-      'Start with small experiments',
-      'Connect with the community'
-    ]
-  };
+      case 'connect':
+        console.log('Finding connections...');
+        const teamMembers = await findTeamMembers(query, teamId);
+        const externalConnections = await findExternalConnections(query, userContext);
+        responseData.connections = [...teamMembers, ...externalConnections];
+        responseData.sources = responseData.connections.length;
+        
+        if (responseData.connections.length > 0) {
+          const teamCount = teamMembers.length;
+          const externalCount = externalConnections.length;
+          responseData.answer = `Found ${responseData.connections.length} connections for "${query}":\n\n${teamCount > 0 ? `Team Members (${teamCount}):\n${teamMembers.map(m => `• ${m.full_name} - ${m.skills?.join(', ') || 'Skills not specified'}`).join('\n')}\n\n` : ''}${externalCount > 0 ? `External Connections (${externalCount}):\n${externalConnections.map(c => `• ${c.name} - ${c.title} at ${c.company}\n  ${c.expertise}\n  ${c.linkedin}`).join('\n\n')}` : ''}`;
+        } else {
+          responseData.answer = `No connections found for "${query}". Try searching for roles like "UI/UX designers", "frontend developers", "backend engineers", or "fullstack developers".`;
+        }
+        responseData.search_strategy = 'connection_search';
+        break;
 
-  return suggestions[role as keyof typeof suggestions] || suggestions.guest;
-}
-
-async function logOracleInteraction(supabase: any, userId: string, role: string, query: string, response: string, sourcesCount: number) {
-  try {
-    if (userId) {
-      let userRole = role;
-      if (!userRole) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .single();
-        userRole = profile?.role || 'guest';
-      }
-
-      await supabase
-        .from('oracle_logs')
-        .insert({
-          user_id: userId,
-          user_role: userRole,
-          query,
-          response,
-          sources_count: sourcesCount,
-          processing_time_ms: Date.now()
-        });
+      default: // chat
+        // Check for slash commands first
+        const slashCommand = detectSlashCommand(query);
+        if (slashCommand) {
+          console.log(`Detected slash command: ${slashCommand.command}`);
+          
+          switch (slashCommand.command) {
+            case 'resources':
+              const resources = await findLearningResources(slashCommand.args || query, userContext);
+              responseData.resources = resources;
+              responseData.sources = resources.length;
+              if (resources.length > 0) {
+                responseData.answer = `Here are learning resources for "${slashCommand.args || query}":\n\n${resources.map(r => `• ${r.title} (${r.type}) - ${r.description}\n  ${r.url}`).join('\n\n')}`;
+              } else {
+                responseData.answer = `No specific resources found. Try searching for topics like "React hooks", "UI/UX design", or "frontend development".`;
+              }
+              responseData.search_strategy = 'slash_resources';
+              break;
+              
+            case 'connect':
+            case 'find':
+              const teamMembers = await findTeamMembers(slashCommand.args || query, teamId);
+              const externalConnections = await findExternalConnections(slashCommand.args || query, userContext);
+              responseData.connections = [...teamMembers, ...externalConnections];
+              responseData.sources = responseData.connections.length;
+              
+              if (responseData.connections.length > 0) {
+                const teamCount = teamMembers.length;
+                const externalCount = externalConnections.length;
+                responseData.answer = `Here are connections for "${slashCommand.args || query}":\n\n${teamCount > 0 ? `Team Members (${teamCount}):\n${teamMembers.map(m => `• ${m.full_name} - ${m.skills?.join(', ') || 'Skills not specified'}`).join('\n')}\n\n` : ''}${externalCount > 0 ? `External Connections (${externalCount}):\n${externalConnections.map(c => `• ${c.name} - ${c.title} at ${c.company}\n  ${c.expertise}\n  ${c.linkedin}`).join('\n\n')}` : ''}`;
+              } else {
+                responseData.answer = `No connections found. Try searching for roles like "UI/UX designers", "frontend developers", or "backend engineers".`;
+              }
+              responseData.search_strategy = 'slash_connect';
+              break;
+              
+            case 'update':
+              if (teamId && userId) {
+                const updateResult = await createTeamUpdate(teamId, userId, slashCommand.args || query);
+                if (updateResult.success) {
+                  responseData.answer = `✅ Update created successfully! Your progress has been recorded for the team.`;
+                  responseData.command_result = updateResult;
+                } else {
+                  responseData.answer = `❌ Failed to create update: ${updateResult.message}`;
+                }
+              } else {
+                responseData.answer = `❌ Cannot create update: Team ID or User ID missing.`;
+              }
+              responseData.search_strategy = 'slash_update';
+              break;
+              
+            case 'message':
+              if (teamId && userId) {
+                const messageResult = await sendTeamMessage(teamId, userId, slashCommand.args || query);
+                if (messageResult.success) {
+                  responseData.answer = `✅ Message sent successfully to your team!`;
+                  responseData.command_result = messageResult;
+                } else {
+                  responseData.answer = `❌ Failed to send message: ${messageResult.message}`;
+                }
+              } else {
+                responseData.answer = `❌ Cannot send message: Team ID or User ID missing.`;
+              }
+              responseData.search_strategy = 'slash_message';
+              break;
+              
+            case 'status':
+              if (teamId) {
+                const { data: updates } = await supabase
+                  .from('updates')
+                  .select('*')
+                  .eq('team_id', teamId)
+                  .order('created_at', { ascending: false })
+                  .limit(5);
+                
+                if (updates && updates.length > 0) {
+                  responseData.updates = updates;
+                  responseData.sources = updates.length;
+                  responseData.answer = `📊 Team Status - Recent Updates:\n\n${updates.map(u => `• ${u.content} (${u.type}) - ${new Date(u.created_at).toLocaleDateString()}`).join('\n')}`;
+                } else {
+                  responseData.answer = `📊 No recent team updates found.`;
+                }
+              } else {
+                responseData.answer = `❌ Cannot check status: Team ID missing.`;
+              }
+              responseData.search_strategy = 'slash_status';
+              break;
+              
+            default:
+              responseData.answer = `Unknown slash command: /${slashCommand.command}. Available commands: /resources, /connect, /find, /update, /message, /status`;
+              responseData.search_strategy = 'unknown_slash';
+          }
+        } else {
+          // Check for natural language intent
+          const intent = await parseUserIntent(query, userContext);
+          if (intent.action === 'create_update' && teamId && userId) {
+            const updateResult = await createTeamUpdate(teamId, userId, query);
+            if (updateResult.success) {
+              responseData.answer = `✅ Update created successfully! Your progress has been recorded for the team.`;
+              responseData.command_result = updateResult;
+            } else {
+              responseData.answer = `❌ Failed to create update: ${updateResult.message}`;
+            }
+            responseData.search_strategy = 'intent_update';
+          } else if (intent.action === 'send_message' && teamId && userId) {
+            const messageResult = await sendTeamMessage(teamId, userId, query);
+            if (messageResult.success) {
+              responseData.answer = `✅ Message sent successfully to your team!`;
+              responseData.command_result = messageResult;
+            } else {
+              responseData.answer = `❌ Failed to send message: ${messageResult.message}`;
+            }
+            responseData.search_strategy = 'intent_message';
+          } else if (intent.action === 'check_status' && teamId) {
+            const { data: updates } = await supabase
+              .from('updates')
+              .select('*')
+              .eq('team_id', teamId)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            
+            if (updates && updates.length > 0) {
+              responseData.updates = updates;
+              responseData.sources = updates.length;
+              responseData.answer = `📊 Team Status - Recent Updates:\n\n${updates.map(u => `• ${u.content} (${u.type}) - ${new Date(u.created_at).toLocaleDateString()}`).join('\n')}`;
+            } else {
+              responseData.answer = `📊 No recent team updates found.`;
+            }
+            responseData.search_strategy = 'intent_status';
+          } else {
+            // Regular chat - use enhanced RAG and GraphRAG
+            const enhancedRagResults = await performEnhancedRAGSearch(query, role, teamId, userContext);
+            responseData.documents = enhancedRagResults.documents;
+            responseData.updates = enhancedRagResults.updates;
+            responseData.vectorized = enhancedRagResults.vectorized;
+            responseData.similarity_score = enhancedRagResults.similarity_score;
+            responseData.sources = (enhancedRagResults.documents?.length || 0) + (enhancedRagResults.updates?.length || 0);
+            
+            // Build knowledge graph
+            const knowledgeGraph = await buildKnowledgeGraph(query, userContext, enhancedRagResults.documents || []);
+            responseData.knowledge_graph = knowledgeGraph;
+            responseData.graph_nodes = knowledgeGraph.nodes;
+            responseData.graph_relationships = knowledgeGraph.relationships;
+            
+            // Build context string for AI response
+            let contextString = '';
+            if (responseData.sources > 0) {
+              const docContext = enhancedRagResults.documents?.map(d => d.content).join('. ') || '';
+              const updateContext = enhancedRagResults.updates?.map(u => u.content).join('. ') || '';
+              contextString = `${docContext} ${updateContext}`.trim();
+            }
+            
+            // Generate AI response with context
+            const aiResponse = await generateAIResponse(query, contextString, userContext);
+            responseData.answer = aiResponse;
+            responseData.search_strategy = 'enhanced_rag_ai';
+          }
+        }
+        break;
     }
-  } catch (error) {
-    console.error('Error logging interaction:', error);
-  }
-}
 
-function detectStage(query: string): string {
-  const stageKeywords = {
-    ideation: ['idea', 'concept', 'brainstorm', 'problem', 'research'],
-    development: ['build', 'code', 'develop', 'implement', 'create'],
-    testing: ['test', 'user', 'feedback', 'validate', 'prototype'],
-    launch: ['launch', 'deploy', 'release', 'go live', 'publish'],
-    growth: ['scale', 'grow', 'expand', 'marketing', 'users']
-  };
+    responseData.processing_time = Date.now() - startTime;
 
-  const lowerQuery = query.toLowerCase();
-  for (const [stage, keywords] of Object.entries(stageKeywords)) {
-    if (keywords.some(keyword => lowerQuery.includes(keyword))) {
-      return stage;
+    // Store the interaction with vectorization for learning
+    try {
+      await storeVectorizedContent(query, {
+        source_type: 'oracle_interaction',
+        user_id: userId,
+        team_id: teamId,
+        relevance_keywords: [type, role, 'query'],
+        content_type: 'user_query'
+      });
+      
+      await storeVectorizedContent(responseData.answer, {
+        source_type: 'oracle_interaction',
+        user_id: userId,
+        team_id: teamId,
+        relevance_keywords: [type, role, 'response'],
+        content_type: 'oracle_response'
+      });
+    } catch (vectorError) {
+      console.error('Vectorization error:', vectorError);
     }
+
+    // Log the interaction
+    try {
+      await supabase.from('oracle_logs').insert({
+        user_id: userId || 'anonymous',
+        user_role: role,
+        query: query.substring(0, 500),
+        response: responseData.answer.substring(0, 500),
+        sources_count: responseData.sources,
+        processing_time_ms: responseData.processing_time,
+        model_used: responseData.model_used,
+        search_strategy: responseData.search_strategy
+      });
+    } catch (logError) {
+      console.error('Logging error:', logError);
+    }
+
+    console.log(`Super Oracle response completed in ${responseData.processing_time}ms`);
+    return new Response(JSON.stringify(responseData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+
+  } catch (error) {
+    console.error('Super Oracle error:', error);
+    return new Response(JSON.stringify({
+      error: 'Internal server error',
+      message: error.message,
+      answer: 'I apologize, but I encountered an error. Please try again.'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
-  return 'ideation';
-}
-
-function detectUpdateType(query: string): string {
-  const lowerQuery = query.toLowerCase();
-  if (lowerQuery.includes('milestone') || lowerQuery.includes('completed')) return 'milestone';
-  if (lowerQuery.includes('mentor') || lowerQuery.includes('meeting')) return 'mentor_meeting';
-  return 'daily';
-}
-
-function getNextStepsForStage(stage: string): string[] {
-  const nextSteps = {
-    ideation: ['Validate your problem with potential users', 'Research existing solutions', 'Define your target audience'],
-    development: ['Set up your development environment', 'Create a simple prototype', 'Plan your MVP features'],
-    testing: ['Recruit test users', 'Create feedback collection system', 'Iterate based on user input'],
-    launch: ['Prepare marketing materials', 'Set up analytics', 'Plan launch sequence'],
-    growth: ['Analyze user metrics', 'Optimize conversion funnel', 'Scale successful features']
-  };
-
-  return nextSteps[stage as keyof typeof nextSteps] || nextSteps.ideation;
-}
-
-function getUpdateSuggestions(updateType: string, role: string): string[] {
-  const suggestions = {
-    daily: ['What did you accomplish?', 'Any blockers?', 'Plans for tomorrow?'],
-    milestone: ['What was completed?', 'Lessons learned?', 'Next milestone target?'],
-    mentor_meeting: ['Key discussion points?', 'Action items?', 'Next meeting scheduled?']
-  };
-
-  return suggestions[updateType as keyof typeof suggestions] || suggestions.daily;
-}
+});
