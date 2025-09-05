@@ -5,7 +5,7 @@ import { InitialOnboarding } from "@/components/InitialOnboarding";
 
 import { RoleSelector } from "@/components/RoleSelector";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
-import { ProjectDashboard } from "@/components/ProjectDashboard";
+import { NewBuilderDashboard } from "@/components/NewBuilderDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
 import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
 import { useOracle } from "@/hooks/useOracle";
@@ -261,7 +261,12 @@ function Index() {
         );
       case 'builder':
         return (
-          <ProjectDashboard onExit={handleExitToGateway} />
+          <NewBuilderDashboard 
+            teams={teams || []}
+            members={members || []}
+            updates={updates || []}
+            onExit={handleExitToGateway}
+          />
         );
       case 'mentor':
         return (

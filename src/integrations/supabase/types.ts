@@ -827,6 +827,10 @@ export type Database = {
         Args: { required_role: string; user_id: string }
         Returns: boolean
       }
+      enhance_oracle_response: {
+        Args: { query_text: string; response_text: string; user_role: string }
+        Returns: Json
+      }
       generate_team_access_code: {
         Args: {
           p_generated_by?: string

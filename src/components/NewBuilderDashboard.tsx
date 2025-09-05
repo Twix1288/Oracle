@@ -11,21 +11,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Plus, 
   Rocket, 
+  Users, 
   Target, 
   Settings, 
-  Share,
-  CheckCircle
+  CheckCircle,
+  MessageSquare
 } from "lucide-react";
 import { DashboardHeader } from "./DashboardHeader";
 import { SuperOracle } from "./SuperOracle";
 import { useLegacyProjects, type LegacyProject } from "@/hooks/useLegacyProjects";
 import { toast } from "sonner";
+import type { Team, Member, Update } from "@/types/oracle";
 
-interface ProjectDashboardProps {
+interface NewBuilderDashboardProps {
+  teams: Team[];
+  members: Member[];
+  updates: Update[];
   onExit: () => void;
 }
 
-export const ProjectDashboard = ({ onExit }: ProjectDashboardProps) => {
+export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuilderDashboardProps) => {
   const {
     projects,
     isLoading,
@@ -138,7 +143,7 @@ export const ProjectDashboard = ({ onExit }: ProjectDashboardProps) => {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="glow-border bg-card/50 backdrop-blur">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -146,6 +151,18 @@ export const ProjectDashboard = ({ onExit }: ProjectDashboardProps) => {
                 <div>
                   <p className="text-sm text-muted-foreground">My Projects</p>
                   <p className="text-2xl font-bold">{projects?.length || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="glow-border bg-card/50 backdrop-blur">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Teams</p>
+                  <p className="text-2xl font-bold">{teams?.length || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -174,7 +191,7 @@ export const ProjectDashboard = ({ onExit }: ProjectDashboardProps) => {
               My Projects
             </TabsTrigger>
             <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
-              <Rocket className="h-4 w-4 mr-2" />
+              <MessageSquare className="h-4 w-4 mr-2" />
               Oracle Assistant
             </TabsTrigger>
           </TabsList>
