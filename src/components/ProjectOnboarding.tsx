@@ -91,6 +91,10 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
     
     setIsLoading(true);
     try {
+      console.log('🚀 Starting project creation...');
+      console.log('User ID:', user.id);
+      console.log('Form data:', formData);
+      
       // Generate access code
       const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       
@@ -107,7 +111,10 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
         mappedStage = 'ideation'; // Default fallback
       }
       
+      console.log('Mapped stage:', mappedStage);
+      
       // Create team
+      console.log('Creating team...');
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .insert({
@@ -118,6 +125,13 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
         })
         .select()
         .single();
+
+      if (teamError) {
+        console.error('Team creation error:', teamError);
+        throw teamError;
+      }
+      
+      console.log('Team created successfully:', team);
 
       if (teamError) throw teamError;
 
