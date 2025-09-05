@@ -101,12 +101,7 @@ export function CreateTeamTab() {
           p_skills_needed: formData.skillsNeeded,
           p_tech_requirements: formData.techRequirements,
           p_team_size_needed: formData.teamSizeNeeded,
-          p_timeline_months: formData.timelineMonths,
-          p_budget: formData.budget,
-          p_market_research: formData.marketResearch,
-          p_competitive_advantage: formData.competitiveAdvantage,
-          p_success_metrics: formData.successMetrics,
-          p_mentorship_areas: formData.mentorshipAreas
+          p_timeline_months: formData.timelineMonths
         });
 
       if (error) {
@@ -117,17 +112,6 @@ export function CreateTeamTab() {
 
       if (!result.success) {
         throw new Error('Failed to create team');
-      }
-
-      // Make user a team creator
-      const { error: creatorError } = await supabase
-        .rpc('make_team_creator', {
-          p_user_id: user.id,
-          p_team_id: result.team_id
-        });
-
-      if (creatorError) {
-        console.warn('Failed to set user as team creator:', creatorError);
       }
 
       toast.success(`Team "${formData.teamName}" created successfully!`);
