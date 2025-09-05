@@ -22,7 +22,7 @@ export interface UserProfile {
   portfolio_url?: string;
   team_id?: string;
   individual_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
-  role: 'builder' | 'mentor' | 'guest' | 'unassigned';
+  role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
   onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
@@ -196,12 +196,29 @@ export const useAuth = () => {
     return data as any;
   };
 
-  const assignRole = async (userId: string, role: 'builder' | 'mentor' | 'guest', reason?: string) => {
+  const assignRole = async (userId: string, role: 'builder' | 'mentor' | 'lead' | 'guest', reason?: string) => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    // Note: assign_user_role function was removed in creator-based system
-    // Role assignment now happens through team creation or access codes
-    return { success: false, error: 'Role assignment no longer supported - use access codes or team creation instead' };
+    const { data, error } = await supabase.rpc('assign_user_role', {
+      p_user_id: userId,
+      p_role: role
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Log the role assignment
+    if (data && typeof data === 'object' && 'success' in data && data.success) {
+      await supabase.from('role_assignments').insert({
+        user_id: userId,
+        assigned_role: role,
+        assigned_by: user.id,
+        reason: reason || 'Role assigned'
+      });
+    }
+
+    return data as any;
   };
 
   const signOutAllSessions = async () => {

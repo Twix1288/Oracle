@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
-// OpenAI AI configuration
+// Simple AI configuration
 const AI_MODELS = {
   openai: {
     apiKey: Deno.env.get('OPENAI_API_KEY'),
@@ -22,7 +22,7 @@ const corsHeaders = {
 interface SuperOracleRequest {
   query: string;
   type: 'chat' | 'resources' | 'connect' | 'journey' | 'team' | 'rag_search';
-  role: 'builder' | 'mentor' | 'guest';
+  role: 'builder' | 'mentor' | 'lead' | 'guest';
   teamId?: string;
   userId?: string;
   context?: any;
@@ -645,7 +645,7 @@ async function createTeamUpdate(teamId: string, userId: string, content: string,
       .from('updates')
       .insert({
         team_id: teamId,
-        created_by: userId,
+        user_id: userId,
         content: content,
         type: type,
         created_at: new Date().toISOString()
@@ -681,10 +681,9 @@ async function sendTeamMessage(teamId: string, userId: string, content: string):
       .from('messages')
       .insert({
         team_id: teamId,
-        sender_id: userId,
+        user_id: userId,
         content: content,
-        sender_role: 'builder', // Default role for team messages
-        receiver_role: 'builder', // Broadcast to team
+        type: 'team',
         created_at: new Date().toISOString()
       })
       .select()
@@ -1089,7 +1088,8 @@ serve(async (req) => {
         response: responseData.answer.substring(0, 500),
         sources_count: responseData.sources,
         processing_time_ms: responseData.processing_time,
-        team_id: teamId
+        model_used: responseData.model_used,
+        search_strategy: responseData.search_strategy
       });
     } catch (logError) {
       console.error('Logging error:', logError);

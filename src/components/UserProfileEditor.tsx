@@ -64,7 +64,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
       setProfileData({
         full_name: profile.full_name || '',
         email: profile.email || '',
-        role: profile.role || 'unassigned',
+        role: profile.role || 'guest',
         bio: profile.bio || '',
         skills: profile.skills || [],
         help_needed: profile.help_needed || [],
@@ -199,7 +199,7 @@ export const UserProfileEditor = ({ onProfileUpdate }: UserProfileEditorProps) =
                     setProfileData({
                       full_name: profile.full_name || '',
                       email: profile.email || '',
-                      role: profile.role || 'unassigned',
+                      role: profile.role || 'guest',
                       bio: profile.bio || '',
                       skills: profile.skills || [],
                       help_needed: profile.help_needed || [],

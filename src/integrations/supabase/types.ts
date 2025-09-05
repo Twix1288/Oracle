@@ -18,7 +18,6 @@ export type Database = {
         Row: {
           code: string
           created_at: string
-          creator_id: string | null
           current_uses: number | null
           description: string | null
           expires_at: string | null
@@ -34,7 +33,6 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
-          creator_id?: string | null
           current_uses?: number | null
           description?: string | null
           expires_at?: string | null
@@ -50,7 +48,6 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
-          creator_id?: string | null
           current_uses?: number | null
           description?: string | null
           expires_at?: string | null
@@ -289,50 +286,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      join_requests: {
-        Row: {
-          created_at: string
-          creator_id: string
-          id: string
-          message: string | null
-          requester_id: string
-          responded_at: string | null
-          status: string
-          team_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          creator_id: string
-          id?: string
-          message?: string | null
-          requester_id: string
-          responded_at?: string | null
-          status?: string
-          team_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          creator_id?: string
-          id?: string
-          message?: string | null
-          requester_id?: string
-          responded_at?: string | null
-          status?: string
-          team_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "join_requests_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       journey_stages: {
         Row: {
@@ -625,9 +578,7 @@ export type Database = {
           help_needed: string[] | null
           id: string
           individual_stage: Database["public"]["Enums"]["team_stage"] | null
-          interests: string[] | null
           linkedin_url: string | null
-          looking_for_skills: string[] | null
           onboarding_completed: boolean | null
           personal_goals: string[] | null
           portfolio_url: string | null
@@ -637,7 +588,6 @@ export type Database = {
           team_id: string | null
           timezone: string | null
           updated_at: string
-          user_types: string[] | null
         }
         Insert: {
           availability?: string | null
@@ -651,9 +601,7 @@ export type Database = {
           help_needed?: string[] | null
           id: string
           individual_stage?: Database["public"]["Enums"]["team_stage"] | null
-          interests?: string[] | null
           linkedin_url?: string | null
-          looking_for_skills?: string[] | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
@@ -663,7 +611,6 @@ export type Database = {
           team_id?: string | null
           timezone?: string | null
           updated_at?: string
-          user_types?: string[] | null
         }
         Update: {
           availability?: string | null
@@ -677,9 +624,7 @@ export type Database = {
           help_needed?: string[] | null
           id?: string
           individual_stage?: Database["public"]["Enums"]["team_stage"] | null
-          interests?: string[] | null
           linkedin_url?: string | null
-          looking_for_skills?: string[] | null
           onboarding_completed?: boolean | null
           personal_goals?: string[] | null
           portfolio_url?: string | null
@@ -689,7 +634,6 @@ export type Database = {
           team_id?: string | null
           timezone?: string | null
           updated_at?: string
-          user_types?: string[] | null
         }
         Relationships: [
           {
@@ -786,66 +730,33 @@ export type Database = {
       }
       teams: {
         Row: {
-          ai_summary: string | null
           assigned_mentor_id: string | null
           created_at: string
           description: string | null
           id: string
-          is_public: boolean | null
           name: string
-          problem_statement: string | null
-          project_type: string | null
-          skills_needed: string[] | null
-          solution_approach: string | null
           stage: Database["public"]["Enums"]["team_stage"] | null
           tags: string[] | null
-          target_audience: string | null
-          team_creator_id: string | null
-          team_size_needed: number | null
-          tech_requirements: string[] | null
-          timeline_months: number | null
           updated_at: string
         }
         Insert: {
-          ai_summary?: string | null
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
-          is_public?: boolean | null
           name: string
-          problem_statement?: string | null
-          project_type?: string | null
-          skills_needed?: string[] | null
-          solution_approach?: string | null
           stage?: Database["public"]["Enums"]["team_stage"] | null
           tags?: string[] | null
-          target_audience?: string | null
-          team_creator_id?: string | null
-          team_size_needed?: number | null
-          tech_requirements?: string[] | null
-          timeline_months?: number | null
           updated_at?: string
         }
         Update: {
-          ai_summary?: string | null
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
-          is_public?: boolean | null
           name?: string
-          problem_statement?: string | null
-          project_type?: string | null
-          skills_needed?: string[] | null
-          solution_approach?: string | null
           stage?: Database["public"]["Enums"]["team_stage"] | null
           tags?: string[] | null
-          target_audience?: string | null
-          team_creator_id?: string | null
-          team_size_needed?: number | null
-          tech_requirements?: string[] | null
-          timeline_months?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -901,8 +812,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      approve_join_request: {
-        Args: { p_request_id: string }
+      assign_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_user_id: string
+        }
         Returns: Json
       }
       binary_quantize: {
@@ -913,24 +827,42 @@ export type Database = {
         Args: { required_role: string; user_id: string }
         Returns: boolean
       }
-      create_team_with_project_data: {
+      generate_team_access_code: {
         Args: {
-          p_description: string
-          p_problem_statement: string
-          p_project_type: string
-          p_skills_needed: string[]
-          p_solution_approach: string
-          p_target_audience: string
-          p_team_name: string
-          p_team_size_needed: number
-          p_tech_requirements: string[]
-          p_timeline_months: number
+          p_generated_by?: string
+          p_role: Database["public"]["Enums"]["user_role"]
+          p_team_id: string
         }
-        Returns: Json
+        Returns: string
       }
-      enhance_oracle_response: {
-        Args: { query_text: string; response_text: string; user_role: string }
-        Returns: Json
+      get_access_codes_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          description: string
+          expires_at: string
+          generated_by: string
+          id: string
+          is_active: boolean
+          member_id: string
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string
+          updated_at: string
+        }[]
+      }
+      get_team_member_profiles: {
+        Args: { p_team_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          experience_level: string
+          full_name: string
+          github_url: string
+          id: string
+          portfolio_url: string
+          role: Database["public"]["Enums"]["user_role"]
+          skills: string[]
+        }[]
       }
       get_user_dashboard_stage: {
         Args: { p_user_id: string }
@@ -1016,6 +948,20 @@ export type Database = {
         Args: { p_builder_name?: string; p_code: string; p_user_id: string }
         Returns: Json
       }
+      validate_access_code: {
+        Args: {
+          p_code: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: {
+          description: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["user_role"]
+          team_id: string
+        }[]
+      }
       validate_team_access_code: {
         Args: { p_code: string }
         Returns: {
@@ -1057,7 +1003,7 @@ export type Database = {
     Enums: {
       team_stage: "ideation" | "development" | "testing" | "launch" | "growth"
       update_type: "daily" | "milestone" | "mentor_meeting"
-      user_role: "builder" | "mentor" | "guest" | "unassigned"
+      user_role: "builder" | "mentor" | "lead" | "guest" | "unassigned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1187,7 +1133,7 @@ export const Constants = {
     Enums: {
       team_stage: ["ideation", "development", "testing", "launch", "growth"],
       update_type: ["daily", "milestone", "mentor_meeting"],
-      user_role: ["builder", "mentor", "guest", "unassigned"],
+      user_role: ["builder", "mentor", "lead", "guest", "unassigned"],
     },
   },
 } as const
