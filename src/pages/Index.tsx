@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { InitialOnboarding } from "@/components/InitialOnboarding";
+import { ProjectOnboarding } from "@/components/ProjectOnboarding";
+import { AccessCodeSuccess } from "@/components/AccessCodeSuccess";
 
 import { RoleSelector } from "@/components/RoleSelector";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
@@ -23,6 +24,13 @@ function Index() {
     name: string;
     teamId: string;
     team: Team;
+  } | null>(null);
+  
+  const [completionData, setCompletionData] = useState<{
+    accessCode?: string;
+    teamName?: string;
+    role?: string;
+    isProjectLead?: boolean;
   } | null>(null);
   
   const { 
@@ -113,6 +121,23 @@ function Index() {
     navigate('/gateway', { replace: true });
   };
 
+  const handleOnboardingComplete = (role: string, data?: any) => {
+    console.log('Onboarding completed:', { role, data });
+    
+    // Store completion data to show access code (for project creators)
+    if (data?.accessCode) {
+      setCompletionData({
+        accessCode: data.accessCode,
+        teamName: data.teamName,
+        role: role,
+        isProjectLead: data.isProjectLead
+      });
+    } else {
+      // For joiners or mentors, refresh to show dashboard
+      window.location.reload();
+    }
+  };
+
   // LOADING STATE
   if (authLoading) {
     return (
@@ -164,33 +189,56 @@ function Index() {
         role: profile.role,
         user_id: user.id
       });
-      return (
-        <div className="min-h-screen bg-cosmic cosmic-sparkle">
-        {/* Logout header */}
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  Welcome, {user?.email}
-                </span>
+
+      // Show completion screen if we have completion data
+      if (completionData) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
+            <div className="container mx-auto px-4 py-12">
+              <div className="max-w-2xl mx-auto">
+                <AccessCodeSuccess 
+                  accessCode={completionData.accessCode!}
+                  teamName={completionData.teamName}
+                  role={completionData.role!}
+                  isProjectLead={completionData.isProjectLead}
+                  onContinue={() => {
+                    setCompletionData(null);
+                    window.location.reload();
+                  }}
+                />
               </div>
-              <Button 
-                onClick={handleLogout}
-                variant="outline"
-                size="sm"
-                className="bg-background hover:bg-muted/50 border-border"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
             </div>
           </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-cosmic cosmic-sparkle">
+          {/* Logout header */}
+          <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    Welcome, {user?.email}
+                  </span>
+                </div>
+                <Button 
+                  onClick={handleLogout}
+                  variant="outline"
+                  size="sm"
+                  className="bg-background hover:bg-muted/50 border-border"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          <ProjectOnboarding onComplete={handleOnboardingComplete} />
         </div>
-        
-        <InitialOnboarding />
-      </div>
       );
     }
   }

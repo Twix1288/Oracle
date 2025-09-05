@@ -9,10 +9,11 @@ interface AccessCodeDisplayProps {
   accessCode: string;
   role: string;
   teamName?: string;
+  isProjectLead?: boolean;
   onContinue: () => void;
 }
 
-export const AccessCodeDisplay = ({ accessCode, role, teamName, onContinue }: AccessCodeDisplayProps) => {
+export const AccessCodeDisplay = ({ accessCode, role, teamName, isProjectLead, onContinue }: AccessCodeDisplayProps) => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
@@ -42,9 +43,14 @@ export const AccessCodeDisplay = ({ accessCode, role, teamName, onContinue }: Ac
             <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
               <Sparkles className="h-12 w-12 text-primary" />
             </div>
-            <h1 className="text-4xl font-bold text-glow">🎉 Onboarding Complete!</h1>
+            <h1 className="text-4xl font-bold text-glow">
+              {isProjectLead ? "🚀 Project Created!" : "🎉 Welcome Aboard!"}
+            </h1>
             <p className="text-xl text-muted-foreground">
-              Welcome to PieFi Oracle! You're all set up and ready to go.
+              {isProjectLead 
+                ? `Your project${teamName ? ` "${teamName}"` : ''} is now live and ready!`
+                : `Welcome to the Innovation Hub! You're all set up and ready to go.`
+              }
             </p>
           </div>
 
@@ -64,9 +70,14 @@ export const AccessCodeDisplay = ({ accessCode, role, teamName, onContinue }: Ac
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-2xl font-semibold text-glow">Your Access Code</h3>
+              <h3 className="text-2xl font-semibold text-glow">
+                {isProjectLead ? "Your Team Access Code" : "Your Access Code"}
+              </h3>
               <p className="text-muted-foreground">
-                Save this code - you'll need it to access your dashboard and for future reference
+                {isProjectLead 
+                  ? "Share this code with team members to invite them to your project"
+                  : "Save this code - you'll need it to access your dashboard"
+                }
               </p>
               
               <div className="relative">
@@ -88,10 +99,11 @@ export const AccessCodeDisplay = ({ accessCode, role, teamName, onContinue }: Ac
             <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
               <p className="font-medium mb-2">What happens next:</p>
               <ul className="text-left space-y-1">
-                <li>• Your profile has been created and linked to {teamName || 'the system'}</li>
+                <li>• Your profile has been created {teamName ? `and linked to "${teamName}"` : ''}</li>
                 <li>• The Oracle has been personalized with your information</li>
-                <li>• You'll have access to your role-specific dashboard</li>
-                {teamName && <li>• Your first team update has been logged</li>}
+                <li>• You'll have access to your {role}-specific dashboard</li>
+                {isProjectLead && <li>• You can now invite team members using your access code</li>}
+                {!isProjectLead && teamName && <li>• Your first team update has been logged</li>}
               </ul>
             </div>
 
