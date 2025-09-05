@@ -27,11 +27,11 @@ function Index() {
   
   const { 
     teams, 
+    members,
     updates, 
-    qaThreads,
     isLoading, 
     submitUpdate, 
-    createQAThread, 
+    createTeam, 
     queryRAG, 
     ragResponse, 
     ragLoading
@@ -267,8 +267,9 @@ function Index() {
         return (
           <MentorDashboard 
             teams={teams || []}
+            members={members || []}
             updates={updates || []}
-            qaThreads={qaThreads || []}
+            teamStatuses={[]}
             selectedRole={selectedRole}
             mentorId="current-mentor"
             onExit={handleExitToGateway}
@@ -278,8 +279,9 @@ function Index() {
         return (
           <LeadDashboard 
             teams={teams || []}
+            members={members || []}
             updates={updates || []}
-            qaThreads={qaThreads || []}
+            teamStatuses={[]}
             selectedRole={selectedRole}
             onExit={handleExitToGateway}
           />

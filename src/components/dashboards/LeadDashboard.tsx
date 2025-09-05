@@ -25,7 +25,7 @@ interface LeadDashboardProps {
   members: Member[];
   updates: Update[];
   teamStatuses: any[];
-  selectedRole: UserRole;
+  selectedRole: UserRole | null;
   onExit: () => void;
 }
 
