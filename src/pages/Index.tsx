@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { UserIdentityOnboarding } from "@/components/onboarding/UserIdentityOnboarding";
 import { Hub } from "@/components/Hub";
+import { ProjectOnboarding } from "@/components/ProjectOnboarding";
 import { AccessCodeSuccess } from "@/components/AccessCodeSuccess";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { NewBuilderDashboard } from "@/components/NewBuilderDashboard";
@@ -15,21 +16,17 @@ const Index = () => {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
   
-  // Local state for dynamic role selection and builder info
+  // Local state for flow management
+  const [currentView, setCurrentView] = useState<'hub' | 'project-onboarding' | 'access-code-success'>('hub');
   const [selectedRole, setSelectedRole] = useState<UserRole>('guest');
-  const [builderInfo, setBuilderInfo] = useState<{
-    teamId?: string;
-    teamName?: string;
+  
+  // Track project creation data for access code display
+  const [projectData, setProjectData] = useState<{
     accessCode?: string;
+    teamName?: string;
+    teamId?: string;
     isProjectLead?: boolean;
   } | null>(null);
-  
-  // Track onboarding completion data for access code display
-  const [onboardingCompletionData, setOnboardingCompletionData] = useState<{
-    showAccessCode: boolean;
-    accessCode?: string;
-    teamName?: string;
-  }>({ showAccessCode: false });
 
   // Oracle hook for data fetching
   const { 
@@ -71,24 +68,16 @@ const Index = () => {
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
     setSelectedRole('guest');
-    setBuilderInfo(null);
   };
 
   const handleRoleSelect = (role: UserRole) => {
     console.log('🎭 Role selected:', role);
     setSelectedRole(role);
-    if (role !== 'builder') {
-      setBuilderInfo(null);
-    }
   };
 
   const handleBuilderAuthenticated = (builderName: string, teamId: string, teamInfo: any) => {
     console.log('🏗️ Builder authenticated:', builderName, teamId);
     setSelectedRole('builder');
-    setBuilderInfo({
-      teamId: teamId,
-      teamName: teamInfo.name
-    });
   };
 
   const handleUserIdentityComplete = (data: any) => {
@@ -96,21 +85,18 @@ const Index = () => {
     // Profile will be updated automatically by the component
   };
 
-  const handleProjectOnboarding = () => {
-    console.log('🎉 Project onboarding completed');
-    // This will trigger a re-render with the updated profile
+  const handleCreateProject = () => {
+    setCurrentView('project-onboarding');
   };
 
-  const handleOnboardingComplete = (data: any) => {
-    console.log('🎉 Onboarding completed with data:', data);
-    
-    if (data.accessCode) {
-      setOnboardingCompletionData({
-        showAccessCode: true,
-        accessCode: data.accessCode,
-        teamName: data.teamName
-      });
-    }
+  const handleProjectComplete = (data: any) => {
+    console.log('🎉 Project onboarding completed:', data);
+    setProjectData(data);
+    setCurrentView('access-code-success');
+  };
+
+  const handleBackToHub = () => {
+    setCurrentView('hub');
   };
 
   // LOADING STATE
@@ -143,34 +129,43 @@ const Index = () => {
 
   // Show hub if user completed identity but hasn't chosen a specific role yet
   if (profile?.role === 'unassigned') {
-    return (
-      <Hub 
-        userProfile={profile} 
-        onProjectOnboarding={handleProjectOnboarding}
-      />
-    );
-  }
-
-  // Show access code success screen if we have completion data
-  if (onboardingCompletionData.showAccessCode) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-        <div className="container mx-auto px-4 py-12">
-          <div className="max-w-2xl mx-auto">
-            <AccessCodeSuccess 
-              accessCode={onboardingCompletionData.accessCode!}
-              teamName={onboardingCompletionData.teamName}
-              role="builder"
-              isProjectLead={true}
-              onContinue={() => {
-                setOnboardingCompletionData({ showAccessCode: false });
-                window.location.reload();
-              }}
-            />
+    // Handle different views within the hub flow
+    switch (currentView) {
+      case 'project-onboarding':
+        return (
+          <ProjectOnboarding 
+            onComplete={handleProjectComplete}
+            onBack={handleBackToHub}
+          />
+        );
+      
+      case 'access-code-success':
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
+            <div className="container mx-auto px-4 py-12">
+              <div className="max-w-2xl mx-auto">
+                <AccessCodeSuccess 
+                  accessCode={projectData?.accessCode!}
+                  teamName={projectData?.teamName}
+                  role="builder"
+                  isProjectLead={projectData?.isProjectLead || true}
+                  onContinue={() => {
+                    window.location.reload();
+                  }}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    );
+        );
+      
+      default:
+        return (
+          <Hub 
+            userProfile={profile} 
+            onCreateProject={handleCreateProject}
+          />
+        );
+    }
   }
 
   // ORACLE LOADING

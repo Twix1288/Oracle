@@ -2,135 +2,162 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Rocket, Users, UserCheck, ArrowLeft } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { 
+  Rocket, 
+  Target, 
+  Users, 
+  Globe, 
+  Lock,
+  Code,
+  Palette,
+  Brain,
+  Briefcase,
+  TrendingUp
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { assignAccessCode } from "@/utils/accessCodes";
 
-interface ProjectOnboardingProps {
-  onComplete: (role: string, data?: any) => void;
-}
-
-const ONBOARDING_OPTIONS = [
-  {
-    id: 'create-project',
-    title: 'Start a New Project',
-    description: 'Create your own project and get an access code to invite team members',
-    icon: Rocket,
-    color: 'bg-primary/20 text-primary'
-  },
-  {
-    id: 'join-project',
-    title: 'Join an Existing Project',
-    description: 'Have an access code? Join a project team',
-    icon: Users,
-    color: 'bg-green-500/20 text-green-400'
-  },
-  {
-    id: 'mentor-projects',
-    title: 'Mentor Projects',
-    description: 'Guide and support project teams as a mentor',
-    icon: UserCheck,
-    color: 'bg-purple-500/20 text-purple-400'
-  }
+const PROJECT_STAGES = [
+  { id: 'idea', label: 'Idea', icon: Brain },
+  { id: 'prototype', label: 'Prototype', icon: Code },
+  { id: 'mvp', label: 'MVP', icon: Rocket },
+  { id: 'scaling', label: 'Scaling', icon: TrendingUp }
 ];
 
-export const ProjectOnboarding = ({ onComplete }: ProjectOnboardingProps) => {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+const PROBLEM_CATEGORIES = [
+  'AI/ML', 'Climate', 'Health', 'Education', 'Fintech', 'Web3',
+  'Gaming', 'SaaS', 'E-commerce', 'Social', 'Hardware', 'Biotech'
+];
+
+const SKILLS_NEEDED = [
+  'Frontend', 'Backend', 'Mobile', 'UI/UX Design', 'Product Management',
+  'Data Science', 'Marketing', 'Sales', 'Business Development', 'DevOps'
+];
+
+interface ProjectOnboardingProps {
+  onComplete: (data: any) => void;
+  onBack: () => void;
+}
+
+export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
-
-  // Form states for different flows
-  const [projectForm, setProjectForm] = useState({
-    name: '',
-    description: '',
-    fullName: ''
+  const { user, updateProfile } = useAuth();
+  
+  const [formData, setFormData] = useState({
+    projectName: '',
+    problemDescription: '',
+    problemCategory: [] as string[],
+    stage: '',
+    skillsNeeded: [] as string[],
+    isPublic: true,
+    collaborationStyle: 'flexible' as 'flexible' | 'structured'
   });
 
-  const [joinForm, setJoinForm] = useState({
-    accessCode: '',
-    fullName: ''
-  });
-
-  const [mentorForm, setMentorForm] = useState({
-    fullName: '',
-    bio: '',
-    skills: ''
-  });
-
-  const handleBack = () => {
-    setSelectedOption(null);
+  const handleCategoryToggle = (category: string) => {
+    const current = formData.problemCategory;
+    if (current.includes(category)) {
+      setFormData({ ...formData, problemCategory: current.filter(c => c !== category) });
+    } else {
+      setFormData({ ...formData, problemCategory: [...current, category] });
+    }
   };
 
-  const handleCreateProject = async () => {
-    if (!user?.id) return;
+  const handleSkillToggle = (skill: string) => {
+    const current = formData.skillsNeeded;
+    if (current.includes(skill)) {
+      setFormData({ ...formData, skillsNeeded: current.filter(s => s !== skill) });
+    } else {
+      setFormData({ ...formData, skillsNeeded: [...current, skill] });
+    }
+  };
+
+  const canComplete = () => {
+    return formData.projectName.trim() !== '' && 
+           formData.problemDescription.trim() !== '' &&
+           formData.problemCategory.length > 0 &&
+           formData.stage !== '' &&
+           formData.skillsNeeded.length > 0;
+  };
+
+  const handleComplete = async () => {
+    if (!user?.id || !canComplete()) return;
     
     setIsLoading(true);
     try {
-      // Update profile first
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: projectForm.fullName,
-          role: 'builder',
-          onboarding_completed: true
-        })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
+      // Generate access code
+      const accessCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
       // Create team
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .insert({
-          name: projectForm.name,
-          description: projectForm.description,
-          stage: 'ideation'
+          name: formData.projectName,
+          description: formData.problemDescription,
+          tags: [...formData.problemCategory, ...formData.skillsNeeded],
+          stage: formData.stage as any
         })
         .select()
         .single();
 
       if (teamError) throw teamError;
 
-      // Update profile with team_id
-      const { error: teamUpdateError } = await supabase
-        .from('profiles')
-        .update({
-          team_id: team.id
-        })
-        .eq('id', user.id);
+      // Create access code
+      const { error: codeError } = await supabase
+        .from('access_codes')
+        .insert({
+          code: accessCode,
+          team_id: team.id,
+          team_name: formData.projectName,
+          role: 'builder',
+          generated_by: user.id,
+          description: `Access code for ${formData.projectName}`,
+          max_uses: 10
+        });
 
-      if (teamUpdateError) throw teamUpdateError;
+      if (codeError) throw codeError;
 
-      // Generate access code for the team
-      const accessCode = await assignAccessCode(user.id, 'builder', team.id);
-
-      // Create initial team update
-      await supabase.from('updates').insert({
-        team_id: team.id,
-        content: `🚀 Project "${projectForm.name}" has been created!\n\n📋 Description: ${projectForm.description}\n\n🎯 Use access code: ${accessCode} to invite team members`,
-        type: 'milestone',
-        created_by: user.id
+      // Update user profile to be project owner/builder
+      const { error: profileError } = await updateProfile({
+        role: 'builder',
+        team_id: team.id
       });
+
+      if (profileError) throw profileError;
+
+      // Add user as team member
+      const { error: memberError } = await supabase
+        .from('members')
+        .insert({
+          name: user.user_metadata?.full_name || user.email || 'Project Owner',
+          role: 'builder',
+          team_id: team.id,
+          user_id: user.id,
+          assigned_by: user.id
+        });
+
+      if (memberError) throw memberError;
 
       toast({
-        title: "Project Created!",
-        description: `Your project "${projectForm.name}" has been created. Share your access code with team members.`
+        title: "Project Created! 🎉",
+        description: "Your team is ready to go!"
       });
 
-      onComplete('builder', { 
-        teamId: team.id, 
-        teamName: team.name, 
+      onComplete({
         accessCode,
-        isProjectLead: true 
+        teamName: formData.projectName,
+        teamId: team.id,
+        isProjectLead: true
       });
     } catch (error: any) {
       console.error('Error creating project:', error);
       toast({
-        title: "Error Creating Project",
+        title: "Error",
         description: error.message || "Failed to create project. Please try again.",
         variant: "destructive"
       });
@@ -139,305 +166,157 @@ export const ProjectOnboarding = ({ onComplete }: ProjectOnboardingProps) => {
     }
   };
 
-  const handleJoinProject = async () => {
-    if (!user?.id) return;
-    
-    setIsLoading(true);
-    try {
-      // Use the access code to join
-      const { error: joinError } = await supabase.rpc('use_access_code', {
-        p_user_id: user.id,
-        p_code: joinForm.accessCode,
-        p_builder_name: joinForm.fullName
-      });
-
-      if (joinError) throw joinError;
-
-      toast({
-        title: "Successfully Joined!",
-        description: "You have been added to the project team."
-      });
-
-      onComplete('builder', { accessCode: joinForm.accessCode });
-    } catch (error: any) {
-      console.error('Error joining project:', error);
-      toast({
-        title: "Error Joining Project",
-        description: error.message || "Invalid access code or failed to join project.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBecomeMentor = async () => {
-    if (!user?.id) return;
-    
-    setIsLoading(true);
-    try {
-      // Update profile as mentor
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: mentorForm.fullName,
-          bio: mentorForm.bio,
-          role: 'mentor',
-          skills: mentorForm.skills.split(',').map(s => s.trim()),
-          onboarding_completed: true
-        })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
-      // Generate mentor access code
-      const accessCode = await assignAccessCode(user.id, 'mentor');
-
-      toast({
-        title: "Mentor Profile Created!",
-        description: "You can now mentor project teams."
-      });
-
-      onComplete('mentor', { accessCode });
-    } catch (error: any) {
-      console.error('Error setting up mentor:', error);
-      toast({
-        title: "Error Setting up Mentor Profile",
-        description: error.message || "Failed to create mentor profile. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (!selectedOption) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-        <div className="container mx-auto px-4 py-12">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h1 className="text-5xl font-bold text-glow mb-6">Welcome to the Innovation Hub</h1>
-              <p className="text-xl text-muted-foreground">
-                Choose how you want to participate in building the future
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              {ONBOARDING_OPTIONS.map((option) => {
-                const Icon = option.icon;
-                return (
-                  <Card 
-                    key={option.id}
-                    className="cursor-pointer transition-all hover:glow-border group"
-                    onClick={() => setSelectedOption(option.id)}
-                  >
-                    <CardContent className="p-8 text-center space-y-6">
-                      <div className={`p-6 rounded-full ${option.color} w-fit mx-auto group-hover:scale-110 transition-transform`}>
-                        <Icon className="h-12 w-12" />
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-bold mb-3">{option.title}</h3>
-                        <p className="text-muted-foreground">{option.description}</p>
-                      </div>
-                      <Button className="w-full ufo-gradient">
-                        Get Started
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render specific form based on selected option
-  const renderForm = () => {
-    switch (selectedOption) {
-      case 'create-project':
-        return (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="p-4 rounded-full bg-primary/20 w-fit mx-auto ufo-pulse">
-                <Rocket className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-3xl font-bold text-glow">Create Your Project</h3>
-              <p className="text-muted-foreground text-lg">
-                Start your innovation journey and get an access code to invite collaborators
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Your Full Name</label>
-                <Input
-                  placeholder="Enter your full name"
-                  value={projectForm.fullName}
-                  onChange={(e) => setProjectForm({...projectForm, fullName: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Project Name</label>
-                <Input
-                  placeholder="What's your project called?"
-                  value={projectForm.name}
-                  onChange={(e) => setProjectForm({...projectForm, name: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Project Description</label>
-                <Textarea
-                  placeholder="Describe your project idea, goals, and what you want to build..."
-                  value={projectForm.description}
-                  onChange={(e) => setProjectForm({...projectForm, description: e.target.value})}
-                  className="min-h-[120px]"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                onClick={handleCreateProject}
-                disabled={!projectForm.name || !projectForm.description || !projectForm.fullName || isLoading}
-                className="flex-1 ufo-gradient"
-              >
-                {isLoading ? "Creating..." : "Create Project"}
-              </Button>
-            </div>
-          </div>
-        );
-
-      case 'join-project':
-        return (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="p-4 rounded-full bg-green-500/20 w-fit mx-auto ufo-pulse">
-                <Users className="h-8 w-8 text-green-400" />
-              </div>
-              <h3 className="text-3xl font-bold text-glow">Join a Project</h3>
-              <p className="text-muted-foreground text-lg">
-                Enter your access code to join an existing project team
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Your Full Name</label>
-                <Input
-                  placeholder="Enter your full name"
-                  value={joinForm.fullName}
-                  onChange={(e) => setJoinForm({...joinForm, fullName: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Access Code</label>
-                <Input
-                  placeholder="Enter the access code provided by the project lead"
-                  value={joinForm.accessCode}
-                  onChange={(e) => setJoinForm({...joinForm, accessCode: e.target.value.toUpperCase()})}
-                  className="text-center text-lg tracking-wider font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                onClick={handleJoinProject}
-                disabled={!joinForm.accessCode || !joinForm.fullName || isLoading}
-                className="flex-1 ufo-gradient"
-              >
-                {isLoading ? "Joining..." : "Join Project"}
-              </Button>
-            </div>
-          </div>
-        );
-
-      case 'mentor-projects':
-        return (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="p-4 rounded-full bg-purple-500/20 w-fit mx-auto ufo-pulse">
-                <UserCheck className="h-8 w-8 text-purple-400" />
-              </div>
-              <h3 className="text-3xl font-bold text-glow">Become a Mentor</h3>
-              <p className="text-muted-foreground text-lg">
-                Guide and support project teams with your expertise
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Your Full Name</label>
-                <Input
-                  placeholder="Enter your full name"
-                  value={mentorForm.fullName}
-                  onChange={(e) => setMentorForm({...mentorForm, fullName: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Bio</label>
-                <Textarea
-                  placeholder="Tell us about your background, experience, and what you can offer to project teams..."
-                  value={mentorForm.bio}
-                  onChange={(e) => setMentorForm({...mentorForm, bio: e.target.value})}
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Skills & Expertise</label>
-                <Input
-                  placeholder="React, Node.js, Product Management, UI/UX..."
-                  value={mentorForm.skills}
-                  onChange={(e) => setMentorForm({...mentorForm, skills: e.target.value})}
-                />
-                <p className="text-xs text-muted-foreground mt-1">Separate skills with commas</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button variant="outline" onClick={handleBack} className="flex-1">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                onClick={handleBecomeMentor}
-                disabled={!mentorForm.fullName || !mentorForm.bio || !mentorForm.skills || isLoading}
-                className="flex-1 ufo-gradient"
-              >
-                {isLoading ? "Setting up..." : "Become Mentor"}
-              </Button>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-glow mb-4">Create Your Project 🚀</h1>
+            <p className="text-muted-foreground">
+              Tell us about your project to get started
+            </p>
+          </div>
+
           <Card className="glow-border bg-card/50 backdrop-blur">
-            <CardContent className="p-8">
-              {renderForm()}
+            <CardContent className="p-6 space-y-6">
+              {/* Project Name */}
+              <div className="space-y-2">
+                <Label htmlFor="project-name" className="text-sm font-medium">
+                  Project Name *
+                </Label>
+                <Input
+                  id="project-name"
+                  value={formData.projectName}
+                  onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
+                  placeholder="Enter your project name..."
+                />
+              </div>
+
+              {/* Problem Description */}
+              <div className="space-y-2">
+                <Label htmlFor="problem" className="text-sm font-medium">
+                  What problem are you solving? *
+                </Label>
+                <Textarea
+                  id="problem"
+                  value={formData.problemDescription}
+                  onChange={(e) => setFormData({ ...formData, problemDescription: e.target.value })}
+                  placeholder="Describe the problem your project addresses..."
+                  className="min-h-[80px]"
+                />
+              </div>
+
+              {/* Problem Category */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Problem Category *</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PROBLEM_CATEGORIES.map((category) => {
+                    const isSelected = formData.problemCategory.includes(category);
+                    return (
+                      <div
+                        key={category}
+                        onClick={() => handleCategoryToggle(category)}
+                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all text-sm ${
+                          isSelected 
+                            ? 'border-primary bg-primary/10 text-primary' 
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                      >
+                        {category}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Project Stage */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Project Stage *</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {PROJECT_STAGES.map((stage) => {
+                    const Icon = stage.icon;
+                    const isSelected = formData.stage === stage.id;
+                    return (
+                      <div
+                        key={stage.id}
+                        onClick={() => setFormData({ ...formData, stage: stage.id })}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all text-center ${
+                          isSelected 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 mx-auto mb-1 text-primary" />
+                        <span className="text-sm font-medium">{stage.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Skills Needed */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Skills Needed *</Label>
+                <div className="flex flex-wrap gap-2">
+                  {SKILLS_NEEDED.map((skill) => {
+                    const isSelected = formData.skillsNeeded.includes(skill);
+                    return (
+                      <div
+                        key={skill}
+                        onClick={() => handleSkillToggle(skill)}
+                        className={`px-3 py-2 rounded-full border cursor-pointer transition-all text-sm ${
+                          isSelected 
+                            ? 'border-primary bg-primary/10 text-primary' 
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                      >
+                        {skill}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Visibility */}
+              <div className="flex items-center justify-between p-4 rounded-lg border">
+                <div className="flex items-center space-x-3">
+                  {formData.isPublic ? (
+                    <Globe className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Lock className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <div>
+                    <Label htmlFor="visibility" className="font-medium">
+                      {formData.isPublic ? 'Public Project' : 'Private Project'}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {formData.isPublic 
+                        ? 'Visible in guest tab and discoverable by others' 
+                        : 'Only accessible via access code'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="visibility"
+                  checked={formData.isPublic}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked })}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 mt-8">
+                <Button variant="outline" onClick={onBack} className="flex-1">
+                  Back to Hub
+                </Button>
+                <Button
+                  onClick={handleComplete}
+                  disabled={!canComplete() || isLoading}
+                  className="flex-1 ufo-gradient"
+                >
+                  {isLoading ? "Creating Project..." : "Create Project"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
