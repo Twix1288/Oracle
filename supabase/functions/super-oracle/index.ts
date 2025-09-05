@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
-// Simple AI configuration
+// OpenAI AI configuration
 const AI_MODELS = {
   openai: {
     apiKey: Deno.env.get('OPENAI_API_KEY'),
@@ -22,7 +22,7 @@ const corsHeaders = {
 interface SuperOracleRequest {
   query: string;
   type: 'chat' | 'resources' | 'connect' | 'journey' | 'team' | 'rag_search';
-  role: 'builder' | 'mentor' | 'lead' | 'guest';
+  role: 'builder' | 'mentor' | 'guest';
   teamId?: string;
   userId?: string;
   context?: any;
