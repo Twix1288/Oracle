@@ -20,11 +20,11 @@ export default function Gateway() {
           <div className="flex items-center justify-center gap-2 mb-4">
             <Sparkles className="h-8 w-8 text-primary" />
             <span className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              PieFi Gateway Hub
+              Oracle Hub
             </span>
           </div>
           <CardTitle className="text-xl font-semibold text-muted-foreground">
-            Choose your path in the PieFi ecosystem
+            Choose your path in the Oracle ecosystem
           </CardTitle>
         </CardHeader>
         

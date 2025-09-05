@@ -30,7 +30,7 @@ export interface OnboardingData {
   learningGoals: string[];
 
   // Role & Team
-  role: 'builder' | 'mentor' | 'lead' | 'guest';
+  role: 'builder' | 'mentor' | 'guest';
   teamId?: string;
   projectGoal?: string;
   mentorshipNeeds?: string;

@@ -562,6 +562,7 @@ export type Database = {
           stage: string | null
           success_metrics: string | null
           target_audience: string | null
+          team_creator_id: string | null
           team_size_needed: number | null
           tech_requirements: string[] | null
           tech_stack: string[] | null
@@ -589,6 +590,7 @@ export type Database = {
           stage?: string | null
           success_metrics?: string | null
           target_audience?: string | null
+          team_creator_id?: string | null
           team_size_needed?: number | null
           tech_requirements?: string[] | null
           tech_stack?: string[] | null
@@ -616,6 +618,7 @@ export type Database = {
           stage?: string | null
           success_metrics?: string | null
           target_audience?: string | null
+          team_creator_id?: string | null
           team_size_needed?: number | null
           tech_requirements?: string[] | null
           tech_stack?: string[] | null
@@ -830,7 +833,7 @@ export type Database = {
         | "launch"
         | "growth"
       update_type: "progress" | "milestone" | "issue" | "note"
-      user_role: "builder" | "mentor" | "lead" | "guest" | "unassigned"
+      user_role: "builder" | "mentor" | "guest" | "unassigned"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -966,7 +969,7 @@ export const Constants = {
         "growth",
       ],
       update_type: ["progress", "milestone", "issue", "note"],
-      user_role: ["builder", "mentor", "lead", "guest", "unassigned"],
+      user_role: ["builder", "mentor", "guest", "unassigned"],
     },
   },
 } as const

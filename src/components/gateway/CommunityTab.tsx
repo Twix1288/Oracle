@@ -1,135 +1,198 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Globe, Eye, Telescope, Compass } from 'lucide-react';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Globe, Users, Eye, Clock, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-export function CommunityTab() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+interface Team {
+  id: string;
+  name: string;
+  description: string;
+  project_type: string;
+  target_audience: string;
+  problem_statement: string;
+  solution_approach: string;
+  skills_needed: string[];
+  tech_requirements: string[];
+  team_size_needed: number;
+  timeline_months: number;
+  stage: string;
+  ai_summary: string;
+  created_at: string;
+  member_count?: number;
+}
 
-  const handleJoinCommunity = async () => {
-    setLoading(true);
-    setError('');
+export const CommunityTab = () => {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
+  useEffect(() => {
+    fetchPublicTeams();
+  }, []);
+
+  const fetchPublicTeams = async () => {
     try {
-      // Get current user session
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('Please sign in first to join the community');
-      }
+      const { data: teamsData, error } = await supabase
+        .from('teams')
+        .select(`
+          *,
+          members!inner(id)
+        `)
+        .eq('stage', 'formation')
+        .order('created_at', { ascending: false });
 
-      // Update user profile to guest role (community member)
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email || '',
-          role: 'guest',
-          updated_at: new Date().toISOString()
-        });
+      if (error) throw error;
 
-      if (updateError) {
-        throw updateError;
-      }
+      // Process teams with member count
+      const processedTeams = teamsData?.map(team => ({
+        ...team,
+        member_count: team.members?.length || 0
+      })) || [];
 
-      toast.success('Welcome to the PieFi community! Explore and discover amazing projects.');
-      
-      // Redirect to dashboard
-      navigate('/');
-      
-    } catch (error: any) {
-      setError(error.message);
-      toast.error(error.message);
+      setTeams(processedTeams);
+    } catch (error) {
+      console.error('Error fetching teams:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const communityFeatures = [
-    { icon: Eye, title: 'Discover Projects', description: 'Explore public teams and their innovations' },
-    { icon: Telescope, title: 'Learn & Observe', description: 'See how successful teams operate' },
-    { icon: Compass, title: 'Find Inspiration', description: 'Get ideas for your future projects' }
-  ];
+  const handleJoinRequest = async (teamId: string) => {
+    // This would create a join request - implement based on your join request system
+    toast({
+      title: "Join Request Sent",
+      description: "Your request to join this team has been sent to the team creator.",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Globe className="h-6 w-6 text-primary" />
+            <CardTitle>Community</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Loading community projects...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <Globe className="mx-auto h-16 w-16 text-primary mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Join the Community</h2>
-        <p className="text-muted-foreground">
-          Explore the PieFi ecosystem, discover projects, and get inspired by what others are building
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {communityFeatures.map(({ icon: Icon, title, description }) => (
-          <div key={title} className="p-4 border border-border rounded-lg bg-background/50">
-            <Icon className="h-8 w-8 text-primary mb-3" />
-            <h3 className="font-semibold mb-2">{title}</h3>
-            <p className="text-sm text-muted-foreground">{description}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="p-6 bg-gradient-to-r from-primary/10 to-primary-glow/10 rounded-lg border border-primary/20">
-        <h3 className="text-lg font-semibold mb-3">🌟 What you'll get access to:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Public Teams</Badge>
-            <span className="text-sm">View team profiles and projects</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Project Updates</Badge>
-            <span className="text-sm">Follow progress and milestones</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Community Insights</Badge>
-            <span className="text-sm">Learn from successful patterns</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Future Opportunities</Badge>
-            <span className="text-sm">Upgrade to builder or mentor anytime</span>
-          </div>
+    <Card>
+      <CardHeader className="text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <Globe className="h-6 w-6 text-primary" />
+          <CardTitle>Community</CardTitle>
         </div>
-      </div>
+        <CardDescription>
+          Discover active projects and connect with teams
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4 max-h-96 overflow-y-auto">
+          {teams.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No active projects to display yet.</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Create the first team to get the community started!
+              </p>
+            </div>
+          ) : (
+            teams.map((team) => (
+              <Card key={team.id} className="border-border/50">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{team.name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary">{team.project_type}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          <Users className="h-3 w-3 mr-1" />
+                          {team.member_count}/{team.team_size_needed}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleJoinRequest(team.id)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                    {team.problem_statement || team.description}
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{team.target_audience}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{team.timeline_months} months timeline</span>
+                    </div>
+                  </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+                  {team.skills_needed && team.skills_needed.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Skills Needed:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {team.skills_needed.slice(0, 3).map((skill) => (
+                          <Badge key={skill} variant="outline" className="text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                        {team.skills_needed.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{team.skills_needed.length - 3} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-      <Button onClick={handleJoinCommunity} className="w-full" disabled={loading}>
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Joining Community...
-          </>
-        ) : (
-          <>
-            <Globe className="mr-2 h-4 w-4" />
-            Join as Community Member
-          </>
-        )}
-      </Button>
-
-      <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-        <h3 className="font-semibold mb-2">💡 Ready to do more?</h3>
-        <p className="text-sm text-muted-foreground mb-3">
-          You can always upgrade your role later by returning to this Gateway Hub:
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">Create your own team</Badge>
-          <Badge variant="outline">Join an existing team</Badge>
-          <Badge variant="outline">Become a mentor</Badge>
+                  {team.tech_requirements && team.tech_requirements.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Tech Stack:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {team.tech_requirements.slice(0, 3).map((tech) => (
+                          <Badge key={tech} variant="secondary" className="text-xs">
+                            {tech}
+                          </Badge>
+                        ))}
+                        {team.tech_requirements.length > 3 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{team.tech_requirements.length - 3} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
-}
+};

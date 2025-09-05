@@ -1,5 +1,5 @@
 // Updated Oracle types for creator-based system (no lead role)
-export type UserRole = 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
+export type UserRole = 'builder' | 'mentor' | 'guest' | 'unassigned';
 
 export type TeamStage = 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
 
@@ -21,7 +21,7 @@ export interface OracleContext {
 export interface UserProfile {
   id: string;
   name: string;
-  role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
+  role: 'builder' | 'mentor' | 'guest' | 'unassigned';
   experienceLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   skills: string[];
   preferredTechnologies: string[];
