@@ -5,8 +5,7 @@ import { InitialOnboarding } from "@/components/InitialOnboarding";
 
 import { RoleSelector } from "@/components/RoleSelector";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
-import { BuilderDashboard } from "@/components/dashboards/BuilderDashboard";
-import { EnhancedBuilderDashboard } from "@/components/EnhancedBuilderDashboard";
+import { ProjectDashboard } from "@/components/ProjectDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
 import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
 import { useOracle } from "@/hooks/useOracle";
@@ -28,12 +27,11 @@ function Index() {
   
   const { 
     teams, 
-    members, 
     updates, 
-    teamStatuses,
+    qaThreads,
     isLoading, 
     submitUpdate, 
-    createTeam, 
+    createQAThread, 
     queryRAG, 
     ragResponse, 
     ragLoading
@@ -63,21 +61,9 @@ function Index() {
         console.log('✅ Setting role:', profile.role);
         setSelectedRole(profile.role);
         
-        // If user is a builder with a team, set up builder info for ALL teams
-        if (profile.role === 'builder' && profile.team_id && teams?.length > 0) {
-          const userTeam = teams.find((team: any) => team.id === profile.team_id);
-          if (userTeam) {
-            console.log('✅ Setting up builder info for team:', userTeam.name, 'Team ID:', profile.team_id);
-            setBuilderInfo({
-              name: profile.full_name || 'Builder',
-              teamId: profile.team_id,
-              team: userTeam
-            });
-          } else {
-            console.log('⚠️ User has team_id but team not found in available teams:', profile.team_id);
-          }
-        } else if (profile.role === 'builder' && !profile.team_id) {
-          console.log('⚠️ Builder user has no team assigned');
+        // For builders, we no longer need team assignment - they can create projects
+        if (profile.role === 'builder') {
+          console.log('✅ Builder user authenticated');
         }
       } else {
         console.log('🔄 User needs onboarding - clearing role');
@@ -274,48 +260,15 @@ function Index() {
           />
         );
       case 'builder':
-        // ALWAYS use EnhancedBuilderDashboard for builders with team info
-        // This ensures ALL teams get the proper team-specific dashboard
-        return builderInfo ? (
-          <EnhancedBuilderDashboard
-            team={builderInfo.team}
-            builderName={builderInfo.name}
-            members={members || []}
-            updates={updates || []}
-            teamStatuses={teamStatuses}
-            userStage={profile?.individual_stage}
-            onSubmitUpdate={(teamId: string, content: string, type: any, createdBy?: string) => 
-              submitUpdate({ teamId, content, type, createdBy })
-            }
-            onQueryRAG={(params: { query: string; role: UserRole }) => 
-              queryRAG(params)
-            }
-            ragResponse={ragResponse}
-            ragLoading={ragLoading}
-            onLeaveTeam={handleLeaveTeam}
-          />
-        ) : (
-          // Fallback for builders without proper team setup
-          <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
-            <div className="text-center space-y-6 p-8 ufo-card rounded-xl max-w-md">
-              <h2 className="text-2xl font-semibold cosmic-text">Team Setup Required</h2>
-              <p className="text-muted-foreground">
-                You're registered as a builder but don't have a team assigned. 
-                Please use your access code to join a team.
-              </p>
-              <Button onClick={handleExitToGateway} className="ufo-gradient">
-                Go to Gateway
-              </Button>
-            </div>
-          </div>
+        return (
+          <ProjectDashboard onExit={handleExitToGateway} />
         );
       case 'mentor':
         return (
           <MentorDashboard 
             teams={teams || []}
-            members={members || []}
             updates={updates || []}
-            teamStatuses={teamStatuses}
+            qaThreads={qaThreads || []}
             selectedRole={selectedRole}
             mentorId="current-mentor"
             onExit={handleExitToGateway}
@@ -325,9 +278,8 @@ function Index() {
         return (
           <LeadDashboard 
             teams={teams || []}
-            members={members || []}
             updates={updates || []}
-            teamStatuses={teamStatuses}
+            qaThreads={qaThreads || []}
             selectedRole={selectedRole}
             onExit={handleExitToGateway}
           />
