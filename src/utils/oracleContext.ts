@@ -50,10 +50,16 @@ export class OracleContextService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   private constructor() {
-    // Import the supabase client directly 
-    import('@/integrations/supabase/client').then(({ supabase }) => {
+    // Initialize supabase client when methods are called
+    this.initSupabase();
+  }
+
+  private async initSupabase() {
+    if (!this.supabase) {
+      const { supabase } = await import('@/integrations/supabase/client');
       this.supabase = supabase;
-    });
+    }
+    return this.supabase;
   }
 
   static getInstance(): OracleContextService {
@@ -67,8 +73,11 @@ export class OracleContextService {
     try {
       console.log('Storing user context for:', userId);
       
+      // Ensure supabase is initialized
+      const supabase = await this.initSupabase();
+      
       // Update the profiles table with new onboarding data structure
-      const { error: profileError } = await this.supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           user_types: data.user_types,
@@ -89,7 +98,7 @@ export class OracleContextService {
 
       // If teamId is provided, update the team_id
       if (data.teamId) {
-        const { error: teamError } = await this.supabase
+        const { error: teamError } = await supabase
           .from('profiles')
           .update({ team_id: data.teamId })
           .eq('id', userId);
@@ -171,8 +180,11 @@ export class OracleContextService {
 
       console.log('Fetching fresh context for:', userId);
 
+      // Ensure supabase is initialized
+      const supabase = await this.initSupabase();
+
       // Get user profile
-      const { data: profile, error: profileError } = await this.supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
@@ -188,7 +200,7 @@ export class OracleContextService {
 
       // Get team information if user has a team
       if (profile.team_id) {
-        const { data: teamData, error: teamError } = await this.supabase
+        const { data: teamData, error: teamError } = await supabase
           .from('teams')
           .select('id, name, stage, description')
           .eq('id', profile.team_id)
@@ -198,7 +210,7 @@ export class OracleContextService {
           team = teamData;
 
           // Get recent team updates
-          const { data: updates, error: updatesError } = await this.supabase
+          const { data: updates, error: updatesError } = await supabase
             .from('updates')
             .select('id, content, type, created_at')
             .eq('team_id', profile.team_id)
@@ -237,8 +249,11 @@ export class OracleContextService {
 
   async updateInteractionHistory(userId: string, query: string, response: any, satisfaction?: number): Promise<void> {
     try {
+      // Ensure supabase is initialized
+      const supabase = await this.initSupabase();
+      
       // Log to oracle_logs table with correct fields
-      const { error } = await this.supabase
+      const { error } = await supabase
         .from('oracle_logs')
         .insert({
           user_id: userId,
