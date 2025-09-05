@@ -8,8 +8,7 @@ import Index from '@/pages/Index';
 import Auth from '@/pages/Auth';
 import Gateway from '@/pages/Gateway';
 import NotFound from '@/pages/NotFound';
-
-import { DetailedOnboarding } from '@/components/DetailedOnboarding';
+import { UserIdentityOnboarding } from '@/components/onboarding/UserIdentityOnboarding';
 import { Loader2 } from 'lucide-react';
 
 const queryClient = new QueryClient();
@@ -19,7 +18,7 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -29,11 +28,11 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
     return <Auth />;
   }
 
-  // Only show onboarding if user hasn't completed it AND is a guest (no assigned role)
-  if (!profile?.onboarding_completed && profile?.role === 'guest') {
-    return <DetailedOnboarding onComplete={() => {
+  // Show profile onboarding if user hasn't completed it
+  if (!profile?.onboarding_completed) {
+    return <UserIdentityOnboarding onComplete={() => {
       // The auth hook will automatically refetch the profile data
-      console.log('Onboarding completed, profile will refresh automatically');
+      console.log('Profile onboarding completed, profile will refresh automatically');
     }} />;
   }
 

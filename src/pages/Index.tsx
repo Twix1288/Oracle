@@ -36,19 +36,13 @@ const Index = () => {
     isLoading: oracleLoading 
   } = useOracle(profile?.role && (profile.role as string) !== 'unassigned' ? profile.role as UserRole : 'guest');
 
-  // AUTHENTICATION GUARD
+  // AUTHENTICATION GUARD - Skip auth redirect since AuthWrapper handles it
   useEffect(() => {
-    console.log('=== AUTH GUARD DEBUG ===');
+    console.log('=== INDEX PAGE DEBUG ===');
     console.log('User:', user?.id);
     console.log('Profile:', profile);
-    console.log('Auth Loading:', loading);
+    console.log('Loading:', loading);
     
-    if (!loading && !user) {
-      console.log('❌ Not authenticated - redirecting to auth');
-      navigate('/auth', { replace: true });
-      return;
-    }
-
     if (user && profile) {
       console.log('✅ User authenticated with profile');
       console.log('Profile onboarding completed:', profile.onboarding_completed);
@@ -63,7 +57,7 @@ const Index = () => {
         setSelectedRole('guest');
       }
     }
-  }, [user, profile, loading, navigate]);
+  }, [user, profile, loading]);
 
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
@@ -113,17 +107,11 @@ const Index = () => {
               <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
             </svg>
           </div>
-          <h2 className="text-3xl font-semibold cosmic-text">Authenticating...</h2>
-          <p className="text-muted-foreground text-lg high-contrast-text">Verifying your access</p>
+          <h2 className="text-3xl font-semibold cosmic-text">Loading...</h2>
+          <p className="text-muted-foreground text-lg high-contrast-text">Setting up your experience</p>
         </div>
       </div>
     );
-  }
-
-  // Show auth page if not authenticated
-  if (!user) {
-    navigate('/auth', { replace: true });
-    return null;
   }
 
   // Show user identity onboarding if profile is not complete
