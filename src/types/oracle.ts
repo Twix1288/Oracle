@@ -1,9 +1,9 @@
 // Updated Oracle types for creator-based system (no lead role)
-export type UserRole = 'builder' | 'mentor' | 'guest' | 'unassigned';
+export type UserRole = 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
 
 export type TeamStage = 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
 
-export type UpdateType = 'daily' | 'milestone' | 'mentor_meeting';
+export type UpdateType = 'daily' | 'milestone' | 'mentor_meeting' | 'progress' | 'issue' | 'note';
 
 // Enhanced Oracle Types for Industry-Level Features
 export interface OracleContext {
@@ -21,7 +21,7 @@ export interface OracleContext {
 export interface UserProfile {
   id: string;
   name: string;
-  role: UserRole;
+  role: 'builder' | 'mentor' | 'lead' | 'guest' | 'unassigned';
   experienceLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   skills: string[];
   preferredTechnologies: string[];

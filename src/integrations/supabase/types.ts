@@ -686,19 +686,44 @@ export type Database = {
         Returns: unknown
       }
       create_team_with_project_data: {
-        Args: {
-          p_description?: string
-          p_name: string
-          p_project_description?: string
-          p_project_name?: string
-          p_tech_stack?: string[]
-          p_user_id?: string
-        }
+        Args:
+          | {
+              p_description?: string
+              p_name: string
+              p_problem_statement?: string
+              p_project_description?: string
+              p_project_name?: string
+              p_project_type?: string
+              p_skills_needed?: string[]
+              p_solution_approach?: string
+              p_target_audience?: string
+              p_team_size_needed?: number
+              p_tech_requirements?: string[]
+              p_tech_stack?: string[]
+              p_timeline_months?: number
+              p_user_id?: string
+            }
+          | {
+              p_description?: string
+              p_name: string
+              p_project_description?: string
+              p_project_name?: string
+              p_tech_stack?: string[]
+              p_user_id?: string
+            }
         Returns: Json
       }
       generate_access_code: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_oracle_team_context: {
+        Args: { p_team_id: string }
+        Returns: Json
+      }
+      get_oracle_user_context: {
+        Args: { p_user_id: string }
+        Returns: Json
       }
       halfvec_avg: {
         Args: { "": number[] }

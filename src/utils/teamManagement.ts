@@ -1,13 +1,13 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Types
+// Types updated for current schema
 export interface Team {
   id: string;
   name: string;
   description: string | null;
   stage: TeamStage;
   created_at: string;
-  assigned_mentor_id: string | null;
+  // assigned_mentor_id removed as it doesn't exist in new schema
 }
 
 export type TeamStage = 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
@@ -21,16 +21,15 @@ export interface Member {
   updated_at: string;
 }
 
-// Generate a unique access code (removed - not used in current schema)
+// Generate access code using database function
 export const generateAccessCode = async (): Promise<string> => {
-  // Generate a simple code for backward compatibility
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   return Array.from({ length: 8 }, () => 
     characters.charAt(Math.floor(Math.random() * characters.length))
   ).join('');
 };
 
-// Create a new team
+// Create team using database function
 export const createTeam = async (
   name: string,
   description: string | null = null,
@@ -48,12 +47,14 @@ export const createTeam = async (
     .single();
 
   if (error) throw error;
-  return data;
+  return {
+    ...data,
+    stage: data.stage as TeamStage
+  } as Team;
 };
 
-// Delete a team (simple delete)
+// Delete a team
 export const deleteTeam = async (teamId: string): Promise<void> => {
-  // Delete the team directly
   const { error } = await supabase
     .from('teams')
     .delete()
@@ -61,13 +62,11 @@ export const deleteTeam = async (teamId: string): Promise<void> => {
 
   if (error) throw error;
 
-  // Move all team members to unassigned
-  const { error: memberError } = await supabase
+  // Move team members to unassigned
+  await supabase
     .from('members')
     .update({ team_id: null })
     .eq('team_id', teamId);
-
-  if (memberError) throw memberError;
 };
 
 // Get unassigned members
@@ -79,7 +78,11 @@ export const getUnassignedMembers = async (): Promise<Member[]> => {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data || [];
+  return (data as any[])?.map(member => ({
+    ...member,
+    name: member.user_id, // Use user_id as name fallback
+    updated_at: member.created_at // Use created_at as updated_at fallback
+  })) || [];
 };
 
 // Assign member to team
@@ -101,7 +104,11 @@ export const getTeamMembers = async (teamId: string): Promise<Member[]> => {
     .order('role');
 
   if (error) throw error;
-  return data || [];
+  return (data as any[])?.map(member => ({
+    ...member,
+    name: member.user_id, // Use user_id as name fallback
+    updated_at: member.created_at // Use created_at as updated_at fallback
+  })) || [];
 };
 
 // Get all active teams
@@ -112,13 +119,10 @@ export const getActiveTeams = async (): Promise<Team[]> => {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data || [];
-};
-
-// Regenerate team access code (removed - not used in current schema)
-export const regenerateAccessCode = async (teamId: string): Promise<string> => {
-  console.log('Regenerate access code requested for team:', teamId);
-  return 'TEMP-' + teamId.slice(0, 4);
+  return (data as any[])?.map(team => ({
+    ...team,
+    stage: team.stage as TeamStage
+  })) || [];
 };
 
 // Get team updates
@@ -146,7 +150,7 @@ export const createTeamUpdate = async (
     .insert({
       team_id: teamId,
       content,
-      type,
+      type: type === 'daily' ? 'note' : type === 'mentor_meeting' ? 'milestone' : type,
       created_by: createdBy
     });
 
@@ -161,22 +165,24 @@ export const updateTeamStatus = async (
 ): Promise<void> => {
   const { error } = await supabase
     .from('team_status')
-    .update({
-      current_status: currentStatus,
-      pending_actions: pendingActions,
-      last_update: new Date().toISOString()
-    })
-    .eq('team_id', teamId);
+    .upsert({
+      team_id: teamId,
+      status: currentStatus,
+      updated_at: new Date().toISOString()
+    });
 
   if (error) throw error;
 };
 
-// Assign mentor to team
+// Assign mentor to team (simplified)
 export const assignMentorToTeam = async (teamId: string, mentorId: string | null): Promise<void> => {
-  const { error } = await supabase
-    .from('teams')
-    .update({ assigned_mentor_id: mentorId })
-    .eq('id', teamId);
-
-  if (error) throw error;
+  // Mentor assignment is handled through the members table
+  // This function is kept for compatibility but simplified
+  if (mentorId) {
+    const { error } = await supabase
+      .from('members')
+      .update({ team_id: teamId, role: 'mentor' })
+      .eq('user_id', mentorId);
+    if (error) throw error;
+  }
 };

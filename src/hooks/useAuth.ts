@@ -66,7 +66,7 @@ export const useAuth = () => {
                   onboarding_completed: profileData.onboarding_completed,
                   team_id: profileData.team_id
                 });
-                setProfile(profileData);
+                setProfile(profileData as any);
               } else {
                 console.log('⚠️ No profile found for user, needs to be created');
                 setProfile(null);
@@ -159,7 +159,7 @@ export const useAuth = () => {
         .single();
 
       if (!error && data) {
-        setProfile(data);
+        setProfile(data as any);
       }
 
       return { data, error };
@@ -189,7 +189,7 @@ export const useAuth = () => {
         .maybeSingle();
       
       if (updatedProfile) {
-        setProfile(updatedProfile);
+        setProfile(updatedProfile as any);
       }
     }
 

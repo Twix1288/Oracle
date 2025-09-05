@@ -92,7 +92,7 @@ export function CreateTeamTab() {
       // Create team with comprehensive project data
       const { data, error } = await supabase
         .rpc('create_team_with_project_data', {
-          p_team_name: formData.teamName.trim(),
+          p_name: formData.teamName.trim(),
           p_description: formData.description.trim(),
           p_problem_statement: formData.problemStatement.trim(),
           p_solution_approach: formData.solutionApproach.trim(),

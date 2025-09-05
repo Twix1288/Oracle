@@ -79,7 +79,10 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
         .order('created_at', { ascending: false });
       
       if (teams) {
-        setAvailableTeams(teams);
+        setAvailableTeams(teams.map(team => ({
+          ...team,
+          stage: team.stage as TeamStage // Type assertion for compatibility
+        })));
       }
     };
 
@@ -110,32 +113,29 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
       let updatedTeam;
 
       if (role === 'builder' || role === 'mentor') {
-        // Update user's team assignment
-        const { error: memberError } = await supabase
+        // Update user's team assignment - simplified to avoid type recursion
+        const { data: currentUser } = await supabase.auth.getUser();
+        if (!currentUser.user) throw new Error('No authenticated user');
+        
+        const memberUpdate = await supabase
           .from('members')
           .update({ team_id: teamId })
-          .eq('name', builderName);
+          .eq('user_id', currentUser.user.id);
 
-        if (memberError) throw memberError;
+        if (memberUpdate.error) throw memberUpdate.error;
 
         if (role === 'mentor') {
-          // Update team's mentor assignment
-          const { error: mentorError } = await supabase
-            .from('teams')
-            .update({ assigned_mentor_id: teamId })
-            .eq('id', teamId);
-
-          if (mentorError) throw mentorError;
+          // We don't update assigned_mentor_id since it doesn't exist in the database
+          // The mentor assignment is handled through the members table
         }
       }
 
-      // Update team with onboarding data
+      // Update team with simplified data to avoid type recursion
       const { data: teamData, error } = await supabase
         .from('teams')
         .update({
           description: formData.description || `${formData.projectGoal} | Stage: ${stageInfo[formData.currentStage as TeamStage].title}`,
-          stage: formData.currentStage as TeamStage,
-          tags: [formData.currentStage, 'onboarded']
+          stage: formData.currentStage as TeamStage
         })
         .eq('id', teamId)
         .select()
@@ -152,11 +152,10 @@ export const OnboardingFlow = ({ team, onComplete, builderName, role, accessCode
         created_by: builderName
       });
 
-      // Create initial team status
+      // Create initial team status  
       await supabase.from('team_status').insert({
         team_id: teamId,
-        current_status: `Team onboarded! Currently in ${stageInfo[formData.currentStage as TeamStage].title} stage`,
-        pending_actions: [`Complete ${stageInfo[formData.currentStage as TeamStage].description.toLowerCase()}`]
+        status: `Team onboarded! Currently in ${stageInfo[formData.currentStage as TeamStage].title} stage`
       });
 
       toast({

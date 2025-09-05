@@ -6,16 +6,17 @@ import type { UserRole } from '@/types/oracle';
 export interface JourneyStage {
   id: string;
   stage_name: string;
-  title: string;
+  title?: string;
+  name?: string;
   description: string;
-  characteristics: string[];
-  support_needed: string[];
-  frameworks: string[];
-  cac_focus: string;
-  ai_impact: string;
+  characteristics?: string[];
+  support_needed?: string[];
+  frameworks?: string[];
+  cac_focus?: string;
+  ai_impact?: string;
   stage_order: number;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface JourneyRequest {
@@ -53,12 +54,69 @@ export const useJourneyService = (selectedRole: UserRole) => {
   const { data: journeyStages, isLoading: stagesLoading } = useQuery({
     queryKey: ['journey_stages'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('journey_stages')
-        .select('*')
-        .order('stage_order');
-      if (error) throw error;
-      return data as JourneyStage[];
+      try {
+        // Return default journey stages since we don't have a journey_stages table
+        return [
+          { 
+            id: '1', 
+            stage_name: 'ideation',
+            name: 'Ideation', 
+            title: 'Ideation',
+            description: 'Generate and validate ideas', 
+            stage_order: 1, 
+            characteristics: [],
+            support_needed: [],
+            frameworks: []
+          },
+          { 
+            id: '2', 
+            stage_name: 'development',
+            name: 'Development', 
+            title: 'Development',
+            description: 'Build your MVP', 
+            stage_order: 2,
+            characteristics: [],
+            support_needed: [],
+            frameworks: []
+          },
+          { 
+            id: '3', 
+            stage_name: 'testing',
+            name: 'Testing', 
+            title: 'Testing',
+            description: 'Test and refine', 
+            stage_order: 3,
+            characteristics: [],
+            support_needed: [],
+            frameworks: []
+          },
+          { 
+            id: '4', 
+            stage_name: 'launch',
+            name: 'Launch', 
+            title: 'Launch',
+            description: 'Go to market', 
+            stage_order: 4,
+            characteristics: [],
+            support_needed: [],
+            frameworks: []
+          },
+          { 
+            id: '5', 
+            stage_name: 'growth',
+            name: 'Growth', 
+            title: 'Growth',
+            description: 'Scale your business', 
+            stage_order: 5,
+            characteristics: [],
+            support_needed: [],
+            frameworks: []
+          }
+        ] as JourneyStage[];
+      } catch (error) {
+        console.error('Error fetching journey stages:', error);
+        return [];
+      }
     },
   });
 

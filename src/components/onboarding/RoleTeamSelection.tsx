@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Users, UserCheck, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Team } from "@/types/oracle";
+import type { Team, TeamStage } from "@/types/oracle";
 
 interface RoleTeamSelectionProps {
   value: {
@@ -59,7 +59,10 @@ export const RoleTeamSelection = ({ value, onChange }: RoleTeamSelectionProps) =
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setTeams(data || []);
+      setTeams((data || []).map(team => ({
+        ...team,
+        stage: team.stage as TeamStage // Type assertion for compatibility
+      })));
       } catch (error) {
         console.error('Error fetching teams:', error);
       } finally {

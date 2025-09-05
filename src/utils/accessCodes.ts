@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Generate a unique access code
+// Generate a unique access code using teams table
 export const generateAccessCode = async (): Promise<string> => {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code: string;
@@ -12,13 +12,15 @@ export const generateAccessCode = async (): Promise<string> => {
       characters.charAt(Math.floor(Math.random() * characters.length))
     ).join('');
 
-    // Check if code already exists in access_codes table
+    // Check if code already exists in teams table
     const { data: existingCode } = await supabase
-      .from('access_codes')
+      .from('teams')
       .select('id')
-      .eq('code', code);
+      .eq('access_code', code)
+      .limit(1)
+      .maybeSingle();
 
-    if (!existingCode || existingCode.length === 0) {
+    if (!existingCode) {
       isUnique = true;
       return code;
     }
@@ -27,58 +29,24 @@ export const generateAccessCode = async (): Promise<string> => {
   throw new Error('Failed to generate unique access code');
 };
 
-// Assign access code to user
-export const assignAccessCode = async (userId: string, role: string, teamId?: string): Promise<string> => {
-  try {
-    console.log('🔑 assignAccessCode called with:', { userId, role, teamId });
-    
-    // Generate new access code
-    console.log('🔑 Generating access code...');
-    const accessCode = await generateAccessCode();
-    console.log('🔑 Generated access code:', accessCode);
-
-    // Create access code entry
-    console.log('🔑 Inserting access code into database...');
-    const { error: codeError } = await supabase
-      .from('access_codes')
-      .insert({
-        code: accessCode,
-        role: role as any,
-        team_id: teamId || null,
-        description: `Generated for user ${userId}`,
-        generated_by: userId
-      });
-
-    if (codeError) {
-      console.error('🔑 Database insertion error:', codeError);
-      throw codeError;
-    }
-
-    console.log('🔑 Access code successfully saved to database');
-    return accessCode;
-  } catch (error) {
-    console.error('🔑 Error assigning access code:', error);
-    throw error;
-  }
-};
-
-// Validate access code
+// Validate access code using teams table
 export const validateAccessCode = async (code: string, role: string): Promise<boolean> => {
   if (!code.trim()) return false;
 
   try {
     // Check master codes
     if (code === 'LEAD2024' && role === 'lead') return true;
+    if (code === 'GUEST2024' && role === 'guest') return true;
 
-    // Check access codes table
-    const { data: codeData } = await supabase
-      .from('access_codes')
-      .select('role')
-      .eq('code', code)
-      .eq('is_active', true)
-      .single();
+    // Check teams access codes for builders/mentors
+    const { data: teamData } = await supabase
+      .from('teams')
+      .select('access_code, name')
+      .eq('access_code', code)
+      .limit(1)
+      .maybeSingle();
 
-    if (codeData && codeData.role === role) return true;
+    if (teamData && (role === 'builder' || role === 'mentor')) return true;
 
     return false;
   } catch (error) {
@@ -87,21 +55,42 @@ export const validateAccessCode = async (code: string, role: string): Promise<bo
   }
 };
 
-// Get user's access code
-export const getUserAccessCode = async (userId: string): Promise<string | null> => {
+// Validate guest access using simple key
+export const validateGuestAccess = async (accessKey: string): Promise<boolean> => {
+  if (accessKey === 'guest2024') return true;
+  
   try {
-    const { data, error } = await supabase
-      .from('access_codes')
-      .select('code')
-      .eq('generated_by', userId)
-      .order('created_at', { ascending: false })
+    const { data } = await supabase
+      .from('teams')
+      .select('access_code')
+      .eq('access_code', accessKey)
       .limit(1)
-      .single();
-
-    if (error) throw error;
-    return data?.code || null;
+      .maybeSingle();
+    return !!data;
   } catch (error) {
-    console.error('Error getting user access code:', error);
+    console.error('Error validating guest access:', error);
+    return false;
+  }
+};
+
+// Get team by access code
+export const getTeamByAccessCode = async (code: string) => {
+  try {
+    const { data } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('access_code', code)
+      .limit(1)
+      .maybeSingle();
+    return data;
+  } catch (error) {
+    console.error('Error getting team by access code:', error);
     return null;
   }
+};
+
+// Assign access code (stub for compatibility)
+export const assignAccessCode = async (userId: string, role: string, teamId?: string): Promise<string> => {
+  // This function exists for compatibility but isn't used in new system
+  return generateAccessCode();
 };

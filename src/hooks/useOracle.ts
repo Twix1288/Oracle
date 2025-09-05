@@ -29,7 +29,11 @@ export const useOracle = (selectedRole: UserRole) => {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data as Member[];
+      return data?.map(member => ({
+        ...member,
+        name: member.user_id, // Use user_id as name since actual name comes from profiles
+        updated_at: member.created_at // Use created_at as updated_at fallback
+      })) as Member[];
     },
     refetchInterval: 3000, // Faster polling for member changes
   });
@@ -47,7 +51,10 @@ export const useOracle = (selectedRole: UserRole) => {
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      return data as Update[];
+      return data?.map(update => ({
+        ...update,
+        updated_at: update.created_at // Use created_at as updated_at fallback
+      })) as Update[];
     },
   });
 
@@ -60,7 +67,10 @@ export const useOracle = (selectedRole: UserRole) => {
         .select('*')
         .order('updated_at', { ascending: false });
       if (error) throw error;
-      return data as TeamStatus[];
+      return data?.map(status => ({
+        ...status,
+        created_at: status.updated_at // Use updated_at as created_at fallback
+      })) as TeamStatus[];
     },
   });
 
@@ -74,12 +84,12 @@ export const useOracle = (selectedRole: UserRole) => {
     }) => {
       const { data, error } = await supabase
         .from('updates')
-        .insert([{
+        .insert({
           team_id: teamId,
           content,
-          type,
+          type: type === 'daily' ? 'note' : type === 'mentor_meeting' ? 'milestone' : type, // Map to supported types
           created_by: createdBy,
-        }])
+        })
         .select()
         .single();
       if (error) throw error;

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Send } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import type { UserRole } from "@/types/oracle";
+import type { UserRole, UpdateType } from "@/types/oracle";
 import ReactMarkdown from "react-markdown";
 
 interface SuperOracleProps {
@@ -68,6 +68,17 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
     canEditOwnProgress: true,
     canSendMessages: true,
     canChangeOracleState: false,
+    canUseGraphRAG: true,
+    canUseMultiModel: true
+  },
+  lead: {
+    canViewTeamData: true,
+    canEditOwnProgress: true,
+    canSendMessages: true,
+    canChangeOracleState: true,
+    canViewAllTeams: true,
+    canSendBroadcasts: true,
+    canEditAnyTeam: true,
     canUseGraphRAG: true,
     canUseMultiModel: true
   },
@@ -167,7 +178,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             const { error } = await supabase.from('updates').insert({
               team_id: teamId,
               content: progressContent,
-              type: 'daily',
+              type: 'progress' as const,
               created_by: userId || `${selectedRole}_user`
             });
             
