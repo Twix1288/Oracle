@@ -68,8 +68,28 @@ export const useAuth = () => {
                 });
                 setProfile(profileData);
               } else {
-                console.log('⚠️ No profile found for user, needs to be created');
-                setProfile(null);
+                console.log('⚠️ No profile found for user, creating one...');
+                
+                // Auto-create missing profile for existing auth users
+                const { data: newProfile, error: createError } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+                    role: 'unassigned',
+                    onboarding_completed: false
+                  })
+                  .select()
+                  .single();
+                
+                if (createError) {
+                  console.error('❌ Profile creation failed:', createError);
+                  setProfile(null);
+                } else {
+                  console.log('✅ Profile created successfully:', newProfile);
+                  setProfile(newProfile);
+                }
               }
             } catch (error) {
               console.error('❌ Profile fetch exception:', error);
