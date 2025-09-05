@@ -645,7 +645,7 @@ async function createTeamUpdate(teamId: string, userId: string, content: string,
       .from('updates')
       .insert({
         team_id: teamId,
-        user_id: userId,
+        created_by: userId,
         content: content,
         type: type,
         created_at: new Date().toISOString()
@@ -681,9 +681,10 @@ async function sendTeamMessage(teamId: string, userId: string, content: string):
       .from('messages')
       .insert({
         team_id: teamId,
-        user_id: userId,
+        sender_id: userId,
         content: content,
-        type: 'team',
+        sender_role: 'builder', // Default role for team messages
+        receiver_role: 'builder', // Broadcast to team
         created_at: new Date().toISOString()
       })
       .select()
@@ -1088,8 +1089,7 @@ serve(async (req) => {
         response: responseData.answer.substring(0, 500),
         sources_count: responseData.sources,
         processing_time_ms: responseData.processing_time,
-        model_used: responseData.model_used,
-        search_strategy: responseData.search_strategy
+        team_id: teamId
       });
     } catch (logError) {
       console.error('Logging error:', logError);
