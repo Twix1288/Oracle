@@ -8,7 +8,6 @@ import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { BuilderDashboard } from "@/components/dashboards/BuilderDashboard";
 import { EnhancedBuilderDashboard } from "@/components/EnhancedBuilderDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
-import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
 import { useOracle } from "@/hooks/useOracle";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -321,18 +320,14 @@ function Index() {
             onExit={handleExitToGateway}
           />
         );
-      case 'lead':
+      default:
         return (
-          <LeadDashboard 
+          <GuestDashboard 
             teams={teams || []}
-            members={members || []}
             updates={updates || []}
-            teamStatuses={teamStatuses}
-            selectedRole={selectedRole}
-            onExit={handleExitToGateway}
+            onExit={handleExitToGateway} 
           />
         );
-      default:
         // This should never happen with bulletproof routing
         console.log('❓ No valid role selected - this should not happen');
         return (

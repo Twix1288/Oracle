@@ -20,7 +20,6 @@ export const DashboardHeader = ({ role, userName, teamName, onExit, onHome }: Da
     switch (role) {
       case 'builder': return 'Builder';
       case 'mentor': return 'Mentor';
-      case 'lead': return 'Lead';
       case 'guest': return 'Guest';
       default: return role;
     }

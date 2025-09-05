@@ -901,6 +901,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_join_request: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -908,6 +912,21 @@ export type Database = {
       check_user_role_simple: {
         Args: { required_role: string; user_id: string }
         Returns: boolean
+      }
+      create_team_with_project_data: {
+        Args: {
+          p_description: string
+          p_problem_statement: string
+          p_project_type: string
+          p_skills_needed: string[]
+          p_solution_approach: string
+          p_target_audience: string
+          p_team_name: string
+          p_team_size_needed: number
+          p_tech_requirements: string[]
+          p_timeline_months: number
+        }
+        Returns: Json
       }
       enhance_oracle_response: {
         Args: { query_text: string; response_text: string; user_role: string }
