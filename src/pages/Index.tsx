@@ -1,58 +1,52 @@
-
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useOracle } from "@/hooks/useOracle";
 import { useNavigate } from "react-router-dom";
-import { ProjectOnboarding } from "@/components/ProjectOnboarding";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { UserIdentityOnboarding } from "@/components/onboarding/UserIdentityOnboarding";
+import { Hub } from "@/components/Hub";
 import { AccessCodeSuccess } from "@/components/AccessCodeSuccess";
-
-import { RoleSelector } from "@/components/RoleSelector";
 import { GuestDashboard } from "@/components/dashboards/GuestDashboard";
 import { NewBuilderDashboard } from "@/components/NewBuilderDashboard";
 import { MentorDashboard } from "@/components/dashboards/MentorDashboard";
-import { LeadDashboard } from "@/components/dashboards/LeadDashboard";
-import { useOracle } from "@/hooks/useOracle";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
-import { toast } from "sonner";
-import type { UserRole, Team } from "@/types/oracle";
+import type { UserRole } from "@/types/oracle";
 
-function Index() {
-  const { user, profile, signOut, loading: authLoading } = useAuth();
+const Index = () => {
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-  const [builderInfo, setBuilderInfo] = useState<{
-    name: string;
-    teamId: string;
-    team: Team;
-  } | null>(null);
   
-  const [completionData, setCompletionData] = useState<{
-    accessCode?: string;
+  // Local state for dynamic role selection and builder info
+  const [selectedRole, setSelectedRole] = useState<UserRole>('guest');
+  const [builderInfo, setBuilderInfo] = useState<{
+    teamId?: string;
     teamName?: string;
-    role?: string;
+    accessCode?: string;
     isProjectLead?: boolean;
   } | null>(null);
   
+  // Track onboarding completion data for access code display
+  const [onboardingCompletionData, setOnboardingCompletionData] = useState<{
+    showAccessCode: boolean;
+    accessCode?: string;
+    teamName?: string;
+  }>({ showAccessCode: false });
+
+  // Oracle hook for data fetching
   const { 
     teams, 
-    members,
+    members, 
     updates, 
-    isLoading, 
-    submitUpdate, 
-    createTeam, 
-    queryRAG, 
-    ragResponse, 
-    ragLoading
+    isLoading: oracleLoading 
   } = useOracle(selectedRole);
 
-  // AUTHENTICATION GUARD - BULLETPROOF
+  // AUTHENTICATION GUARD
   useEffect(() => {
     console.log('=== AUTH GUARD DEBUG ===');
     console.log('User:', user?.id);
     console.log('Profile:', profile);
-    console.log('Auth Loading:', authLoading);
+    console.log('Auth Loading:', loading);
     
-    if (!authLoading && !user) {
+    if (!loading && !user) {
       console.log('❌ Not authenticated - redirecting to auth');
       navigate('/auth', { replace: true });
       return;
@@ -62,84 +56,65 @@ function Index() {
       console.log('✅ User authenticated with profile');
       console.log('Profile onboarding completed:', profile.onboarding_completed);
       console.log('Profile role:', profile.role);
-      console.log('Profile team_id:', profile.team_id);
       
-      // Only set role if user has completed onboarding AND has a valid role
+      // Set role based on profile if onboarding is complete
       if (profile.onboarding_completed && profile.role && profile.role !== 'unassigned') {
         console.log('✅ Setting role:', profile.role);
         setSelectedRole(profile.role);
-        
-        // For builders, we no longer need team assignment - they can create projects
-        if (profile.role === 'builder') {
-          console.log('✅ Builder user authenticated');
-        }
       } else {
-        console.log('🔄 User needs onboarding - clearing role');
-        setSelectedRole(null);
+        console.log('🔄 User needs onboarding or role assignment');
+        setSelectedRole('guest');
       }
     }
-  }, [user, profile, authLoading, navigate, teams]);
-
-  const handleExitToGateway = () => {
-    console.log('🚪 Exiting to gateway...');
-    navigate('/gateway', { replace: true });
-  };
+  }, [user, profile, loading, navigate]);
 
   const handleLogout = async () => {
     console.log('🚪 Logging out...');
-    // Clear all local state first
-    setSelectedRole(null);
+    setSelectedRole('guest');
     setBuilderInfo(null);
-    
-    // Sign out (useAuth handles navigation automatically)
-    await signOut();
   };
 
   const handleRoleSelect = (role: UserRole) => {
     console.log('🎭 Role selected:', role);
     setSelectedRole(role);
-    // Reset builder info when switching roles
     if (role !== 'builder') {
       setBuilderInfo(null);
     }
   };
 
-  const handleBuilderAuthenticated = (builderName: string, teamId: string, teamInfo: Team) => {
+  const handleBuilderAuthenticated = (builderName: string, teamId: string, teamInfo: any) => {
     console.log('🏗️ Builder authenticated:', builderName, teamId);
     setSelectedRole('builder');
     setBuilderInfo({
-      name: builderName,
       teamId: teamId,
-      team: teamInfo
+      teamName: teamInfo.name
     });
   };
 
-  const handleLeaveTeam = () => {
-    console.log('🚪 Leaving team and going to gateway...');
-    setBuilderInfo(null);
-    setSelectedRole(null);
-    navigate('/gateway', { replace: true });
+  const handleUserIdentityComplete = (data: any) => {
+    console.log('🎉 User identity onboarding completed:', data);
+    // Profile will be updated automatically by the component
   };
 
-  const handleOnboardingComplete = (role: string, data?: any) => {
-    console.log('Onboarding completed:', { role, data });
+  const handleProjectOnboarding = () => {
+    console.log('🎉 Project onboarding completed');
+    // This will trigger a re-render with the updated profile
+  };
+
+  const handleOnboardingComplete = (data: any) => {
+    console.log('🎉 Onboarding completed with data:', data);
     
-    // Store completion data to show access code (for project creators)
-    if (data?.accessCode) {
-      setCompletionData({
+    if (data.accessCode) {
+      setOnboardingCompletionData({
+        showAccessCode: true,
         accessCode: data.accessCode,
-        teamName: data.teamName,
-        role: role,
-        isProjectLead: data.isProjectLead
+        teamName: data.teamName
       });
-    } else {
-      // For joiners or mentors, refresh to show dashboard
-      window.location.reload();
     }
   };
 
   // LOADING STATE
-  if (authLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
         <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
@@ -159,92 +134,47 @@ function Index() {
     );
   }
 
-  // ONBOARDING REQUIRED - Show for users without completed onboarding
-  if (user && !authLoading) {
-    // If user exists but profile hasn't loaded yet, show loading
-    if (!profile) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
-          <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
-            <div className="ufo-pulse">
-              <svg width="120" height="120" viewBox="0 0 100 100" fill="currentColor" className="text-primary mx-auto">
-                <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
-                <ellipse cx="50" cy="45" rx="25" ry="20"/>
-                <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
-                <circle cx="50" cy="38" r="4" fill="white"/>
-                <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
-              </svg>
-            </div>
-            <h2 className="text-3xl font-semibold cosmic-text">Loading Profile...</h2>
-            <p className="text-muted-foreground text-lg high-contrast-text">Setting up your experience</p>
+  // Show user identity onboarding if profile is not complete
+  if (!profile?.onboarding_completed) {
+    return (
+      <UserIdentityOnboarding onComplete={handleUserIdentityComplete} />
+    );
+  }
+
+  // Show hub if user completed identity but hasn't chosen a specific role yet
+  if (profile?.role === 'unassigned') {
+    return (
+      <Hub 
+        userProfile={profile} 
+        onProjectOnboarding={handleProjectOnboarding}
+      />
+    );
+  }
+
+  // Show access code success screen if we have completion data
+  if (onboardingCompletionData.showAccessCode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-2xl mx-auto">
+            <AccessCodeSuccess 
+              accessCode={onboardingCompletionData.accessCode!}
+              teamName={onboardingCompletionData.teamName}
+              role="builder"
+              isProjectLead={true}
+              onContinue={() => {
+                setOnboardingCompletionData({ showAccessCode: false });
+                window.location.reload();
+              }}
+            />
           </div>
         </div>
-      );
-    }
-    
-    // If profile loaded but onboarding incomplete, show onboarding
-    if (!profile.onboarding_completed || !profile.role || profile.role === 'unassigned') {
-      console.log('🎯 Showing onboarding for user - incomplete profile:', {
-        onboarding_completed: profile.onboarding_completed,
-        role: profile.role,
-        user_id: user.id
-      });
-
-      // Show completion screen if we have completion data
-      if (completionData) {
-        return (
-          <div className="min-h-screen bg-gradient-to-br from-background via-card to-background cosmic-sparkle">
-            <div className="container mx-auto px-4 py-12">
-              <div className="max-w-2xl mx-auto">
-                <AccessCodeSuccess 
-                  accessCode={completionData.accessCode!}
-                  teamName={completionData.teamName}
-                  role={completionData.role!}
-                  isProjectLead={completionData.isProjectLead}
-                  onContinue={() => {
-                    setCompletionData(null);
-                    window.location.reload();
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="min-h-screen bg-cosmic cosmic-sparkle">
-          {/* Logout header */}
-          <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-primary" />
-                  <span className="text-sm text-muted-foreground">
-                    Welcome, {user?.email}
-                  </span>
-                </div>
-                <Button 
-                  onClick={handleLogout}
-                  variant="outline"
-                  size="sm"
-                  className="bg-background hover:bg-muted/50 border-border"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          <ProjectOnboarding onComplete={handleOnboardingComplete} />
-        </div>
-      );
-    }
+      </div>
+    );
   }
 
   // ORACLE LOADING
-  if (isLoading) {
+  if (oracleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
         <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
@@ -264,39 +194,15 @@ function Index() {
     );
   }
 
-  const handleQueryRAG = (query: string, role: UserRole) => {
-    queryRAG({ query, role });
+  const handleExitToGateway = () => {
+    navigate('/gateway', { replace: true });
   };
 
-  // DASHBOARD ROUTING - Only for completed users with valid roles
+  // DASHBOARD ROUTING - Based on profile role
   const renderDashboard = () => {
-    // Use profile role directly to avoid timing issues, fallback to selectedRole
-    const currentRole = (profile?.onboarding_completed && profile?.role && profile.role !== 'unassigned') 
-      ? profile.role 
-      : selectedRole;
+    const currentRole = profile?.role || selectedRole;
     
-    console.log('🎯 Rendering dashboard for role:', currentRole, '(profile role:', profile?.role, 'selected role:', selectedRole, ')');
-    
-    if (!currentRole) {
-      console.log('❓ No valid role - showing loading');
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
-          <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
-            <div className="ufo-pulse">
-              <svg width="120" height="120" viewBox="0 0 100 100" fill="currentColor" className="text-primary mx-auto">
-                <ellipse cx="50" cy="60" rx="35" ry="15" opacity="0.6"/>
-                <ellipse cx="50" cy="45" rx="25" ry="20"/>
-                <circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
-                <circle cx="50" cy="38" r="4" fill="white"/>
-                <circle cx="60" cy="40" r="3" fill="white" opacity="0.8"/>
-              </svg>
-            </div>
-            <h2 className="text-3xl font-semibold cosmic-text">Loading Dashboard...</h2>
-            <p className="text-muted-foreground text-lg high-contrast-text">Setting up your workspace</p>
-          </div>
-        </div>
-      );
-    }
+    console.log('🎯 Rendering dashboard for role:', currentRole);
     
     switch (currentRole) {
       case 'guest':
@@ -324,24 +230,13 @@ function Index() {
             updates={updates || []}
             teamStatuses={[]}
             selectedRole={selectedRole}
-            mentorId="current-mentor"
+            mentorId={user?.id || "current-mentor"}
             onExit={handleExitToGateway}
           />
         );
-      case 'lead':
-        return (
-          <LeadDashboard 
-            teams={teams || []}
-            members={members || []}
-            updates={updates || []}
-            teamStatuses={[]}
-            selectedRole={selectedRole}
-            onExit={handleExitToGateway}
-          />
-        );
+      // Lead role removed as per requirements
       default:
-        // This should never happen with bulletproof routing
-        console.log('❓ No valid role selected - this should not happen');
+        console.log('❓ No valid role selected or invalid role:', currentRole);
         return (
           <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
             <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
@@ -354,6 +249,6 @@ function Index() {
   };
 
   return renderDashboard();
-}
+};
 
 export default Index;
