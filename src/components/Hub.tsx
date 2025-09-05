@@ -53,12 +53,7 @@ export const Hub = ({ userProfile, onCreateProject }: HubProps) => {
       const { data: teams, error } = await supabase
         .from('teams')
         .select(`
-          id,
-          name,
-          description,
-          tags,
-          stage,
-          ai_summary
+          *
         `)
         .limit(12)
         .order('created_at', { ascending: false });

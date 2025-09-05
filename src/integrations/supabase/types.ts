@@ -739,6 +739,7 @@ export type Database = {
       }
       teams: {
         Row: {
+          ai_summary: string | null
           assigned_mentor_id: string | null
           created_at: string
           description: string | null
@@ -749,6 +750,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_summary?: string | null
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null
@@ -759,6 +761,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_summary?: string | null
           assigned_mentor_id?: string | null
           created_at?: string
           description?: string | null

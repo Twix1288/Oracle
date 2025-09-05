@@ -133,6 +133,36 @@ export const ProjectOnboarding = ({ onComplete, onBack }: ProjectOnboardingProps
       
       console.log('Team created successfully:', team);
 
+      // Generate AI summary for the project
+      console.log('Generating AI summary...');
+      try {
+        const { data: summaryData, error: summaryError } = await supabase.functions.invoke('ai-summarizer', {
+          body: {
+            text: formData.problemDescription,
+            type: 'project_description',
+            context: {
+              name: formData.projectName,
+              stage: mappedStage,
+              categories: formData.problemCategory,
+              skills: formData.skillsNeeded
+            }
+          }
+        });
+
+        if (summaryData?.summary && !summaryError) {
+          // Update team with AI summary
+          await supabase
+            .from('teams')
+            .update({ ai_summary: summaryData.summary })
+            .eq('id', team.id);
+          console.log('AI summary generated and saved:', summaryData.summary);
+        } else {
+          console.log('AI summary generation failed, using original description');
+        }
+      } catch (summaryError) {
+        console.log('AI summary generation error:', summaryError);
+      }
+
       // Create access code
       console.log('Creating access code...');
       const { error: codeError } = await supabase
