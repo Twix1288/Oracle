@@ -590,6 +590,7 @@ export type Database = {
           team_id: string | null
           timezone: string | null
           updated_at: string
+          user_types: string[] | null
         }
         Insert: {
           availability?: string | null
@@ -615,6 +616,7 @@ export type Database = {
           team_id?: string | null
           timezone?: string | null
           updated_at?: string
+          user_types?: string[] | null
         }
         Update: {
           availability?: string | null
@@ -640,6 +642,7 @@ export type Database = {
           team_id?: string | null
           timezone?: string | null
           updated_at?: string
+          user_types?: string[] | null
         }
         Relationships: [
           {
