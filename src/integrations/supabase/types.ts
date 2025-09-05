@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          creator_id: string | null
           current_uses: number | null
           description: string | null
           expires_at: string | null
@@ -33,6 +34,7 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          creator_id?: string | null
           current_uses?: number | null
           description?: string | null
           expires_at?: string | null
@@ -48,6 +50,7 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          creator_id?: string | null
           current_uses?: number | null
           description?: string | null
           expires_at?: string | null
@@ -222,6 +225,7 @@ export type Database = {
           embedding: string | null
           id: string
           metadata: Json | null
+          role_visibility: Database["public"]["Enums"]["user_role"][] | null
           source_reference: string | null
           source_type: string | null
           team_visibility: string[] | null
@@ -233,6 +237,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
+          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
           source_reference?: string | null
           source_type?: string | null
           team_visibility?: string[] | null
@@ -244,6 +249,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
+          role_visibility?: Database["public"]["Enums"]["user_role"][] | null
           source_reference?: string | null
           source_type?: string | null
           team_visibility?: string[] | null
@@ -283,6 +289,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      join_requests: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          message: string | null
+          requester_id: string
+          responded_at: string | null
+          status: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id?: string
+          message?: string | null
+          requester_id: string
+          responded_at?: string | null
+          status?: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          message?: string | null
+          requester_id?: string
+          responded_at?: string | null
+          status?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "join_requests_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journey_stages: {
         Row: {
@@ -741,9 +791,19 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_public: boolean | null
           name: string
+          problem_statement: string | null
+          project_type: string | null
+          skills_needed: string[] | null
+          solution_approach: string | null
           stage: Database["public"]["Enums"]["team_stage"] | null
           tags: string[] | null
+          target_audience: string | null
+          team_creator_id: string | null
+          team_size_needed: number | null
+          tech_requirements: string[] | null
+          timeline_months: number | null
           updated_at: string
         }
         Insert: {
@@ -752,9 +812,19 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_public?: boolean | null
           name: string
+          problem_statement?: string | null
+          project_type?: string | null
+          skills_needed?: string[] | null
+          solution_approach?: string | null
           stage?: Database["public"]["Enums"]["team_stage"] | null
           tags?: string[] | null
+          target_audience?: string | null
+          team_creator_id?: string | null
+          team_size_needed?: number | null
+          tech_requirements?: string[] | null
+          timeline_months?: number | null
           updated_at?: string
         }
         Update: {
@@ -763,9 +833,19 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_public?: boolean | null
           name?: string
+          problem_statement?: string | null
+          project_type?: string | null
+          skills_needed?: string[] | null
+          solution_approach?: string | null
           stage?: Database["public"]["Enums"]["team_stage"] | null
           tags?: string[] | null
+          target_audience?: string | null
+          team_creator_id?: string | null
+          team_size_needed?: number | null
+          tech_requirements?: string[] | null
+          timeline_months?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -836,6 +916,10 @@ export type Database = {
       get_user_dashboard_stage: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Enums"]["team_stage"]
+      }
+      get_user_role: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
       }
       halfvec_avg: {
         Args: { "": number[] }
