@@ -28,13 +28,13 @@ const Index = () => {
     isProjectLead?: boolean;
   } | null>(null);
 
-  // Oracle hook for data fetching
+  // Oracle hook for data fetching - only initialize if user has a role
   const { 
     teams, 
     members, 
     updates, 
     isLoading: oracleLoading 
-  } = useOracle(selectedRole);
+  } = useOracle(profile?.role && (profile.role as string) !== 'unassigned' ? profile.role as UserRole : 'guest');
 
   // AUTHENTICATION GUARD
   useEffect(() => {
@@ -54,12 +54,12 @@ const Index = () => {
       console.log('Profile onboarding completed:', profile.onboarding_completed);
       console.log('Profile role:', profile.role);
       
-      // Set role based on profile if onboarding is complete
-      if (profile.onboarding_completed && profile.role && profile.role !== 'unassigned') {
+      // Set role based on profile
+      if (profile.role && (profile.role as string) !== 'unassigned') {
         console.log('✅ Setting role:', profile.role);
         setSelectedRole(profile.role);
       } else {
-        console.log('🔄 User needs onboarding or role assignment');
+        console.log('🔄 User needs role assignment');
         setSelectedRole('guest');
       }
     }
@@ -120,6 +120,12 @@ const Index = () => {
     );
   }
 
+  // Show auth page if not authenticated
+  if (!user) {
+    navigate('/auth', { replace: true });
+    return null;
+  }
+
   // Show user identity onboarding if profile is not complete
   if (!profile?.onboarding_completed) {
     return (
@@ -128,7 +134,7 @@ const Index = () => {
   }
 
   // Show hub if user completed identity but hasn't chosen a specific role yet
-  if (profile?.role === 'unassigned') {
+  if ((profile?.role as string) === 'unassigned') {
     // Handle different views within the hub flow
     switch (currentView) {
       case 'project-onboarding':
@@ -168,8 +174,8 @@ const Index = () => {
     }
   }
 
-  // ORACLE LOADING
-  if (oracleLoading) {
+  // ORACLE LOADING (only show if user has a role and oracle is loading)
+  if (profile?.role && (profile.role as string) !== 'unassigned' && oracleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
         <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
@@ -194,20 +200,17 @@ const Index = () => {
   };
 
   // DASHBOARD ROUTING - Based on profile role
-  const renderDashboard = () => {
-    const currentRole = profile?.role || selectedRole;
+  // Dashboard routing - only if user has an assigned role
+  if (profile?.role && (profile.role as string) !== 'unassigned') {
+    const currentRole = profile.role;
     
     console.log('🎯 Rendering dashboard for role:', currentRole);
     
+    const handleExitToGateway = () => {
+      navigate('/gateway', { replace: true });
+    };
+    
     switch (currentRole) {
-      case 'guest':
-        return (
-          <GuestDashboard 
-            teams={teams || []}
-            updates={updates || []}
-            onExit={handleExitToGateway}
-          />
-        );
       case 'builder':
         return (
           <NewBuilderDashboard 
@@ -224,14 +227,21 @@ const Index = () => {
             members={members || []}
             updates={updates || []}
             teamStatuses={[]}
-            selectedRole={selectedRole}
+            selectedRole={currentRole as UserRole}
             mentorId={user?.id || "current-mentor"}
             onExit={handleExitToGateway}
           />
         );
-      // Lead role removed as per requirements
+      case 'guest':
+        return (
+          <GuestDashboard 
+            teams={teams || []}
+            updates={updates || []}
+            onExit={handleExitToGateway}
+          />
+        );
       default:
-        console.log('❓ No valid role selected or invalid role:', currentRole);
+        console.log('❓ Invalid role:', currentRole);
         return (
           <div className="min-h-screen flex items-center justify-center bg-cosmic cosmic-sparkle">
             <div className="text-center space-y-6 p-8 ufo-card rounded-xl">
@@ -241,9 +251,10 @@ const Index = () => {
           </div>
         );
     }
-  };
+  }
 
-  return renderDashboard();
+  // If we get here, user is authenticated but needs onboarding or role assignment
+  return null;
 };
 
 export default Index;
