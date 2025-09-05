@@ -592,6 +592,9 @@ export interface Member {
   name: string;
   role: UserRole;
   team_id?: string;
+  user_id?: string;
+  assigned_by?: string;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }

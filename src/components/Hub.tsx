@@ -30,6 +30,7 @@ interface Team {
   description: string;
   tags: string[];
   stage: string;
+  ai_summary?: string;
   member_count?: number;
 }
 
@@ -56,7 +57,8 @@ export const Hub = ({ userProfile, onCreateProject }: HubProps) => {
           name,
           description,
           tags,
-          stage
+          stage,
+          ai_summary
         `)
         .limit(12)
         .order('created_at', { ascending: false });
@@ -320,7 +322,7 @@ export const Hub = ({ userProfile, onCreateProject }: HubProps) => {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <p className="text-muted-foreground text-sm line-clamp-3">
-                          {team.description || "No description available"}
+                          {team.ai_summary || team.description || "No description available"}
                         </p>
                         
                         {team.tags && team.tags.length > 0 && (

@@ -19,7 +19,10 @@ import {
 } from "lucide-react";
 import { DashboardHeader } from "./DashboardHeader";
 import { SuperOracle } from "./SuperOracle";
+import { BuilderLounge } from "./BuilderLounge";
+import { ProgressTracker } from "./ProgressTracker";
 import { useLegacyProjects, type LegacyProject } from "@/hooks/useLegacyProjects";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Team, Member, Update } from "@/types/oracle";
 
@@ -31,6 +34,7 @@ interface NewBuilderDashboardProps {
 }
 
 export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuilderDashboardProps) => {
+  const { user } = useAuth();
   const {
     projects,
     isLoading,
@@ -49,6 +53,13 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
     description: "",
     stage: "ideation" as "ideation" | "development" | "testing" | "launch" | "growth"
   });
+
+  // Find the user's team (they should have one after creating a project)
+  const userTeam = teams?.find(team => 
+    members?.some(member => member.team_id === team.id && member.user_id === user?.id)
+  );
+
+  const teamUpdates = updates?.filter(update => update.team_id === userTeam?.id) || [];
 
   const handleCreateProject = () => {
     if (!projectForm.title.trim()) {
@@ -185,10 +196,18 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-card/50 backdrop-blur border-primary/20">
+          <TabsList className="grid w-full grid-cols-4 bg-card/50 backdrop-blur border-primary/20">
             <TabsTrigger value="projects" className="data-[state=active]:bg-primary/20">
               <Target className="h-4 w-4 mr-2" />
               My Projects
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="data-[state=active]:bg-primary/20">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Progress
+            </TabsTrigger>
+            <TabsTrigger value="lounge" className="data-[state=active]:bg-primary/20">
+              <Users className="h-4 w-4 mr-2" />
+              Builder's Lounge
             </TabsTrigger>
             <TabsTrigger value="oracle" className="data-[state=active]:bg-primary/20">
               <MessageSquare className="h-4 w-4 mr-2" />
@@ -248,6 +267,46 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="progress">
+            {userTeam ? (
+              <ProgressTracker 
+                team={userTeam}
+                updates={teamUpdates}
+                userRole="builder"
+              />
+            ) : (
+              <Card className="glow-border bg-card/50 backdrop-blur">
+                <CardContent className="p-8 text-center">
+                  <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Team Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create a project to automatically create your team and track progress
+                  </p>
+                  <Button onClick={() => setShowCreateProject(true)} className="ufo-gradient">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Project
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="lounge">
+            {user?.id ? (
+              <BuilderLounge userId={user.id} />
+            ) : (
+              <Card className="glow-border bg-card/50 backdrop-blur">
+                <CardContent className="p-8 text-center">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Authentication Required</h3>
+                  <p className="text-muted-foreground">
+                    Please ensure you're logged in to access the Builder's Lounge
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="oracle">
