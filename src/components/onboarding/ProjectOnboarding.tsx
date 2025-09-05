@@ -93,7 +93,7 @@ export const ProjectOnboarding = ({ userId, onComplete, onCancel }: ProjectOnboa
 
       toast({
         title: "Team Created Successfully!",
-        description: `Your team "${formData.projectName}" has been created with access code: ${data.team?.access_code || 'Generated'}`,
+        description: `Your team "${formData.projectName}" has been created successfully!`,
       });
 
       onComplete(data);

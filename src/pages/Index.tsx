@@ -55,27 +55,12 @@ function Index() {
     // Check if user has a team and role
     if (profile.team_id && profile.role === 'builder') {
       // Show team dashboard for builders with teams
-      return (
-        <div className="min-h-screen bg-gradient-cosmic">
-          <EnhancedBuilderDashboard 
-            userId={user.id}
-            teamId={profile.team_id}
-            userProfile={profile}
-            onExitToGateway={handleExitToGateway}
-            onLogout={handleLogout}
-          />
-        </div>
-      );
+      // Redirect to Gateway hub for builders with teams (for now)
+      return <Navigate to="/gateway" replace />;
     } else if (profile.role === 'mentor') {
       // Show mentor dashboard
-      return (
-        <div className="min-h-screen bg-gradient-cosmic">
-          <MentorDashboard 
-            onExitToGateway={handleExitToGateway}
-            onLogout={handleLogout}
-          />
-        </div>
-      );
+      // Redirect to Gateway hub for mentors (for now)
+      return <Navigate to="/gateway" replace />;
     } else {
       // Redirect to Gateway hub for unassigned users or those without teams
       return <Navigate to="/gateway" replace />;

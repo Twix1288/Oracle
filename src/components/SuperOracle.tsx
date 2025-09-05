@@ -71,17 +71,6 @@ const rolePermissions: Record<UserRole, RolePermissions> = {
     canUseGraphRAG: true,
     canUseMultiModel: true
   },
-  lead: {
-    canViewTeamData: true,
-    canEditOwnProgress: true,
-    canSendMessages: true,
-    canChangeOracleState: true,
-    canViewAllTeams: true,
-    canSendBroadcasts: true,
-    canEditAnyTeam: true,
-    canUseGraphRAG: true,
-    canUseMultiModel: true
-  },
   mentor: {
     canViewTeamData: true,
     canEditOwnProgress: true,
