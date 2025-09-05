@@ -59,6 +59,42 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          content: string
+          content_type: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          source_id: string | null
+          source_table: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          content_type?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+          source_table?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          content_type?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+          source_table?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       members: {
         Row: {
           created_at: string | null
@@ -720,6 +756,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_comprehensive_oracle_context: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       get_oracle_team_context: {
         Args: { p_team_id: string }
         Returns: Json
@@ -795,6 +835,14 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      store_onboarding_as_documents: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      store_team_as_document: {
+        Args: { p_team_id: string }
+        Returns: undefined
       }
       use_access_code: {
         Args: { p_builder_name?: string; p_code: string; p_user_id: string }

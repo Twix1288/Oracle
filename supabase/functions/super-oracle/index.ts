@@ -65,13 +65,40 @@ interface VectorizedData {
   content: string;
   embedding: number[];
   metadata: {
-    source_type: 'user_profile' | 'team_update' | 'oracle_interaction' | 'knowledge_base';
+    source_type: 'user_profile' | 'team_update' | 'oracle_interaction' | 'knowledge_base' | 'profile' | 'team' | 'message' | 'update';
     user_id?: string;
     team_id?: string;
     relevance_keywords: string[];
     content_type: string;
     created_at: string;
   };
+}
+
+// Match documents function for vector similarity search
+async function matchDocuments(
+  queryEmbedding: number[], 
+  matchThreshold: number = 0.7, 
+  matchCount: number = 10,
+  userId?: string
+): Promise<any[]> {
+  try {
+    const { data, error } = await supabase.rpc('match_documents', {
+      query_embedding: queryEmbedding,
+      match_threshold: matchThreshold,
+      match_count: matchCount,
+      user_id: userId
+    });
+
+    if (error) {
+      console.error('Vector search error:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in matchDocuments:', error);
+    return [];
+  }
 }
 
 // Generate embeddings for content
@@ -170,34 +197,32 @@ async function searchSimilarContent(query: string, filters?: any): Promise<any[]
   }
 }
 
-// Simple user context retrieval
+// Enhanced user context retrieval using comprehensive Oracle context
 async function getUserContext(userId?: string, teamId?: string): Promise<any> {
   if (!userId) return null;
   
   try {
-    // Get basic user profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    // Use the new comprehensive Oracle context function
+    const { data: comprehensiveContext, error } = await supabase.rpc('get_comprehensive_oracle_context', {
+      p_user_id: userId
+    });
 
-    // Get team context if available
-    let teamContext = null;
-    if (teamId) {
-      const { data: team } = await supabase
-        .from('teams')
+    if (error) {
+      console.error('Error getting comprehensive context:', error);
+      // Fallback to basic context
+      const { data: profile } = await supabase
+        .from('profiles')
         .select('*')
-        .eq('id', teamId)
+        .eq('id', userId)
         .single();
-      teamContext = team;
+
+      return { profile, userId, teamId };
     }
 
     return {
-      profile,
-      team: teamContext,
+      ...comprehensiveContext,
       userId,
-      teamId
+      teamId: teamId || comprehensiveContext?.user_team?.team_info?.id
     };
   } catch (error) {
     console.error('Error getting user context:', error);
