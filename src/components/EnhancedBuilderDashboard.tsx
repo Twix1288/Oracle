@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardHeader } from "./DashboardHeader";
 import { ProgressTracker } from "./ProgressTracker";
+import { ProgressEntryManager } from "./ProgressEntryManager";
 import { TeamProfileCard } from "./TeamProfileCard";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LoadingSpinner } from "./LoadingSpinner";
@@ -87,273 +88,7 @@ export const EnhancedBuilderDashboard = ({
     setShowLeaveConfirm(false);
   };
 
-  // One-time: Ingest PieFi dashboard template into documents for Oracle reference
-  useEffect(() => {
-    const PIEFIDASHBOARD_TEXT = `Welcome back, Rishit Agnihotri!
-first_build Stage
-
-100% Confidence
-
-Refresh Dashboard
-
-Populate Journey
-Profile
-Sign Out
-
-Overview
-
-Dev Journey
-
-Progress
-Daily Check-in
-Share your progress and get AI-powered coaching insights
-
-What did you work on today? Any challenges or wins?
-Quick reflection questions:
-
-Whose specific pain point within Piefi/accelerators did I clarify or validate today that my oracle directly addresses?
-
-What existing methods or workarounds did I learn about today that Piefi's users currently employ for the problem my oracle aims to solve?
-
-What specific benefit or capability of my oracle did I identify today that would make a Piefi user truly eager to try it?
-Click any question to add it to your check-in
-
-
-Submit Update
-Let's dig deeper:
-
-Share more details about these points...
-Share More
-Skip for now
-AI Coach
-Personalized insights & challenges
-
-It's great to see the technical foundation of your oracle site taking shape and that you're getting core commands working. You're building, which is essential for Stage 2. But let me challenge you on this: Are you building what people actually want, or what you think they want? What specific, painful problem do 'Create an update' or 'Send message' solve for your target B2B organizations, and how do you know this is a priority for them?
-Current Stage
-
-first_build
-
-Recent Updates
-
-1
-
-Stage Progress
-
-100%
-
-Track
-
-builder
-
-, 
-Welcome back, Rishit Agnihotri!
-first_build Stage
-
-100% Confidence
-
-Refresh Dashboard
-
-Populate Journey
-Profile
-Sign Out
-
-Overview
-
-Dev Journey
-
-Progress
-Your Development Journey
-Enhanced with adaptive intelligence and personalized insights
-
-Stage 2
-
-Current Focus
-
-3
-
-Completed
-
-100%
-
-Confidence
-
-🔄 Refresh Analysis
-Recommended Next Actions
-• Complete user_testing and prototype_validation in Stage 2
-
-Stage 0: Stage 0: Spark
-100% Complete
-Readiness: 70%
-2 milestones
-70% ready
-
-Stage 1: Stage 1: Formation
-100% Complete
-Readiness: 70%
-2 milestones
-70% ready
-
-Stage 2: Stage 2: First Build
-100% Complete
-Readiness: 70%
-2 milestones
-70% ready
-
-Prototype development and core feature implementation
-
-Adaptive Analysis
-• 2/2 required milestones completed
-
-• Readiness score: 70% (based on prerequisites and progress)
-
-• This is your current focus stage based on adaptive analysis
-
-Your Milestone Achievements (2)
-Mvp Designed
-Approved
-about 1 hour ago
-Technical Challenges
-Approved
-about 1 hour ago
-Available Milestones
-User Testing
-Describe your progress on user testing...
-Submit Milestone
-Prototype Validation
-Describe your progress on prototype validation...
-Submit Milestone
-Next Steps
-Focus on completing user testing to advance in this stage.
-
-Stage 3: Stage 3: Ship
-0% Complete
-Readiness: 40%
-40% ready
-
-Stage 4: Stage 4: Traction
-0% Complete
-Readiness: 30%
-30% ready
-
-Stage 5: Stage 5: Real Company
-0% Complete
-Readiness: 24%
-24% ready
-
-View Traditional Stage Progression
-, 
-Welcome back, Rishit Agnihotri!
-first_build Stage
-
-100% Confidence
-
-Refresh Dashboard
-
-Populate Journey
-Profile
-Sign Out
-
-Overview
-
-Dev Journey
-
-Progress
-Comprehensive Project Dashboard
-Professional investor presentation with detailed progress tracking
-
-Refresh Data
-My solution right
-AI-Powered Investment Analysis Dashboard
-
-Refresh AI Insights
-Executive Summary
-Problem Statement
-Accelerators and similar innovation-driven organizations frequently encounter systemic challenges, including team disconnection, duplicated efforts, and inefficient knowledge sharing. These pervasive pain points lead to quantifiable negative impacts, hindering collaboration and progress within dynamic, fast-paced environments due to a lack of purpose-built, integrated solutions.
-Solution Approach
-The Piefi Oracle is an intelligent personal agent designed to optimize operations and foster collaboration within accelerator ecosystems. This comprehensive platform will offer core functionalities such as a centralized dashboard, an update and messaging system, and an AI-powered 'oracle' capable of executing commands for resource discovery, progress tracking, and expert connection. Leveraging the Lovable platform, the development prioritizes simplified backend operations and efficient code implementation to facilitate rapid scaling.
-Unique Value Proposition
-The Piefi Oracle's unique value proposition stems from its purpose-built design for the accelerator context, ensuring seamless integration and alignment with organizational workflows. It provides comprehensive data tracking and historical preservation, acting as a persistent institutional memory. This tailored approach fosters a collaborative and transparent environment, differentiating it from generic tools by offering a context-aware, intelligent solution that supports dynamic accelerator ecosystems.
-Market Opportunity
-The market opportunity within the accelerator ecosystem is substantial, driven by the pervasive pain points of disconnected teams, duplicated work, and inefficient knowledge sharing, which result in quantifiable negative impacts. Existing generic tools are insufficient for the unique demands of accelerators. The Piefi Oracle, beginning with Piefi as a strategic proving ground, targets a large addressable market by offering a purpose-built solution that not only resolves critical inefficiencies but also preserves invaluable historical data, establishing a clear competitive differentiation.
-Key Metrics
-80%
-Viability Score
-50%
-Journey Complete
-6
-Milestones
-75%
-AI Confidence
-Development Velocity
-6/week
-Consistency Score
-20%
-Milestone Achievements & Validation Evidence
-AI Investment Analysis & Risk Assessment
-Investment Readiness Score
-35%
-While the team demonstrates impressive execution velocity and milestone completion, the startup is at an extremely early stage regarding market validation and foundational technical architecture. The near-absence of user feedback and validation evidence, coupled with an internal definition of 'market traction,' indicates a high product-market fit risk. The complete lack of documented architectural decisions and a vague scalability plan represent critical technical vulnerabilities for future growth and stability. The low consistency score, despite high velocity, suggests potential operational instability. Investment at this stage would be highly speculative, primarily betting on the team's ability to pivot, validate the market, and simultaneously build out a robust technical foundation from scratch.
-
-Key Strengths
-• High execution velocity and strong milestone completion rate (6/6).
-• Demonstrated learning velocity and adaptability to feedback.
-• Stated commitment to maintaining high code quality standards.
-Areas for Improvement
-• Conduct comprehensive market validation to establish clear product-market fit and validate demand.
-• Develop and document a robust technical architecture for scalability, maintainability, and future-proofing.
-• Define clear, external market traction metrics and demonstrate tangible progress against them.
-• Improve execution consistency to ensure sustainable development and predictability.
-• Clearly articulate the competitive landscape and define a stronger, externally validated competitive advantage beyond internal 'Piefi' capabilities.
-Market Opportunity
-Market penetration potential is currently unproven and highly speculative. With only one piece of user feedback and one validation item, there is no demonstrated external demand or validated path to acquire users beyond a potential niche related to 'Piefi'. The internal definition of 'market traction' further indicates a lack of external market validation. Significant market validation efforts are required before any meaningful penetration can be projected.
-
-Competitive Advantage
-Technical feasibility assessment shows developingdifferentiation potential. AI confidence in execution suggestsemerging competitive positioning.
-
-AI Risk Assessment
-Medium
-Execution Risk
-70% confidence
-High
-Market Risk
-95% confidence
-High
-Technical Risk
-90% confidence
-Execution: The startup demonstrates high development velocity (6 milestones/week) and has successfully completed all 6 planned milestones, indicating strong initial execution capability. However, the very low Consistency Score (20%) is a significant concern, suggesting that this high velocity may be sporadic, unsustainable, or achieved through inconsistent efforts. While high execution is present, its predictability and long-term sustainability are questionable due to the inconsistency.
-Market: Market validation is critically low, with only 1 piece of user feedback and 1 item of validation evidence. The definition of 'market traction' is internal ('how much capability the oracle has') rather than based on external user adoption, engagement, or revenue, indicating a lack of proven product-market fit. The competitive advantage is described in terms of internal product capabilities related to 'Piefi's history and projects,' which suggests a niche focus without clear articulation of broader market differentiation or a compelling solution to a widespread problem. This indicates substantial uncertainty regarding market demand and adoption.
-Technical: The complete absence of documented 'Architecture Decisions' for a product at 50% completion is a major red flag. This lack of foundational architectural planning can lead to significant technical debt, re-platforming needs, and challenges in achieving true scalability and maintainability, despite claims of 'maintaining high code quality standards' in individual components. The scalability plan, which heavily relies on 'Lovable' to 'simpliefied' coding and backend, lacks specific technical detail on how large-scale requirements will be met beyond generic simplification, raising concerns about the team's deep architectural expertise and strategic planning for growth.
-AI Growth Potential Prediction
-The startup possesses a team capable of rapid internal development, which is a key asset for iteration. However, its growth potential is severely constrained by critical gaps in market validation and foundational technical architecture. Without a clear product-market fit, a robust and documented scalable architecture, and a more consistent execution pattern, achieving significant market penetration or sustainable growth will be extremely challenging. Growth is highly speculative and contingent on successfully addressing these fundamental weaknesses.
-
-Scaling Capability: Operational scaling capability is questionable due to the very low Consistency Score (20%), which could hinder sustained growth efforts. Technical scaling capability is also a significant concern due to the complete lack of documented architectural decisions and a vague scalability plan that heavily relies on an external tool without deep strategic insight. While the team shows high development velocity, scaling requires robust, planned, and stable foundations which appear to be missing.
-Trajectory Analysis: The current trajectory shows strong internal development velocity and milestone completion, indicating a capable execution team. However, this progress is largely product-centric and lacks external market validation. The 'Project Viability Score: 80%' and 'AI Confidence Average: 75%' are positive internal indicators, but the low consistency score (20%) threatens the sustainability of the current velocity. The trajectory is currently high-risk due to the significant disconnect between internal development speed and external market validation.
-AI Analysis Confidence
-85%
-Market Validation & Traction
-Technical Progress & Architecture
-Investment Opportunity & Funding Needs`;
-
-    const run = async () => {
-      const { data: existing, error: checkError } = await supabase
-        .from('documents')
-        .select('id')
-        .contains('metadata', { slug: 'piefi_dashboard_template_v1' })
-        .limit(1)
-        .maybeSingle();
-      if (checkError) {
-        // silently ignore
-      }
-      if (!existing) {
-        await supabase.from('documents').insert({
-          content: PIEFIDASHBOARD_TEXT,
-          source_type: 'dashboard_template',
-          metadata: { slug: 'piefi_dashboard_template_v1', title: 'PieFi Dashboard Template' },
-        });
-      }
-    };
-    run();
-  }, []);
+  // One-time: Ingest PieFi dashboard template removed as documents table doesn't exist
 
   const teamMembers = members.filter(member => member.team_id === currentTeam.id);
   const teamUpdates = updates.filter(update => update.team_id === currentTeam.id);
@@ -570,6 +305,10 @@ Investment Opportunity & Funding Needs`;
               userRole="builder"
               onStageUpdate={handleStageUpdate}
             />
+            <ProgressEntryManager 
+              team={currentTeam} 
+              userId={builderName} 
+            />
           </TabsContent>
 
           <TabsContent value="oracle" className="space-y-6">
@@ -597,7 +336,7 @@ Investment Opportunity & Funding Needs`;
           </TabsContent>
 
           <TabsContent value="lounge" className="space-y-6">
-            <BuilderLounge userId={builderName} />
+            <BuilderLounge userId={builderName} teamId={currentTeam.id} />
           </TabsContent>
 
           <TabsContent value="team" className="space-y-6">

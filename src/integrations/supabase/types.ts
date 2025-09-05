@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      builder_conversations: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          message: string
+          sender_id: string | null
+          team_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          message: string
+          sender_id?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          message?: string
+          sender_id?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_conversations_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_conversations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           created_at: string | null
@@ -60,6 +105,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string | null
+          embedding: string | null
           id: string
           read_at: string | null
           receiver_id: string | null
@@ -71,6 +117,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string | null
+          embedding?: string | null
           id?: string
           read_at?: string | null
           receiver_id?: string | null
@@ -82,6 +129,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string | null
+          embedding?: string | null
           id?: string
           read_at?: string | null
           receiver_id?: string | null
@@ -122,6 +170,7 @@ export type Database = {
           confidence: number | null
           context_used: boolean | null
           created_at: string | null
+          embedding: string | null
           graph_nodes: Json | null
           graph_relationships: Json | null
           helpful: boolean | null
@@ -149,6 +198,7 @@ export type Database = {
           confidence?: number | null
           context_used?: boolean | null
           created_at?: string | null
+          embedding?: string | null
           graph_nodes?: Json | null
           graph_relationships?: Json | null
           helpful?: boolean | null
@@ -176,6 +226,7 @@ export type Database = {
           confidence?: number | null
           context_used?: boolean | null
           created_at?: string | null
+          embedding?: string | null
           graph_nodes?: Json | null
           graph_relationships?: Json | null
           helpful?: boolean | null
@@ -217,6 +268,7 @@ export type Database = {
           communication_style: string | null
           created_at: string | null
           email: string
+          embedding: string | null
           experience_level: string | null
           expertise_areas: string[] | null
           full_name: string | null
@@ -260,6 +312,7 @@ export type Database = {
           communication_style?: string | null
           created_at?: string | null
           email: string
+          embedding?: string | null
           experience_level?: string | null
           expertise_areas?: string[] | null
           full_name?: string | null
@@ -303,6 +356,7 @@ export type Database = {
           communication_style?: string | null
           created_at?: string | null
           email?: string
+          embedding?: string | null
           experience_level?: string | null
           expertise_areas?: string[] | null
           full_name?: string | null
@@ -342,6 +396,72 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      progress_entries: {
+        Row: {
+          ai_feedback: string | null
+          ai_suggestions: Json | null
+          category: string
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          embedding: string | null
+          id: string
+          status: string | null
+          team_id: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_feedback?: string | null
+          ai_suggestions?: Json | null
+          category: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          embedding?: string | null
+          id?: string
+          status?: string | null
+          team_id?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_feedback?: string | null
+          ai_suggestions?: Json | null
+          category?: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          embedding?: string | null
+          id?: string
+          status?: string | null
+          team_id?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_entries_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "progress_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -427,6 +547,7 @@ export type Database = {
           competitive_advantage: string | null
           created_at: string | null
           description: string | null
+          embedding: string | null
           id: string
           market_research: string | null
           max_members: number | null
@@ -453,6 +574,7 @@ export type Database = {
           competitive_advantage?: string | null
           created_at?: string | null
           description?: string | null
+          embedding?: string | null
           id?: string
           market_research?: string | null
           max_members?: number | null
@@ -479,6 +601,7 @@ export type Database = {
           competitive_advantage?: string | null
           created_at?: string | null
           description?: string | null
+          embedding?: string | null
           id?: string
           market_research?: string | null
           max_members?: number | null
@@ -506,6 +629,7 @@ export type Database = {
           content: string
           created_at: string | null
           created_by: string | null
+          embedding: string | null
           id: string
           team_id: string | null
           type: Database["public"]["Enums"]["update_type"] | null
@@ -514,6 +638,7 @@ export type Database = {
           content: string
           created_at?: string | null
           created_by?: string | null
+          embedding?: string | null
           id?: string
           team_id?: string | null
           type?: Database["public"]["Enums"]["update_type"] | null
@@ -522,6 +647,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           created_by?: string | null
+          embedding?: string | null
           id?: string
           team_id?: string | null
           type?: Database["public"]["Enums"]["update_type"] | null
@@ -555,6 +681,10 @@ export type Database = {
         }
         Returns: Json
       }
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
       create_team_with_project_data: {
         Args: {
           p_description?: string
@@ -570,13 +700,101 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       join_team_with_code: {
         Args: { p_code: string; p_user_id: string }
         Returns: Json
       }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
       use_access_code: {
         Args: { p_builder_name?: string; p_code: string; p_user_id: string }
         Returns: Json
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {

@@ -10,23 +10,21 @@ import { useToast } from "@/components/ui/use-toast";
 
 interface BuilderLoungeProps {
   userId: string;
+  teamId?: string;
 }
 
-interface Message {
+interface BuilderConversation {
   id: string;
+  team_id: string | null;
   sender_id: string;
-  sender_role: UserRole;
-  receiver_id?: string | null;
-  receiver_role: UserRole;
-  team_id?: string | null;
-  content: string;
-  read_at?: string | null;
+  message: string;
   created_at: string;
+  updated_at: string;
 }
 
-export function BuilderLounge({ userId }: BuilderLoungeProps) {
+export function BuilderLounge({ userId, teamId }: BuilderLoungeProps) {
   const { toast } = useToast();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<BuilderConversation[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [online, setOnline] = useState<Record<string, { user: string; role: UserRole; online_at: string }[]>>({});
@@ -35,29 +33,41 @@ export function BuilderLounge({ userId }: BuilderLoungeProps) {
 
   useEffect(() => {
     const load = async () => {
-      const { data, error } = await supabase
-        .from('messages')
+      let query = supabase
+        .from('builder_conversations')
         .select('*')
-        .is('team_id', null)
-        .eq('receiver_role', 'builder')
         .order('created_at', { ascending: false })
         .limit(100);
-      if (!error) setMessages(data as Message[]);
+
+      // Filter by team if provided, otherwise show global builder lounge
+      if (teamId) {
+        query = query.eq('team_id', teamId);
+      } else {
+        query = query.is('team_id', null);
+      }
+
+      const { data, error } = await query;
+      if (!error) setConversations(data as BuilderConversation[]);
     };
     load();
 
+    const channelName = teamId ? `builder-lounge-${teamId}` : 'builder-lounge-global';
     const channel = supabase
-      .channel('builder-lounge')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'receiver_role=eq.builder' }, (payload) => {
-        const m = payload.new as Message;
-        if (!m.team_id && m.receiver_role === 'builder') {
-          setMessages((prev) => [m, ...prev]);
-        }
+      .channel(channelName)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'builder_conversations',
+        filter: teamId ? `team_id=eq.${teamId}` : 'team_id=is.null'
+      }, (payload) => {
+        const conversation = payload.new as BuilderConversation;
+        setConversations((prev) => [conversation, ...prev]);
       })
       .subscribe();
 
+    const presenceChannelName = teamId ? `presence:builder-lounge-${teamId}` : 'presence:builder-lounge-global';
     const presence = supabase
-      .channel('presence:builder-lounge', { config: { presence: { key: userId } } })
+      .channel(presenceChannelName, { config: { presence: { key: userId } } })
       .on('presence', { event: 'sync' }, () => setOnline(presence.presenceState()))
       .on('presence', { event: 'join' }, () => setOnline(presence.presenceState()))
       .on('presence', { event: 'leave' }, () => setOnline(presence.presenceState()))
@@ -71,21 +81,18 @@ export function BuilderLounge({ userId }: BuilderLoungeProps) {
       supabase.removeChannel(channel);
       supabase.removeChannel(presence);
     };
-  }, [userId]);
+  }, [userId, teamId]);
 
   const send = async () => {
     if (!text.trim()) return;
     setSending(true);
     try {
       const payload = {
+        team_id: teamId || null,
         sender_id: userId,
-        sender_role: 'builder' as UserRole,
-        receiver_id: null,
-        receiver_role: 'builder' as UserRole,
-        content: text.trim(),
-        team_id: null,
+        message: text.trim(),
       };
-      const { error } = await supabase.from('messages').insert([payload]);
+      const { error } = await supabase.from('builder_conversations').insert([payload]);
       if (error) throw error;
       setText("");
     } catch (e: any) {
@@ -99,22 +106,31 @@ export function BuilderLounge({ userId }: BuilderLoungeProps) {
     <Card className="glow-border bg-card/50 backdrop-blur">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Builder Lounge</span>
-          <Badge variant="outline" className="text-xs"><Satellite className="h-3 w-3 mr-1" /> {onlineCount} online</Badge>
+          <span className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" /> 
+            {teamId ? 'Team Builder Chat' : 'Global Builder Lounge'}
+          </span>
+          <Badge variant="outline" className="text-xs">
+            <Satellite className="h-3 w-3 mr-1" /> {onlineCount} online
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3 max-h-[360px] overflow-auto pr-1">
-          {messages.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No messages yet. Say hello to fellow builders!</div>
+          {conversations.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No messages yet. Say hello to fellow builders!
+            </div>
           ) : (
-            messages.map((m) => (
-              <div key={m.id} className="p-3 rounded-lg bg-background/30 border border-primary/10">
+            conversations.map((conversation) => (
+              <div key={conversation.id} className="p-3 rounded-lg bg-background/30 border border-primary/10">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className="text-2xs capitalize">{m.sender_role}</Badge>
-                  <span className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</span>
+                  <Badge variant="outline" className="text-2xs">Builder</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(conversation.created_at).toLocaleString()}
+                  </span>
                 </div>
-                <div className="text-sm whitespace-pre-wrap">{m.content}</div>
+                <div className="text-sm whitespace-pre-wrap">{conversation.message}</div>
               </div>
             ))
           )}
@@ -122,14 +138,15 @@ export function BuilderLounge({ userId }: BuilderLoungeProps) {
 
         <div className="space-y-2">
           <Textarea
-            placeholder="Share knowledge, wins, or questions with all builders..."
+            placeholder={teamId ? "Share updates with your team..." : "Share knowledge, wins, or questions with all builders..."}
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="min-h-[96px] bg-background/50 border-primary/20 focus:border-primary/40"
           />
           <div className="flex justify-end">
             <Button onClick={send} disabled={sending || !text.trim()} className="ufo-gradient hover:opacity-90">
-              <Send className="h-4 w-4 mr-2" /> Send to Builders
+              <Send className="h-4 w-4 mr-2" /> 
+              {teamId ? 'Send to Team' : 'Send to All Builders'}
             </Button>
           </div>
         </div>
