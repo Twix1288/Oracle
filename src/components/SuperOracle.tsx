@@ -405,14 +405,14 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
       {/* Model and Strategy Info */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Badge variant="outline" className="text-xs">
-          {response.model_used}
+          {response.model_used || 'GPT-4o'}
         </Badge>
         <Badge variant="outline" className="text-xs">
-          {response.search_strategy}
+          {response.search_strategy || 'RAG Search'}
         </Badge>
-        <span>Confidence: {Math.round(response.confidence * 100)}%</span>
-        <span>Sources: {response.sources}</span>
-        <span>Time: {response.processing_time}ms</span>
+        <span>Confidence: {Math.round((response.confidence || 0) * 100)}%</span>
+        <span>Sources: {response.sources || 0}</span>
+        <span>Time: {response.processing_time || 0}ms</span>
       </div>
 
       {/* Main Oracle Response */}

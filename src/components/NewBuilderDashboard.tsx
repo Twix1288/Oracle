@@ -275,6 +275,10 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
                 team={userTeam}
                 updates={teamUpdates}
                 userRole="builder"
+                onStageUpdate={(newStage) => {
+                  // Refresh team data after stage update
+                  window.location.reload();
+                }}
               />
             ) : (
               <Card className="glow-border bg-card/50 backdrop-blur">
@@ -310,7 +314,11 @@ export const NewBuilderDashboard = ({ teams, members, updates, onExit }: NewBuil
           </TabsContent>
 
           <TabsContent value="oracle">
-            <SuperOracle selectedRole="builder" />
+            <SuperOracle 
+              selectedRole="builder" 
+              teamId={userTeam?.id}
+              userId={user?.id}
+            />
           </TabsContent>
         </Tabs>
       </div>
