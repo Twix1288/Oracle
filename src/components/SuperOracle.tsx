@@ -463,12 +463,12 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               </div>
               <h4 className="font-semibold text-sm text-green-600">Learning Resources</h4>
               <Badge variant="outline" className="text-xs">
-                {response.resources.length} resources
+                {response.resources?.length || 0} resources
               </Badge>
             </div>
             
             <div className="space-y-3">
-              {response.resources.map((resource, idx) => (
+              {response.resources?.map((resource, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-background/50 border border-green-200/20">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -511,12 +511,12 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               </div>
               <h4 className="font-semibold text-sm text-blue-600">Connections</h4>
               <Badge variant="outline" className="text-xs">
-                {response.connections.length} connections
+                {response.connections?.length || 0} connections
               </Badge>
             </div>
             
             <div className="space-y-3">
-              {response.connections.map((connection, idx) => (
+              {response.connections?.map((connection, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-background/50 border border-blue-200/20">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

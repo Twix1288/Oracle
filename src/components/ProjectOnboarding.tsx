@@ -23,10 +23,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const PROJECT_STAGES = [
-  { id: 'idea', label: 'Idea', icon: Brain },
-  { id: 'prototype', label: 'Prototype', icon: Code },
-  { id: 'mvp', label: 'MVP', icon: Rocket },
-  { id: 'scaling', label: 'Scaling', icon: TrendingUp }
+  { id: 'ideation', label: 'Ideation', icon: Brain },
+  { id: 'development', label: 'Development', icon: Code },
+  { id: 'testing', label: 'Testing', icon: Rocket },
+  { id: 'launch', label: 'Launch', icon: TrendingUp },
+  { id: 'growth', label: 'Growth', icon: TrendingUp }
 ];
 
 const PROBLEM_CATEGORIES = [
