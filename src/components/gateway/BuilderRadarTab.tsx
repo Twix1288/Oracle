@@ -152,22 +152,22 @@ export const BuilderRadarTab = () => {
 
   const fetchOracleSuggestions = async () => {
     try {
-      // Simulate Oracle-generated suggestions based on user profile
+      // Enhanced Oracle-generated suggestions with more builders
       const mockSuggestions: OracleSuggestion[] = [
         {
           id: '1',
           suggested_builder: {
             id: 'builder1',
             full_name: 'Alex Chen',
-            bio: 'Full-stack developer passionate about AI and blockchain',
-            skills: ['React', 'Node.js', 'Solidity'],
+            bio: 'Full-stack developer passionate about AI and blockchain technology',
+            skills: ['React', 'Node.js', 'Solidity', 'Python'],
             builder_level: 'advanced',
             availability_hours: 15,
             learning_goals: ['Web3 Development', 'Smart Contracts'],
-            project_goals: 'Building decentralized applications',
+            project_goals: 'Building decentralized applications that solve real-world problems',
             oracle_confidence: 0.92
           },
-          match_reason: 'Complementary skills: Your frontend expertise + their blockchain knowledge',
+          match_reason: 'Complementary skills: Your frontend expertise + their blockchain knowledge creates perfect synergy',
           confidence: 0.92,
           connection_type: 'collaboration',
           created_at: new Date().toISOString()
@@ -177,17 +177,53 @@ export const BuilderRadarTab = () => {
           suggested_builder: {
             id: 'builder2',
             full_name: 'Sarah Martinez',
-            bio: 'UX Designer turning ideas into beautiful, user-friendly experiences',
-            skills: ['Figma', 'User Research', 'Prototyping'],
+            bio: 'UX Designer turning complex ideas into beautiful, user-friendly experiences',
+            skills: ['Figma', 'User Research', 'Prototyping', 'Design Systems'],
             builder_level: 'intermediate',
             availability_hours: 12,
             learning_goals: ['Frontend Development', 'React'],
-            project_goals: 'Creating design systems for startups',
+            project_goals: 'Creating design systems that scale for growing startups',
             oracle_confidence: 0.87
           },
-          match_reason: 'Perfect skill exchange: Teach development, learn design',
+          match_reason: 'Perfect skill exchange: Teach development, learn design - mutual benefit opportunity',
           confidence: 0.87,
           connection_type: 'skill_exchange',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: '3',
+          suggested_builder: {
+            id: 'builder3',
+            full_name: 'Michael Rodriguez',
+            bio: 'DevOps engineer and cloud architect scaling applications from zero to millions',
+            skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
+            builder_level: 'expert',
+            availability_hours: 8,
+            learning_goals: ['Serverless Architecture', 'Edge Computing'],
+            project_goals: 'Building resilient cloud infrastructure for startups',
+            oracle_confidence: 0.94
+          },
+          match_reason: 'Your project needs scaling expertise - Michael has deployed 50+ production systems',
+          confidence: 0.94,
+          connection_type: 'mentorship',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: '4',
+          suggested_builder: {
+            id: 'builder4',
+            full_name: 'Emily Watson',
+            bio: 'Data scientist and ML engineer turning data into insights that drive business value',
+            skills: ['Python', 'TensorFlow', 'PyTorch', 'SQL'],
+            builder_level: 'advanced',
+            availability_hours: 10,
+            learning_goals: ['Computer Vision', 'NLP'],
+            project_goals: 'Building AI solutions for healthcare and education',
+            oracle_confidence: 0.89
+          },
+          match_reason: 'AI integration opportunity: Emily can help add intelligent features to your project',
+          confidence: 0.89,
+          connection_type: 'collaboration',
           created_at: new Date().toISOString()
         }
       ];
@@ -245,6 +281,9 @@ export const BuilderRadarTab = () => {
         title: "Connection Request Sent",
         description: "Oracle will notify them of your interest to connect!",
       });
+
+      // Remove suggestion from list after connecting
+      setOracleSuggestions(prev => prev.filter(s => s.suggested_builder.id !== builderId));
     } catch (error) {
       console.error('Error sending connection request:', error);
       toast({
@@ -252,6 +291,20 @@ export const BuilderRadarTab = () => {
         description: "Failed to send connection request.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleDismissSuggestion = async (suggestionId: string) => {
+    try {
+      // Remove suggestion from list
+      setOracleSuggestions(prev => prev.filter(s => s.id !== suggestionId));
+      
+      toast({
+        title: "Suggestion Dismissed",
+        description: "Oracle will learn from your preferences!",
+      });
+    } catch (error) {
+      console.error('Error dismissing suggestion:', error);
     }
   };
 
@@ -309,7 +362,7 @@ export const BuilderRadarTab = () => {
         </CardContent>
       </Card>
 
-      {/* Oracle Suggestions */}
+      {/* Oracle Suggestions with Connect/Not Connect */}
       <Card className="glow-border">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -360,10 +413,18 @@ export const BuilderRadarTab = () => {
                     <Button 
                       size="sm" 
                       onClick={() => handleConnectRequest(suggestion.suggested_builder.id, suggestion.connection_type)}
-                      className="text-xs"
+                      className="text-xs bg-green-600 hover:bg-green-700"
                     >
                       <MessageCircle className="h-3 w-3 mr-1" />
                       Connect
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleDismissSuggestion(suggestion.id)}
+                      className="text-xs"
+                    >
+                      Not Now
                     </Button>
                     <Badge variant="outline" className="text-xs">
                       {suggestion.connection_type.replace('_', ' ')}

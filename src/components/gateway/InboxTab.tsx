@@ -168,12 +168,19 @@ export const InboxTab = () => {
 
   const fetchInboxData = async () => {
     try {
-      // Fetch connection requests
+      // Fetch connection requests  
       const { data: requests, error: requestsError } = await supabase
         .from('connection_requests')
         .select(`
-          *,
-          requester:requester_id (
+          id,
+          requester_id,
+          requested_id,
+          request_type,
+          message,
+          status,
+          created_at,
+          oracle_generated,
+          profiles!connection_requests_requester_id_fkey (
             full_name,
             avatar_url,
             bio,
@@ -184,24 +191,49 @@ export const InboxTab = () => {
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (requestsError) throw requestsError;
+      if (requestsError) {
+        console.error('Connection requests error:', requestsError);
+        // Fallback to basic query without join
+        const { data: basicRequests } = await supabase
+          .from('connection_requests')
+          .select('*')
+          .eq('requested_id', user?.id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
 
-      // Transform the data to match our interface
-      const transformedRequests = (requests || []).map(req => ({
-        id: req.id,
-        requester_id: req.requester_id,
-        requester_name: req.requester?.full_name || 'Unknown User',
-        requester_avatar: req.requester?.avatar_url,
-        requester_bio: req.requester?.bio,
-        requester_skills: req.requester?.skills,
-        request_type: req.request_type,
-        message: req.message,
-        status: req.status,
-        created_at: req.created_at,
-        oracle_generated: req.oracle_generated
-      }));
+        const transformedBasicRequests = (basicRequests || []).map(req => ({
+          id: req.id,
+          requester_id: req.requester_id,
+          requester_name: 'Builder',
+          requester_avatar: undefined,
+          requester_bio: undefined,
+          requester_skills: [],
+          request_type: req.request_type,
+          message: req.message,
+          status: req.status,
+          created_at: req.created_at,
+          oracle_generated: req.oracle_generated
+        }));
 
-      setConnectionRequests(transformedRequests);
+        setConnectionRequests(transformedBasicRequests);
+      } else {
+        // Transform the data to match our interface
+        const transformedRequests = (requests || []).map(req => ({
+          id: req.id,
+          requester_id: req.requester_id,
+          requester_name: req.profiles?.full_name || 'Unknown User',
+          requester_avatar: req.profiles?.avatar_url,
+          requester_bio: req.profiles?.bio,
+          requester_skills: req.profiles?.skills || [],
+          request_type: req.request_type,
+          message: req.message,
+          status: req.status,
+          created_at: req.created_at,
+          oracle_generated: req.oracle_generated
+        }));
+
+        setConnectionRequests(transformedRequests);
+      }
       setIsLoading(false);
     } catch (error) {
       console.error('Error fetching inbox data:', error);
