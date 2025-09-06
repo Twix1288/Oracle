@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap } from 'lucide-react';
+import { Sparkles, Users, Plus, GraduationCap, Globe } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
-import { BuilderRadarTab } from '@/components/gateway/BuilderRadarTab';
-import { ProjectsTab } from '@/components/gateway/ProjectsTab';
-import { CollaborationHubTab } from '@/components/gateway/CollaborationHubTab';
-import { BuilderFeedTab } from '@/components/gateway/BuilderFeedTab';
-import { KnowledgeExchangeTab } from '@/components/gateway/KnowledgeExchangeTab';
+import { JoinTeamTab } from '@/components/gateway/JoinTeamTab';
+import { CreateTeamTab } from '@/components/gateway/CreateTeamTab';
+import { MentorTab } from '@/components/gateway/MentorTab';
+import { CommunityTab } from '@/components/gateway/CommunityTab';
 
 export default function Gateway() {
-  const [activeTab, setActiveTab] = useState('builder-radar');
+  const [activeTab, setActiveTab] = useState('join-team');
 
   return (
     <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center p-4">
@@ -21,57 +20,49 @@ export default function Gateway() {
           <div className="flex items-center justify-center gap-2 mb-4">
             <Sparkles className="h-8 w-8 text-primary" />
             <span className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              Oracle Hub
+              Builder Gateway
             </span>
           </div>
           <CardTitle className="text-xl font-semibold text-muted-foreground">
-            Builder Mission Control - Your AI-Powered Networking Hub
+            Your Gateway to Innovation - Join, Create, Learn, Connect
           </CardTitle>
         </CardHeader>
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-8">
-              <TabsTrigger value="builder-radar" className="flex items-center gap-2">
-                <Radar className="h-4 w-4" />
-                <span className="hidden sm:inline">Builder Radar</span>
+            <TabsList className="grid w-full grid-cols-4 mb-8">
+              <TabsTrigger value="join-team" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Join Team</span>
               </TabsTrigger>
-              <TabsTrigger value="projects" className="flex items-center gap-2">
-                <FolderOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Projects</span>
+              <TabsTrigger value="create-team" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Create Team</span>
               </TabsTrigger>
-              <TabsTrigger value="collaboration" className="flex items-center gap-2">
-                <Handshake className="h-4 w-4" />
-                <span className="hidden sm:inline">Collaboration</span>
-              </TabsTrigger>
-              <TabsTrigger value="builder-feed" className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                <span className="hidden sm:inline">Builder Feed</span>
-              </TabsTrigger>
-              <TabsTrigger value="knowledge-exchange" className="flex items-center gap-2">
+              <TabsTrigger value="mentor" className="flex items-center gap-2">
                 <GraduationCap className="h-4 w-4" />
-                <span className="hidden sm:inline">Knowledge</span>
+                <span className="hidden sm:inline">Mentor</span>
+              </TabsTrigger>
+              <TabsTrigger value="community" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <span className="hidden sm:inline">Community</span>
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="builder-radar" className="mt-0">
-              <BuilderRadarTab />
+            <TabsContent value="join-team" className="mt-0">
+              <JoinTeamTab />
             </TabsContent>
             
-            <TabsContent value="projects" className="mt-0">
-              <ProjectsTab />
+            <TabsContent value="create-team" className="mt-0">
+              <CreateTeamTab />
             </TabsContent>
             
-            <TabsContent value="collaboration" className="mt-0">
-              <CollaborationHubTab />
+            <TabsContent value="mentor" className="mt-0">
+              <MentorTab />
             </TabsContent>
             
-            <TabsContent value="builder-feed" className="mt-0">
-              <BuilderFeedTab />
-            </TabsContent>
-            
-            <TabsContent value="knowledge-exchange" className="mt-0">
-              <KnowledgeExchangeTab />
+            <TabsContent value="community" className="mt-0">
+              <CommunityTab />
             </TabsContent>
           </Tabs>
 
