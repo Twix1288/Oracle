@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { BuilderRadarTab } from '@/components/gateway/BuilderRadarTab';
-import { ProjectsTab } from '@/components/gateway/ProjectsTab';
+import { EnhancedProjectsTab } from '@/components/gateway/EnhancedProjectsTab';
 import { CollaborationHubTab } from '@/components/gateway/CollaborationHubTab';
 import { BuilderFeedTab } from '@/components/gateway/BuilderFeedTab';
 import { KnowledgeExchangeTab } from '@/components/gateway/KnowledgeExchangeTab';
@@ -59,7 +59,7 @@ export default function Gateway() {
             </TabsContent>
             
             <TabsContent value="projects" className="mt-0">
-              <ProjectsTab />
+              <EnhancedProjectsTab />
             </TabsContent>
             
             <TabsContent value="collaboration" className="mt-0">
