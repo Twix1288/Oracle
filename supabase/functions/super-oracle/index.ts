@@ -442,31 +442,75 @@ async function getUserContext(userId?: string, teamId?: string): Promise<any> {
   if (!userId) return null;
   
   try {
-    // Use the new comprehensive Oracle context function
-    const { data: comprehensiveContext, error } = await supabase.rpc('get_comprehensive_oracle_context', {
-      p_user_id: userId
-    });
+    // Fallback to basic context since comprehensive function has errors
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-    if (error) {
-      console.error('Error getting comprehensive context:', error);
-      // Fallback to basic context
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    const { data: team } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('id', profile?.team_id || teamId)
+      .single();
 
-      return { profile, userId, teamId };
-    }
+    const { data: teamMembers } = await supabase
+      .from('members')
+      .select(`
+        user_id,
+        role,
+        profiles:user_id (
+          id,
+          full_name,
+          skills,
+          experience_level,
+          bio
+        )
+      `)
+      .eq('team_id', profile?.team_id || teamId);
+
+    const { data: recentUpdates } = await supabase
+      .from('updates')
+      .select('*')
+      .eq('team_id', profile?.team_id || teamId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const { data: oracleHistory } = await supabase
+      .from('oracle_logs')
+      .select('query, query_type, created_at, user_satisfaction')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
     return {
-      ...comprehensiveContext,
+      profile,
+      team,
+      teamMembers: teamMembers?.map(tm => ({
+        id: tm.user_id,
+        role: tm.role,
+        name: tm.profiles?.full_name || 'Unknown',
+        skills: tm.profiles?.skills || [],
+        experience: tm.profiles?.experience_level || 'Beginner',
+        bio: tm.profiles?.bio || ''
+      })) || [],
+      recentUpdates: recentUpdates || [],
+      oracleHistory: oracleHistory || [],
       userId,
-      teamId: teamId || comprehensiveContext?.user_team?.team_info?.id
+      teamId: teamId || profile?.team_id
     };
   } catch (error) {
     console.error('Error getting user context:', error);
-    return null;
+    return {
+      profile: null,
+      team: null,
+      teamMembers: [],
+      recentUpdates: [],
+      oracleHistory: [],
+      userId,
+      teamId
+    };
   }
 }
 
@@ -695,6 +739,87 @@ async function buildKnowledgeGraph(query: string, userContext: any, searchResult
   }
 }
 
+// Generate mock builders for suggestions when real data is sparse
+function generateMockBuilders(query: string): any[] {
+  const searchTerms = query.toLowerCase();
+  const mockBuilders: any[] = [];
+  
+  if (searchTerms.includes('ui') || searchTerms.includes('ux') || searchTerms.includes('design')) {
+    mockBuilders.push({
+      id: 'mock-ui-1',
+      full_name: 'Sarah Chen',
+      skills: ['UI/UX Design', 'Figma', 'User Research', 'Prototyping'],
+      experience_level: 'Senior',
+      availability: '15-20 hours/week',
+      bio: 'Senior UI/UX designer with 5+ years experience in user-centered design. Passionate about creating intuitive interfaces.',
+      match_score: 92,
+      is_mock: true
+    });
+    mockBuilders.push({
+      id: 'mock-ui-2', 
+      full_name: 'Alex Rivera',
+      skills: ['Visual Design', 'Design Systems', 'Adobe Creative Suite'],
+      experience_level: 'Mid-level',
+      availability: '10-15 hours/week',
+      bio: 'Creative designer focused on brand identity and design systems. Love working on innovative projects.',
+      match_score: 87,
+      is_mock: true
+    });
+  }
+  
+  if (searchTerms.includes('frontend') || searchTerms.includes('react') || searchTerms.includes('javascript')) {
+    mockBuilders.push({
+      id: 'mock-frontend-1',
+      full_name: 'Marcus Johnson',
+      skills: ['React', 'TypeScript', 'Next.js', 'Tailwind CSS'],
+      experience_level: 'Senior',
+      availability: '20+ hours/week',
+      bio: 'Full-stack developer specializing in React ecosystem. Love building fast, accessible web applications.',
+      match_score: 95,
+      is_mock: true
+    });
+    mockBuilders.push({
+      id: 'mock-frontend-2',
+      full_name: 'Emily Zhang',
+      skills: ['Vue.js', 'JavaScript', 'CSS', 'Performance Optimization'],
+      experience_level: 'Mid-level',
+      availability: '15 hours/week',
+      bio: 'Frontend developer with a passion for performance and user experience. Always learning new technologies.',
+      match_score: 89,
+      is_mock: true
+    });
+  }
+  
+  if (searchTerms.includes('backend') || searchTerms.includes('api') || searchTerms.includes('database')) {
+    mockBuilders.push({
+      id: 'mock-backend-1',
+      full_name: 'David Kim',
+      skills: ['Node.js', 'Python', 'PostgreSQL', 'API Design'],
+      experience_level: 'Senior',
+      availability: '15-20 hours/week',
+      bio: 'Backend engineer with expertise in scalable API design and database optimization. Love solving complex problems.',
+      match_score: 93,
+      is_mock: true
+    });
+  }
+  
+  // If no specific terms found, provide general collaborators
+  if (mockBuilders.length === 0) {
+    mockBuilders.push({
+      id: 'mock-general-1',
+      full_name: 'Jordan Smith',
+      skills: ['Problem Solving', 'Project Management', 'Communication'],
+      experience_level: 'Mid-level',
+      availability: '10-15 hours/week',
+      bio: 'Versatile builder eager to collaborate on interesting projects. Strong problem-solving and communication skills.',
+      match_score: 80,
+      is_mock: true
+    });
+  }
+  
+  return mockBuilders.slice(0, 3); // Return max 3 suggestions
+}
+
 // Find team members in PieFi
 async function findTeamMembers(query: string, teamId?: string): Promise<any[]> {
   try {
@@ -731,11 +856,38 @@ async function findTeamMembers(query: string, teamId?: string): Promise<any[]> {
       return [];
     }
 
-    return profiles || [];
+    // Add match scores to real profiles
+    const profilesWithScores = profiles?.map(profile => ({
+      ...profile,
+      match_score: calculateMatchScore(profile, searchTerms),
+      is_mock: false
+    })) || [];
+
+    return profilesWithScores;
   } catch (error) {
     console.error('Error in findTeamMembers:', error);
     return [];
   }
+}
+
+// Calculate match score for real profiles
+function calculateMatchScore(profile: any, searchTerms: string): number {
+  let score = 60; // Base score
+  
+  if (profile.skills && profile.skills.length > 0) {
+    const skillMatch = profile.skills.some((skill: string) => 
+      searchTerms.includes(skill.toLowerCase())
+    );
+    if (skillMatch) score += 20;
+  }
+  
+  if (profile.experience_level === 'Senior') score += 10;
+  if (profile.experience_level === 'Mid-level') score += 5;
+  
+  if (profile.availability && profile.availability.includes('20+')) score += 10;
+  if (profile.availability && profile.availability.includes('15-20')) score += 8;
+  
+  return Math.min(score, 95); // Cap at 95%
 }
 
 // Find external connections on LinkedIn
