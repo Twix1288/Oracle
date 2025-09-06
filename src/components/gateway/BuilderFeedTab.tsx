@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Activity, Sparkles, TrendingUp, Users, MessageCircle, Heart, Share, Trophy, Target, Clock } from 'lucide-react';
+import { Activity, Sparkles, TrendingUp, Users, MessageCircle, Heart, Share, Trophy, Target, Clock, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -234,6 +234,53 @@ export const BuilderFeedTab = () => {
     }
   };
 
+  const handleConnectWithBuilder = async (builderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('connection_requests')
+        .insert({
+          requester_id: user?.id,
+          requested_id: builderId,
+          request_type: 'collaboration',
+          message: 'Hi! I saw your activity in the feed and would love to connect!',
+          oracle_generated: false
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Connection Request Sent",
+        description: "Your connection request has been sent!",
+      });
+    } catch (error) {
+      console.error('Error sending connection request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send connection request.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSuggestCollaboration = async (feedItemId: string, builderId: string) => {
+    try {
+      // In a real implementation, this would analyze the feed item and suggest collaboration
+      toast({
+        title: "Oracle Analyzing...",
+        description: "Oracle is analyzing collaboration opportunities with this builder!",
+      });
+    } catch (error) {
+      console.error('Error suggesting collaboration:', error);
+    }
+  };
+
+  const handleCreateFeedItem = () => {
+    toast({
+      title: "Create Feed Item",
+      description: "Use /post feed or /create feed in the Oracle tab to get AI help with your post!",
+    });
+  };
+
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'milestone': return <Trophy className="h-4 w-4 text-yellow-600" />;
@@ -451,12 +498,46 @@ export const BuilderFeedTab = () => {
                         <Share className="h-3 w-3 mr-1" />
                         {item.reactions.shares}
                       </Button>
+                      
+                      {/* Connect and Collaborate Actions */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs ml-auto"
+                        onClick={() => handleConnectWithBuilder(item.user.id)}
+                      >
+                        <MessageCircle className="h-3 w-3 mr-1" />
+                        Connect
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => handleSuggestCollaboration(item.id, item.user.id)}
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Collaborate
+                      </Button>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
+          
+          {/* Create New Feed Item */}
+          <Card className="glow-border border-dashed">
+            <CardContent className="p-4">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => handleCreateFeedItem()}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Share an Update or Achievement
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}

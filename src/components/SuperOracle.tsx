@@ -107,37 +107,30 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
 
   const permissions = rolePermissions[selectedRole];
 
-  // Slash command patterns - the main Oracle commands
+  // Enhanced slash command patterns - the main Oracle commands
   const detectSlashCommand = (text: string) => {
     const trimmed = text.trim();
     
-    // Guest can only use /motivation and /status
-    if (selectedRole === 'guest') {
-      if (trimmed.startsWith('/motivation')) {
-        return { type: 'motivation', query: trimmed.substring(11).trim() || 'motivation' };
-      }
-      if (trimmed.startsWith('/status')) {
-        return { type: 'status', query: 'team status update' };
-      }
-      return null;
+    // New Oracle commands based on user requirements
+    if (trimmed.startsWith('/ask oracle ')) {
+      return { type: 'ask_oracle', query: trimmed.substring(12).trim() };
     }
-
-    // All roles can use these commands
-    if (trimmed.startsWith('/resources ')) {
-      return { type: 'resources', query: trimmed.substring(11).trim() };
+    if (trimmed.startsWith('/suggest collaboration')) {
+      return { type: 'suggest_collaboration', query: trimmed.substring(22).trim() || 'suggest collaboration opportunities' };
     }
-    if (trimmed.startsWith('/connect ') || trimmed.startsWith('/find ')) {
-      const query = trimmed.startsWith('/connect') ? trimmed.substring(9).trim() : trimmed.substring(6).trim();
-      return { type: 'connect', query };
+    if (trimmed.startsWith('/create project')) {
+      return { type: 'create_project', query: trimmed.substring(15).trim() || 'help me create a new project' };
     }
+    if (trimmed.startsWith('/post feed')) {
+      return { type: 'post_feed', query: trimmed.substring(10).trim() || 'help me create a feed post' };
+    }
+    if (trimmed.startsWith('/create feed')) {
+      return { type: 'create_feed', query: trimmed.substring(12).trim() || 'help me create a feed item' };
+    }
+    
+    // Legacy commands for backward compatibility
     if (trimmed.startsWith('/help')) {
-      return { type: 'help', query: 'help' };
-    }
-    if (trimmed.startsWith('/message ')) {
-      return { type: 'message', query: trimmed.substring(9).trim() };
-    }
-    if (trimmed.startsWith('/update ')) {
-      return { type: 'update', query: trimmed.substring(8).trim() };
+      return { type: 'help', query: 'help with Oracle commands and features' };
     }
     
     return null;
@@ -268,34 +261,40 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
         
         // Enhance queries with context for better AI understanding
         switch (commandType) {
-          case 'motivation':
-            enhancedQuery = `Find motivation and inspiration for: ${slashCommand.query || 'startup success'}. Include success stories, motivational content, and actionable advice.`;
-            commandType = 'resources';
-            break;
-          case 'status':
-            enhancedQuery = `Show me comprehensive team status updates, progress tracking, and recent activities for the PieFi accelerator. Include team milestones, achievements, and upcoming goals.`;
+          case 'ask_oracle':
+            enhancedQuery = `Answer this question with detailed insights and evidence: ${slashCommand.query}. Provide comprehensive analysis and actionable recommendations.`;
             commandType = 'chat';
             break;
-          case 'resources':
-            enhancedQuery = `Find high-quality, relevant resources for: ${slashCommand.query}. Include tutorials, documentation, tools, and best practices. Prioritize the most current and authoritative sources.`;
-            break;
-          case 'connect':
-            enhancedQuery = `Find relevant connections and networking opportunities for: ${slashCommand.query}. Include professionals, mentors, and experts in this field. Provide LinkedIn profiles and contact information when available.`;
-            break;
-          case 'find':
-            enhancedQuery = `Search for and connect with: ${slashCommand.query}. Find relevant people, resources, and opportunities.`;
+          case 'suggest_collaboration':
+            enhancedQuery = `Analyze my profile and projects to suggest relevant collaboration opportunities. Find builders, projects, and teams that would be good matches for collaboration. ${slashCommand.query}`;
             commandType = 'connect';
             break;
+          case 'create_project':
+            enhancedQuery = `Guide me through creating a new project. Ask about project details, goals, tech stack, team needs, and help structure the project properly. ${slashCommand.query}`;
+            commandType = 'project_creation';
+            break;
+          case 'post_feed':
+          case 'create_feed':
+            enhancedQuery = `Help me create an engaging feed post about my project progress, achievements, or updates. Provide suggestions for content, format, and engagement. ${slashCommand.query}`;
+            commandType = 'content_creation';
+            break;
           case 'help':
-            enhancedQuery = `Provide comprehensive help and guidance for the PieFi accelerator. Show available commands, features, and how to get the most out of the system.`;
-            commandType = 'chat';
-            break;
-          case 'message':
-            enhancedQuery = `Help me send a message: ${slashCommand.query}. Provide guidance on effective communication and help format the message appropriately.`;
-            commandType = 'chat';
-            break;
-          case 'update':
-            enhancedQuery = `Help me update progress: ${slashCommand.query}. Provide guidance on effective progress tracking and milestone documentation.`;
+            enhancedQuery = `Show available Oracle commands and features:
+            
+            **New Commands:**
+            - \`/ask oracle [question]\` - Ask Oracle any question for detailed insights
+            - \`/suggest collaboration\` - Get AI-powered collaboration suggestions
+            - \`/create project\` - Get help creating a new project
+            - \`/post feed\` - Get help creating feed content
+            - \`/create feed\` - Create engaging feed posts
+            
+            **Features:**
+            - Natural language queries (just type normally)
+            - Evidence-based suggestions with reasoning
+            - Project analysis and recommendations
+            - Builder matching and networking
+            
+            Oracle provides intelligent, context-aware responses with evidence and actionable insights.`;
             commandType = 'chat';
             break;
         }

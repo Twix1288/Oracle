@@ -197,7 +197,247 @@ async function searchSimilarContent(query: string, filters?: any): Promise<any[]
   }
 }
 
-// Enhanced user context retrieval using comprehensive Oracle context
+// Enhanced Oracle type handling for new commands
+async function handleOracleQuery(request: SuperOracleRequest): Promise<SuperOracleResponse> {
+  const startTime = Date.now();
+  
+  try {
+    console.log(`Processing Oracle query: ${request.query}`);
+    console.log(`Query type: ${request.type}, User role: ${request.role}`);
+    
+    // Get user context
+    const userContext = await getUserContext(request.userId, request.teamId);
+    console.log(`User context retrieved:`, userContext ? 'Yes' : 'No');
+
+    let response: SuperOracleResponse;
+    
+    // Handle different query types including new commands
+    switch (request.type) {
+      case 'project_creation':
+        response = await handleProjectCreation(request, userContext);
+        break;
+      case 'content_creation':
+        response = await handleContentCreation(request, userContext);
+        break;
+      case 'connect':
+        response = await handleConnectionSuggestions(request, userContext);
+        break;
+      case 'chat':
+      default:
+        response = await handleChatQuery(request, userContext);
+        break;
+    }
+
+    response.processing_time = Date.now() - startTime;
+    response.model_used = AI_MODELS.openai.model;
+    response.search_strategy = 'enhanced_oracle';
+    
+    return response;
+  } catch (error) {
+    console.error('Oracle query error:', error);
+    return {
+      answer: 'I encountered an error processing your request. Please try again.',
+      sources: 0,
+      context_used: false,
+      model_used: AI_MODELS.openai.model,
+      confidence: 0.1,
+      processing_time: Date.now() - startTime,
+      search_strategy: 'error_fallback'
+    };
+  }
+}
+
+// Handle project creation guidance
+async function handleProjectCreation(request: SuperOracleRequest, userContext: any): Promise<SuperOracleResponse> {
+  const projectGuidance = `
+# Project Creation Guide 🚀
+
+I'll help you create an amazing project! Let's break this down:
+
+## 1. Project Basics
+- **Name**: What should we call your project?
+- **Description**: What problem does it solve?
+- **Goals**: What do you want to achieve?
+
+## 2. Technical Planning
+- **Tech Stack**: What technologies will you use?
+- **Timeline**: How long do you expect this to take?
+- **Team Size**: How many people do you need?
+
+## 3. Collaboration Needs
+- **Skills Needed**: What expertise are you looking for?
+- **Roles**: Frontend, backend, design, product management?
+- **Time Commitment**: How many hours per week?
+
+## 4. Next Steps
+1. Use the "New Project" button in the Projects tab
+2. Fill out the project details
+3. Set visibility (public/team-only/private)
+4. Oracle will generate a summary and suggest collaborators!
+
+**Pro Tip**: Use \`/suggest collaboration\` after creating your project to get AI-powered team member recommendations!
+
+Would you like me to help you think through any of these aspects specifically?
+  `;
+
+  return {
+    answer: projectGuidance,
+    sources: 1,
+    context_used: true,
+    confidence: 0.95,
+    processing_time: 0,
+    search_strategy: 'project_creation_guide',
+    suggested_actions: [
+      'Create new project',
+      'Define project scope',
+      'Set collaboration preferences',
+      'Generate Oracle summary'
+    ]
+  };
+}
+
+// Handle content creation for feed posts
+async function handleContentCreation(request: SuperOracleRequest, userContext: any): Promise<SuperOracleResponse> {
+  const contentGuidance = `
+# Creating Engaging Feed Content 📱
+
+Great content helps you connect with other builders and showcase your progress!
+
+## Content Ideas
+### Project Updates
+- **Milestones**: "Just shipped our MVP! 🚀"
+- **Challenges**: "Tackled a complex algorithm today..."
+- **Learnings**: "Finally understood React hooks!"
+
+### Collaboration Posts
+- **Seeking Help**: "Looking for a UI designer for my fintech app"
+- **Offering Skills**: "Happy to help with React questions"
+- **Pair Programming**: "Anyone want to tackle LeetCode together?"
+
+### Achievement Shares
+- **Skills Learned**: "Mastered TypeScript this week!"
+- **Certifications**: "AWS certified! 🎉"
+- **Project Launches**: "My app just hit 1000 users!"
+
+## Engagement Tips
+1. **Use emojis** to make posts visually appealing
+2. **Tag relevant skills** and technologies
+3. **Ask questions** to encourage responses
+4. **Share specific details** rather than generic updates
+5. **Include next steps** or calls to action
+
+## Example Post Structure
+\`\`\`
+🚀 Week 3 Progress on TaskFlow App
+
+Just implemented real-time notifications using Socket.io! The user experience feels so much smoother now.
+
+Next up: Working on the mobile responsiveness. Anyone have experience with React Native navigation? Would love some advice!
+
+#React #SocketIO #MobileFirst
+\`\`\`
+
+**Ready to post?** Go to the Builder Feed tab and click "Share an Update"!
+  `;
+
+  return {
+    answer: contentGuidance,
+    sources: 1,
+    context_used: true,
+    confidence: 0.92,
+    processing_time: 0,
+    search_strategy: 'content_creation_guide',
+    suggested_actions: [
+      'Create feed post',
+      'Share project milestone',
+      'Ask for collaboration',
+      'Highlight achievement'
+    ]
+  };
+}
+
+// Handle connection and collaboration suggestions
+async function handleConnectionSuggestions(request: SuperOracleRequest, userContext: any): Promise<SuperOracleResponse> {
+  // Find relevant builders and projects
+  const builders = await findTeamMembers(request.query, request.teamId);
+  
+  const suggestions = `
+# Collaboration Opportunities 🤝
+
+Based on your profile and query "${request.query}", here are some recommendations:
+
+## Potential Collaborators
+${builders.length > 0 ? builders.map(builder => `
+### ${builder.full_name || 'Builder'}
+- **Skills**: ${builder.skills?.join(', ') || 'Not specified'}
+- **Experience**: ${builder.experience_level || 'Not specified'}
+- **Availability**: ${builder.availability || 'Not specified'}
+${builder.bio ? `- **About**: ${builder.bio.substring(0, 100)}...` : ''}
+`).join('\n') : 'No specific matches found, but Oracle is always finding new builders!'}
+
+## How to Connect
+1. **Direct Connect**: Use the "Connect" button on Builder Radar
+2. **Project Invitation**: Invite them to collaborate on your project
+3. **Skill Exchange**: Offer to teach something in return
+4. **Community Engagement**: Comment on their feed posts first
+
+## Collaboration Tips
+- **Be Specific**: Mention exactly what you need help with
+- **Offer Value**: What can you provide in return?
+- **Set Expectations**: Time commitment, communication style
+- **Start Small**: Begin with a small task or consultation
+
+**Oracle Insight**: The best collaborations start with clear communication and mutual benefit!
+  `;
+
+  return {
+    answer: suggestions,
+    sources: builders.length,
+    context_used: true,
+    confidence: 0.88,
+    processing_time: 0,
+    search_strategy: 'collaboration_matching',
+    connections: builders.map(b => ({
+      name: b.full_name,
+      skills: b.skills,
+      experience: b.experience_level,
+      id: b.id
+    })),
+    suggested_actions: [
+      'Send connection request',
+      'Invite to project',
+      'Suggest skill exchange',
+      'Visit Builder Radar'
+    ]
+  };
+}
+
+// Handle general chat queries with enhanced context
+async function handleChatQuery(request: SuperOracleRequest, userContext: any): Promise<SuperOracleResponse> {
+  // Perform RAG search for relevant context
+  const ragResults = await performRAGSearch(request.query, request.role, request.teamId, userContext);
+  
+  // Build context string
+  const contextString = `
+User Context: ${userContext ? JSON.stringify(userContext, null, 2) : 'Limited context available'}
+Recent Updates: ${ragResults.updates?.map(u => u.content).join('; ') || 'No recent updates'}
+Relevant Documents: ${ragResults.documents?.map(d => d.content).join('; ') || 'No documents found'}
+  `;
+
+  // Generate AI response
+  const aiResponse = await generateAIResponse(request.query, contextString, userContext);
+  
+  return {
+    answer: aiResponse,
+    sources: ragResults.documents?.length || 0,
+    context_used: Boolean(userContext),
+    confidence: 0.85,
+    processing_time: 0,
+    search_strategy: ragResults.search_strategy || 'basic_chat',
+    documents: ragResults.documents,
+    updates: ragResults.updates
+  };
+}
 async function getUserContext(userId?: string, teamId?: string): Promise<any> {
   if (!userId) return null;
   
@@ -829,6 +1069,79 @@ function detectSlashCommand(query: string): { command: string; args: string } | 
 
 // Main Super Oracle function
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const requestBody: SuperOracleRequest = await req.json();
+    console.log('Super Oracle request:', requestBody);
+
+    // Validate request
+    if (!requestBody.query?.trim()) {
+      throw new Error('Query is required');
+    }
+
+    // Process the Oracle query
+    const response = await handleOracleQuery(requestBody);
+    
+    // Log interaction for learning
+    if (requestBody.userId) {
+      try {
+        await supabase.from('oracle_logs').insert({
+          user_id: requestBody.userId,
+          team_id: requestBody.teamId,
+          query: requestBody.query,
+          response: response.answer,
+          query_type: requestBody.type,
+          user_role: requestBody.role,
+          confidence: response.confidence,
+          sources: response.sources,
+          processing_time: response.processing_time,
+          context_used: response.context_used,
+          search_strategy: response.search_strategy,
+          model_used: response.model_used
+        });
+      } catch (logError) {
+        console.warn('Failed to log Oracle interaction:', logError);
+      }
+    }
+
+    return new Response(
+      JSON.stringify(response),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
+    );
+  } catch (error) {
+    console.error('Super Oracle error:', error);
+    
+    const errorResponse: SuperOracleResponse = {
+      answer: `I apologize, but I encountered an error: ${error.message}. Please try rephrasing your question or contact support if the issue persists.`,
+      sources: 0,
+      context_used: false,
+      model_used: 'error_handler',
+      confidence: 0.1,
+      processing_time: 0,
+      search_strategy: 'error_fallback'
+    };
+
+    return new Response(
+      JSON.stringify(errorResponse),
+      { 
+        status: 500,
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
+    );
+  }
+});
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
