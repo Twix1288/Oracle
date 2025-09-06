@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      builder_challenges: {
+        Row: {
+          challenge_type: string
+          completed_at: string | null
+          created_at: string | null
+          current_progress: number | null
+          description: string | null
+          id: string
+          oracle_generated: boolean | null
+          reward_points: number | null
+          target_metric: number | null
+          title: string
+          user_id: string | null
+          week_assigned: string
+        }
+        Insert: {
+          challenge_type: string
+          completed_at?: string | null
+          created_at?: string | null
+          current_progress?: number | null
+          description?: string | null
+          id?: string
+          oracle_generated?: boolean | null
+          reward_points?: number | null
+          target_metric?: number | null
+          title: string
+          user_id?: string | null
+          week_assigned: string
+        }
+        Update: {
+          challenge_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          current_progress?: number | null
+          description?: string | null
+          id?: string
+          oracle_generated?: boolean | null
+          reward_points?: number | null
+          target_metric?: number | null
+          title?: string
+          user_id?: string | null
+          week_assigned?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_challenges_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      builder_connections: {
+        Row: {
+          connectee_id: string | null
+          connection_type: string | null
+          connector_id: string | null
+          created_at: string | null
+          facilitated_by_oracle: boolean | null
+          id: string
+          oracle_confidence: number | null
+          oracle_reasoning: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          connectee_id?: string | null
+          connection_type?: string | null
+          connector_id?: string | null
+          created_at?: string | null
+          facilitated_by_oracle?: boolean | null
+          id?: string
+          oracle_confidence?: number | null
+          oracle_reasoning?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          connectee_id?: string | null
+          connection_type?: string | null
+          connector_id?: string | null
+          created_at?: string | null
+          facilitated_by_oracle?: boolean | null
+          id?: string
+          oracle_confidence?: number | null
+          oracle_reasoning?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "builder_connections_connectee_id_fkey"
+            columns: ["connectee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "builder_connections_connector_id_fkey"
+            columns: ["connector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       builder_conversations: {
         Row: {
           created_at: string | null
@@ -55,6 +162,57 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connection_requests: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string | null
+          oracle_generated: boolean | null
+          request_type: string | null
+          requested_id: string | null
+          requester_id: string | null
+          responded_at: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          oracle_generated?: boolean | null
+          request_type?: string | null
+          requested_id?: string | null
+          requester_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          oracle_generated?: boolean | null
+          request_type?: string | null
+          requested_id?: string | null
+          requester_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connection_requests_requested_id_fkey"
+            columns: ["requested_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connection_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -296,12 +454,17 @@ export type Database = {
       profiles: {
         Row: {
           availability: string | null
+          availability_hours: number | null
           avatar_url: string | null
           bio: string | null
+          builder_level: string | null
           career_aspirations: string[] | null
           challenge_areas: string[] | null
+          collaboration_karma: number | null
           collaboration_preferences: string | null
+          collaboration_style: string | null
           communication_style: string | null
+          connection_streak: number | null
           created_at: string | null
           email: string
           embedding: string | null
@@ -317,6 +480,7 @@ export type Database = {
           industry_focus: string | null
           interests: string[] | null
           learning_goals: string[] | null
+          learning_style: string | null
           linkedin_url: string | null
           mentorship_needs: string | null
           networking_goals: string[] | null
@@ -340,12 +504,17 @@ export type Database = {
         }
         Insert: {
           availability?: string | null
+          availability_hours?: number | null
           avatar_url?: string | null
           bio?: string | null
+          builder_level?: string | null
           career_aspirations?: string[] | null
           challenge_areas?: string[] | null
+          collaboration_karma?: number | null
           collaboration_preferences?: string | null
+          collaboration_style?: string | null
           communication_style?: string | null
+          connection_streak?: number | null
           created_at?: string | null
           email: string
           embedding?: string | null
@@ -361,6 +530,7 @@ export type Database = {
           industry_focus?: string | null
           interests?: string[] | null
           learning_goals?: string[] | null
+          learning_style?: string | null
           linkedin_url?: string | null
           mentorship_needs?: string | null
           networking_goals?: string[] | null
@@ -384,12 +554,17 @@ export type Database = {
         }
         Update: {
           availability?: string | null
+          availability_hours?: number | null
           avatar_url?: string | null
           bio?: string | null
+          builder_level?: string | null
           career_aspirations?: string[] | null
           challenge_areas?: string[] | null
+          collaboration_karma?: number | null
           collaboration_preferences?: string | null
+          collaboration_style?: string | null
           communication_style?: string | null
+          connection_streak?: number | null
           created_at?: string | null
           email?: string
           embedding?: string | null
@@ -405,6 +580,7 @@ export type Database = {
           industry_focus?: string | null
           interests?: string[] | null
           learning_goals?: string[] | null
+          learning_style?: string | null
           linkedin_url?: string | null
           mentorship_needs?: string | null
           networking_goals?: string[] | null
@@ -502,6 +678,57 @@ export type Database = {
           },
         ]
       }
+      project_updates: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          oracle_insights: Json | null
+          oracle_processed: boolean | null
+          team_id: string | null
+          update_type: string | null
+          user_id: string | null
+          visibility: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          oracle_insights?: Json | null
+          oracle_processed?: boolean | null
+          team_id?: string | null
+          update_type?: string | null
+          user_id?: string | null
+          visibility?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          oracle_insights?: Json | null
+          oracle_processed?: boolean | null
+          team_id?: string | null
+          update_type?: string | null
+          user_id?: string | null
+          visibility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_updates_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_updates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_assignments: {
         Row: {
           assigned_by: string | null
@@ -580,19 +807,24 @@ export type Database = {
         Row: {
           access_code: string | null
           ai_summary: string | null
+          collaboration_needs: Json | null
           competitive_advantage: string | null
           created_at: string | null
           description: string | null
           embedding: string | null
           id: string
+          last_activity: string | null
           market_research: string | null
           max_members: number | null
           mentorship_areas: string | null
           name: string
+          oracle_summary: string | null
           problem_statement: string | null
           project_description: string | null
           project_name: string | null
           project_type: string | null
+          project_visibility: string | null
+          seeking_collaborators: boolean | null
           skills_needed: string[] | null
           solution_approach: string | null
           stage: string | null
@@ -608,19 +840,24 @@ export type Database = {
         Insert: {
           access_code?: string | null
           ai_summary?: string | null
+          collaboration_needs?: Json | null
           competitive_advantage?: string | null
           created_at?: string | null
           description?: string | null
           embedding?: string | null
           id?: string
+          last_activity?: string | null
           market_research?: string | null
           max_members?: number | null
           mentorship_areas?: string | null
           name: string
+          oracle_summary?: string | null
           problem_statement?: string | null
           project_description?: string | null
           project_name?: string | null
           project_type?: string | null
+          project_visibility?: string | null
+          seeking_collaborators?: boolean | null
           skills_needed?: string[] | null
           solution_approach?: string | null
           stage?: string | null
@@ -636,19 +873,24 @@ export type Database = {
         Update: {
           access_code?: string | null
           ai_summary?: string | null
+          collaboration_needs?: Json | null
           competitive_advantage?: string | null
           created_at?: string | null
           description?: string | null
           embedding?: string | null
           id?: string
+          last_activity?: string | null
           market_research?: string | null
           max_members?: number | null
           mentorship_areas?: string | null
           name?: string
+          oracle_summary?: string | null
           problem_statement?: string | null
           project_description?: string | null
           project_name?: string | null
           project_type?: string | null
+          project_visibility?: string | null
+          seeking_collaborators?: boolean | null
           skills_needed?: string[] | null
           solution_approach?: string | null
           stage?: string | null
@@ -704,6 +946,50 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_digests: {
+        Row: {
+          collaboration_matches: Json | null
+          connection_suggestions: Json | null
+          delivered_at: string | null
+          digest_week: string
+          generated_at: string | null
+          id: string
+          learning_opportunities: Json | null
+          project_highlights: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          collaboration_matches?: Json | null
+          connection_suggestions?: Json | null
+          delivered_at?: string | null
+          digest_week: string
+          generated_at?: string | null
+          id?: string
+          learning_opportunities?: Json | null
+          project_highlights?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          collaboration_matches?: Json | null
+          connection_suggestions?: Json | null
+          delivered_at?: string | null
+          digest_week?: string
+          generated_at?: string | null
+          id?: string
+          learning_opportunities?: Json | null
+          project_highlights?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_digests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
