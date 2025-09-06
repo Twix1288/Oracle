@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap } from 'lucide-react';
+import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap, MessageSquare } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { BuilderRadarTab } from '@/components/gateway/BuilderRadarTab';
 import { EnhancedProjectsTab } from '@/components/gateway/EnhancedProjectsTab';
+import { SuperOracle } from '@/components/SuperOracle';
 import { CollaborationHubTab } from '@/components/gateway/CollaborationHubTab';
 import { BuilderFeedTab } from '@/components/gateway/BuilderFeedTab';
 import { KnowledgeExchangeTab } from '@/components/gateway/KnowledgeExchangeTab';
@@ -31,26 +32,30 @@ export default function Gateway() {
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-8">
+            <TabsList className="grid w-full grid-cols-6 mb-8">
               <TabsTrigger value="builder-radar" className="flex items-center gap-2">
                 <Radar className="h-4 w-4" />
-                <span className="hidden sm:inline">Builder Radar</span>
+                <span className="hidden sm:inline">Radar</span>
               </TabsTrigger>
               <TabsTrigger value="projects" className="flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" />
                 <span className="hidden sm:inline">Projects</span>
               </TabsTrigger>
+              <TabsTrigger value="oracle" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Oracle</span>
+              </TabsTrigger>
               <TabsTrigger value="collaboration" className="flex items-center gap-2">
                 <Handshake className="h-4 w-4" />
-                <span className="hidden sm:inline">Collaboration</span>
+                <span className="hidden sm:inline">Collab</span>
               </TabsTrigger>
               <TabsTrigger value="builder-feed" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
-                <span className="hidden sm:inline">Builder Feed</span>
+                <span className="hidden sm:inline">Feed</span>
               </TabsTrigger>
               <TabsTrigger value="knowledge-exchange" className="flex items-center gap-2">
                 <GraduationCap className="h-4 w-4" />
-                <span className="hidden sm:inline">Knowledge</span>
+                <span className="hidden sm:inline">Learn</span>
               </TabsTrigger>
             </TabsList>
 
@@ -60,6 +65,10 @@ export default function Gateway() {
             
             <TabsContent value="projects" className="mt-0">
               <EnhancedProjectsTab />
+            </TabsContent>
+            
+            <TabsContent value="oracle" className="mt-0">
+              <SuperOracle selectedRole="builder" />
             </TabsContent>
             
             <TabsContent value="collaboration" className="mt-0">

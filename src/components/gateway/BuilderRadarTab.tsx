@@ -45,8 +45,92 @@ export const BuilderRadarTab = () => {
       fetchActiveBuilders();
       fetchOracleSuggestions();
       generateProactiveMessages();
+    } else {
+      // Add mock data when no user is available
+      setMockData();
     }
   }, [user]);
+
+  const setMockData = () => {
+    // Mock active builders
+    const mockBuilders: BuilderProfile[] = [
+      {
+        id: 'builder-1',
+        full_name: 'Alex Chen',
+        bio: 'Full-stack developer passionate about AI and blockchain technology. Building the future one commit at a time.',
+        skills: ['React', 'Node.js', 'Solidity', 'Python'],
+        builder_level: 'advanced',
+        availability_hours: 15,
+        learning_goals: ['Web3 Development', 'Smart Contracts', 'DeFi'],
+        project_goals: 'Building decentralized applications that solve real-world problems',
+        oracle_confidence: 0.92,
+        recent_activity: 'Posted update about DeFi protocol progress'
+      },
+      {
+        id: 'builder-2',
+        full_name: 'Sarah Martinez',
+        bio: 'UX Designer turning complex ideas into beautiful, user-friendly experiences. Design thinking advocate.',
+        skills: ['Figma', 'User Research', 'Prototyping', 'Design Systems'],
+        builder_level: 'intermediate',
+        availability_hours: 12,
+        learning_goals: ['Frontend Development', 'React', 'Design Tokens'],
+        project_goals: 'Creating design systems that scale for growing startups',
+        oracle_confidence: 0.87,
+        recent_activity: 'Completed user research for mobile app redesign'
+      },
+      {
+        id: 'builder-3',
+        full_name: 'Michael Rodriguez',
+        bio: 'DevOps engineer and cloud architect. Scaling applications from zero to millions of users.',
+        skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
+        builder_level: 'expert',
+        availability_hours: 8,
+        learning_goals: ['Serverless Architecture', 'Edge Computing'],
+        project_goals: 'Building resilient cloud infrastructure for startups',
+        oracle_confidence: 0.94,
+        recent_activity: 'Launched new CI/CD pipeline reducing deployment time by 60%'
+      },
+      {
+        id: 'builder-4',
+        full_name: 'Emily Watson',
+        bio: 'Data scientist and ML engineer. Turning data into insights and predictions that drive business value.',
+        skills: ['Python', 'TensorFlow', 'PyTorch', 'SQL'],
+        builder_level: 'advanced',
+        availability_hours: 10,
+        learning_goals: ['Computer Vision', 'NLP', 'MLOps'],
+        project_goals: 'Building AI solutions for healthcare and education',
+        oracle_confidence: 0.89,
+        recent_activity: 'Published research on medical image classification'
+      },
+      {
+        id: 'builder-5',
+        full_name: 'David Kim',
+        bio: 'Mobile app developer specializing in cross-platform solutions. 50+ apps published on app stores.',
+        skills: ['React Native', 'Flutter', 'Swift', 'Kotlin'],
+        builder_level: 'intermediate',
+        availability_hours: 14,
+        learning_goals: ['AR/VR Development', 'IoT Integration'],
+        project_goals: 'Creating mobile experiences that connect the physical and digital worlds',
+        oracle_confidence: 0.85,
+        recent_activity: 'Released fitness tracking app with 10k+ downloads'
+      },
+      {
+        id: 'builder-6',
+        full_name: 'Lisa Thompson',
+        bio: 'Product manager and growth hacker. Helping teams build products that users love and businesses need.',
+        skills: ['Product Strategy', 'Growth Hacking', 'Analytics', 'A/B Testing'],
+        builder_level: 'advanced',
+        availability_hours: 12,
+        learning_goals: ['Product-Led Growth', 'Data-Driven Design'],
+        project_goals: 'Launching products that achieve product-market fit faster',
+        oracle_confidence: 0.91,
+        recent_activity: 'Grew user base by 300% using viral marketing strategies'
+      }
+    ];
+
+    setActiveBuilders(mockBuilders);
+    setIsLoading(false);
+  };
 
   const fetchActiveBuilders = async () => {
     try {

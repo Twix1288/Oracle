@@ -68,8 +68,99 @@ export const EnhancedProjectsTab = () => {
       fetchUserProjects();
       fetchPublicProjects();
       generateOracleInsights();
+    } else {
+      // Add mock data when no user is available
+      setMockData();
     }
   }, [user]);
+
+  const setMockData = () => {
+    // Mock user projects
+    const mockUserProjects: Project[] = [
+      {
+        id: 'project-1',
+        name: 'EcoTracker App',
+        description: 'A mobile app to help users track their carbon footprint and get personalized eco-friendly tips.',
+        project_visibility: 'public',
+        oracle_summary: 'Strong product-market fit potential in sustainability sector. Consider partnering with environmental organizations.',
+        last_activity: new Date().toISOString(),
+        tech_stack: ['React Native', 'Node.js', 'PostgreSQL'],
+        stage: 'development',
+        seeking_collaborators: true,
+        collaboration_needs: ['UI/UX Designer', 'Mobile Developer'],
+        member_count: 3,
+        team_creator_id: user?.id,
+        problem_statement: 'People lack awareness of their environmental impact',
+        solution_approach: 'Gamified carbon tracking with actionable insights',
+        target_audience: 'Environmentally conscious millennials'
+      },
+      {
+        id: 'project-2',
+        name: 'StudyBuddy Platform',
+        description: 'Collaborative learning platform connecting students for group study sessions.',
+        project_visibility: 'team_only',
+        oracle_summary: 'High engagement potential in education market. Focus on university partnerships.',
+        last_activity: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        tech_stack: ['React', 'Express', 'MongoDB'],
+        stage: 'testing',
+        seeking_collaborators: false,
+        collaboration_needs: [],
+        member_count: 2,
+        team_creator_id: user?.id
+      }
+    ];
+
+    // Mock public projects
+    const mockPublicProjects: Project[] = [
+      {
+        id: 'pub-project-1',
+        name: 'AI Recipe Generator',
+        description: 'Generate personalized recipes based on dietary preferences and available ingredients.',
+        project_visibility: 'public',
+        oracle_summary: 'Great potential for food tech market. Strong AI/ML component aligns with current trends.',
+        last_activity: new Date().toISOString(),
+        tech_stack: ['Python', 'TensorFlow', 'React'],
+        stage: 'ideation',
+        seeking_collaborators: true,
+        collaboration_needs: ['ML Engineer', 'Frontend Developer'],
+        member_count: 2,
+        team_creator_id: 'other-user-1'
+      },
+      {
+        id: 'pub-project-2',
+        name: 'Blockchain Voting System',
+        description: 'Secure, transparent voting platform using blockchain technology.',
+        project_visibility: 'public',
+        oracle_summary: 'Addressing critical democratic infrastructure needs. High technical complexity requires experienced team.',
+        last_activity: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        tech_stack: ['Solidity', 'Web3.js', 'React'],
+        stage: 'development',
+        seeking_collaborators: true,
+        collaboration_needs: ['Blockchain Developer', 'Security Expert'],
+        member_count: 4,
+        team_creator_id: 'other-user-2'
+      },
+      {
+        id: 'pub-project-3',
+        name: 'Fitness Tracker API',
+        description: 'REST API for fitness applications with social features and progress tracking.',
+        project_visibility: 'public',
+        oracle_summary: 'Solid B2B opportunity in health tech. Focus on data privacy and GDPR compliance.',
+        last_activity: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+        tech_stack: ['Node.js', 'Express', 'Redis'],
+        stage: 'launch',
+        seeking_collaborators: false,
+        collaboration_needs: [],
+        member_count: 5,
+        team_creator_id: 'other-user-3'
+      }
+    ];
+
+    setUserProjects(mockUserProjects);
+    setPublicProjects(mockPublicProjects);
+    setSelectedProject(mockUserProjects[0]?.id);
+    setIsLoading(false);
+  };
 
   const fetchUserProjects = async () => {
     try {
