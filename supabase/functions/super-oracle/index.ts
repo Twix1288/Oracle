@@ -40,8 +40,60 @@ interface SuperOracleResponse {
   connections?: any[];
 }
 
+// Search documents for relevant context
+async function searchDocuments(query: string, userId?: string): Promise<string> {
+  try {
+    console.log('🔍 Searching documents for context...');
+    
+    let documentQuery = supabase
+      .from('documents')
+      .select('content, content_type, metadata');
+    
+    // If user provided, get their team-related documents
+    if (userId) {
+      documentQuery = documentQuery.or(`source_id.eq.${userId},content_type.eq.public`);
+    }
+    
+    const { data: documents, error } = await documentQuery
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (error) {
+      console.error('❌ Document search error:', error);
+      return '';
+    }
+    
+    if (!documents || documents.length === 0) {
+      return '';
+    }
+    
+    // Simple text matching for relevant documents
+    const queryLower = query.toLowerCase();
+    const relevantDocs = documents.filter(doc => 
+      doc.content.toLowerCase().includes(queryLower) ||
+      queryLower.split(' ').some(word => 
+        word.length > 3 && doc.content.toLowerCase().includes(word)
+      )
+    ).slice(0, 5);
+    
+    if (relevantDocs.length === 0) {
+      return '';
+    }
+    
+    const contextText = relevantDocs
+      .map(doc => `[${doc.content_type}] ${doc.content.substring(0, 300)}`)
+      .join('\n\n');
+    
+    console.log(`✅ Found ${relevantDocs.length} relevant documents`);
+    return contextText;
+  } catch (error) {
+    console.error('❌ Document search error:', error);
+    return '';
+  }
+}
+
 // Simple AI response generation
-async function generateAIResponse(query: string, context: string, userContext: any): Promise<string> {
+async function generateAIResponse(query: string, context: string, userContext: any, userId?: string): Promise<string> {
   try {
     console.log('🤖 Generating AI response for query:', query.substring(0, 100));
     
@@ -50,13 +102,18 @@ async function generateAIResponse(query: string, context: string, userContext: a
       return 'I apologize, but the AI service is not properly configured. Please contact support.';
     }
 
-    const prompt = `You are an AI assistant helping a user with their query. 
+    // Search for relevant documents
+    const documentContext = await searchDocuments(query, userId);
+    const hasDocumentContext = documentContext.length > 0;
     
+    const prompt = `You are an AI assistant helping a user with their query. 
+
 User Context: ${userContext ? JSON.stringify(userContext) : 'No context available'}
 Query: ${query}
 Context Information: ${context}
+${hasDocumentContext ? `\nRelevant Documents/Data:\n${documentContext}` : ''}
 
-Please provide a helpful, relevant response based on the user's context and query. Be concise but informative.`;
+Please provide a helpful, relevant response based on the user's context and query${hasDocumentContext ? ' and the relevant documents provided' : ''}. Be concise but informative.`;
 
     console.log('🔄 Making OpenAI API request...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -375,12 +432,12 @@ I'm here to help you find great collaborators!
       case 'chat':
       default:
         console.log('💬 Handling chat query');
-        const aiResponse = await generateAIResponse(requestBody.query, '', null);
+        const aiResponse = await generateAIResponse(requestBody.query, '', requestBody.context, requestBody.userId);
         response.answer = aiResponse;
         response.sources = 0;
-        response.context_used = false;
+        response.context_used = true;
         response.confidence = 0.75;
-        response.search_strategy = 'ai_chat';
+        response.search_strategy = 'ai_chat_with_docs';
         break;
     }
 
