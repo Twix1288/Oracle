@@ -122,6 +122,13 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
   const [responses, setResponses] = useState<SuperOracleResponse[]>([]);
   const { toast } = useToast();
 
+  console.log('🔧 SuperOracle initialized:', {
+    selectedRole,
+    teamId,
+    userId,
+    hasTeam: Boolean(teamId)
+  });
+
   const permissions = rolePermissions[selectedRole];
 
   // Enhanced slash command patterns - the main Oracle commands
@@ -267,6 +274,17 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
 
     setIsLoading(true);
     
+    const teamIdProp = teamId;
+    const userIdProp = userId;
+
+    console.log('🚀 Oracle query started:', {
+      query: query.substring(0, 50) + '...',
+      role: selectedRole,
+      teamId: teamIdProp,
+      userId: userIdProp,
+      hasTeam: Boolean(teamIdProp)
+    });
+    
     try {
       // Check for slash commands first
       const slashCommand = detectSlashCommand(query);
@@ -316,7 +334,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             break;
         }
 
-        console.log('Enhanced slash command query:', enhancedQuery);
+        console.log('📝 Processing slash command:', slashCommand.type, 'as', commandType);
 
         // Route through Super Oracle with enhanced capabilities
         const response = await supabase.functions.invoke('super-oracle', {
@@ -324,10 +342,10 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             query: enhancedQuery,
             type: commandType,
             role: selectedRole,
-            teamId,
-            userId,
+            teamId: teamIdProp || undefined,
+            userId: userIdProp || undefined,
             context: { 
-              hasTeam: Boolean(teamId),
+              hasTeam: Boolean(teamIdProp),
               commandType: slashCommand.type,
               originalQuery: slashCommand.query,
               isSlashCommand: true
@@ -335,8 +353,19 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           }
         });
 
+        console.log('📡 Slash command response:', {
+          hasError: !!response.error,
+          hasData: !!response.data
+        });
+
         if (response.error) {
-          throw new Error(response.error.message);
+          console.error('❌ Slash command error:', response.error);
+          throw new Error(response.error.message || 'Slash command failed');
+        }
+
+        if (!response.data) {
+          console.error('❌ No data in slash command response');
+          throw new Error('No response data received from Oracle');
         }
 
         // Add response to history with enhanced metadata
@@ -353,24 +382,40 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
 
         toast({
           title: `/${slashCommand.type} executed`,
-          description: `Processed with ${response.data.model_used}`,
+          description: `Processed successfully`,
         });
 
       } else {
         // Handle regular queries through Super Oracle
+        console.log('📝 Processing regular query');
+        
         const response = await supabase.functions.invoke('super-oracle', {
           body: {
             query: query.trim(),
             type: 'chat',
             role: selectedRole,
-            teamId,
-            userId,
-            context: { hasTeam: Boolean(teamId) }
+            teamId: teamIdProp || undefined,
+            userId: userIdProp || undefined,
+            context: { 
+              hasTeam: Boolean(teamIdProp),
+              isSlashCommand: false
+            }
           }
         });
 
+        console.log('📡 Regular query response:', {
+          hasError: !!response.error,
+          hasData: !!response.data
+        });
+
         if (response.error) {
-          throw new Error(response.error.message);
+          console.error('❌ Regular query error:', response.error);
+          throw new Error(response.error.message || 'Oracle query failed');
+        }
+
+        if (!response.data) {
+          console.error('❌ No data in regular query response');
+          throw new Error('No response data received from Oracle');
         }
 
         const newResponse: SuperOracleResponse = {

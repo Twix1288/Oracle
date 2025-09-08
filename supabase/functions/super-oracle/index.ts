@@ -9,6 +9,16 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+// Log environment setup
+console.log('🔧 Environment check:');
+console.log('- Supabase URL:', supabaseUrl ? 'Set' : 'Missing');
+console.log('- Supabase Key:', supabaseKey ? 'Set' : 'Missing');
+console.log('- OpenAI Key:', openAIApiKey ? 'Set' : 'Missing');
+
+if (!openAIApiKey) {
+  console.error('❌ OPENAI_API_KEY is not set!');
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -841,39 +851,68 @@ serve(async (req) => {
       console.log('✅ GraphRAG initialized with', knowledgeGraph.size, 'nodes and', graphEdges.length, 'edges');
     }
 
-    // Handle POST requests to the main endpoint (this is the default for Supabase functions)
+    // Handle POST requests to the main endpoint (default for Supabase functions)
     if (req.method === 'POST') {
-      const request: SuperOracleRequest = await req.json();
-      console.log('📝 Oracle request:', request.type, request.query?.substring(0, 50));
+      console.log('📝 Processing POST request...');
       
-      const response = await handleOracleQuery(request);
-      
-      // Log to Supabase
-      await supabase.from('oracle_logs').insert({
-        user_id: request.userId,
-        team_id: request.teamId,
-        query: request.query,
-        response: response.answer,
-        query_type: request.type,
-        user_role: request.role,
-        confidence: response.confidence,
-        sources: response.sources,
-        processing_time: response.processing_time,
-        context_used: response.context_used
-      });
-      
-      console.log('✅ Oracle response generated, confidence:', response.confidence);
-      
-      // Format for Discord if needed
-      if (isDiscordRequest(req)) {
-        return new Response(JSON.stringify(formatDiscordResponse(response)), {
+      let request: SuperOracleRequest;
+      try {
+        request = await req.json();
+        console.log('📝 Oracle request:', request.type, request.query?.substring(0, 50));
+      } catch (parseError) {
+        console.error('❌ JSON parsing error:', parseError);
+        return new Response(JSON.stringify({
+          error: 'Invalid JSON in request body',
+          message: parseError.message
+        }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
       
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      try {
+        const response = await handleOracleQuery(request);
+        console.log('✅ Oracle response generated, confidence:', response.confidence);
+        
+        // Log to Supabase (optional, don't fail if this errors)
+        try {
+          await supabase.from('oracle_logs').insert({
+            user_id: request.userId,
+            team_id: request.teamId,
+            query: request.query,
+            response: response.answer,
+            query_type: request.type,
+            user_role: request.role,
+            confidence: response.confidence,
+            sources: response.sources,
+            processing_time: response.processing_time,
+            context_used: response.context_used
+          });
+        } catch (logError) {
+          console.warn('⚠️ Logging error (non-critical):', logError);
+        }
+        
+        // Format for Discord if needed
+        if (isDiscordRequest(req)) {
+          return new Response(JSON.stringify(formatDiscordResponse(response)), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        
+        return new Response(JSON.stringify(response), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (queryError) {
+        console.error('❌ Oracle query error:', queryError);
+        return new Response(JSON.stringify({
+          error: 'Oracle query failed',
+          message: queryError.message,
+          type: 'oracle_error'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
     
     // Handle GET requests for metrics and status
@@ -912,19 +951,24 @@ serve(async (req) => {
       });
     }
 
-    // 404 for unknown routes
-    return new Response('GraphRAG Oracle - Unknown endpoint', {
-      status: 404,
-      headers: corsHeaders
+    // 404 for unknown methods
+    console.warn('⚠️ Unknown HTTP method:', req.method);
+    return new Response(JSON.stringify({
+      error: 'Method not allowed',
+      allowed_methods: ['GET', 'POST', 'OPTIONS']
+    }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('Server error:', error);
+    console.error('💥 Server error:', error);
     updatePerformanceMetrics(0, true);
     
     return new Response(JSON.stringify({
       error: 'Internal server error',
       message: 'The GraphRAG Oracle system encountered an error',
+      details: error.message,
       status: 'error'
     }), {
       status: 500,
