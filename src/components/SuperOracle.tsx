@@ -44,10 +44,27 @@ interface SuperOracleResponse {
   vectorized?: boolean;
   similarity_score?: number;
   related_content?: any[];
-  // GraphRAG results
-  knowledge_graph?: any;
-  graph_nodes?: any[];
-  graph_relationships?: any[];
+  // GraphRAG results (updated structure)
+  knowledge_graph?: {
+    nodes: any[];
+    edges: any[];
+    paths: any[];
+    query_keywords: string[];
+  };
+  graph_nodes?: any[];  // Legacy support
+  graph_relationships?: any[];  // Legacy support
+  // New GraphRAG fields
+  cache_hit?: boolean;
+  performance_metrics?: {
+    queryCount: number;
+    totalResponseTime: number;
+    cacheHitRate: number;
+    averageResponseTime: number;
+    graphBuildTime: number;
+    memoryUsage: number;
+    errorCount: number;
+    successRate: number;
+  };
 }
 
 interface RolePermissions {
@@ -574,27 +591,69 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
       )}
 
       {/* Knowledge Graph Results */}
-      {response.knowledge_graph && response.graph_nodes && response.graph_nodes.length > 0 && (
+      {response.knowledge_graph && response.knowledge_graph.nodes && response.knowledge_graph.nodes.length > 0 && (
         <Card className="glow-border bg-card/50 backdrop-blur">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-2">
               <div className="p-1 rounded-full bg-orange-500/20">
                 <Sparkles className="h-3 w-3 text-orange-500" />
               </div>
-              <h4 className="font-semibold text-sm text-orange-600">Knowledge Graph</h4>
+              <h4 className="font-semibold text-sm text-orange-600">GraphRAG Knowledge Network</h4>
               <Badge variant="outline" className="text-xs">
-                {response.graph_nodes.length} nodes
+                {response.knowledge_graph.nodes.length} nodes
               </Badge>
+              {response.knowledge_graph.edges && (
+                <Badge variant="outline" className="text-xs">
+                  {response.knowledge_graph.edges.length} edges  
+                </Badge>
+              )}
+              {response.cache_hit && (
+                <Badge variant="outline" className="text-xs bg-green-100/50 text-green-700">
+                  💨 Cache Hit
+                </Badge>
+              )}
             </div>
             
-            <div className="p-3 rounded-lg bg-background/50 border border-orange-200/20">
-              <p className="text-sm text-muted-foreground mb-2">
-                Built knowledge graph with {response.graph_nodes.length} nodes and {response.graph_relationships?.length || 0} relationships
+            <div className="p-3 rounded-lg bg-background/50 border border-orange-200/20 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                🧠 Built knowledge graph with <strong>{response.knowledge_graph.nodes.length} nodes</strong> and <strong>{response.knowledge_graph.edges?.length || 0} edges</strong>
               </p>
-              <div className="text-xs text-muted-foreground">
-                <p>Query: {response.knowledge_graph.query}</p>
-                <p>User Context: {response.knowledge_graph.user_context}</p>
-              </div>
+              
+              {response.knowledge_graph.paths && response.knowledge_graph.paths.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-orange-600">🔗 Knowledge Paths:</p>
+                  {response.knowledge_graph.paths.slice(0, 3).map((path, idx) => (
+                    <div key={idx} className="text-xs text-muted-foreground bg-orange-50/50 p-2 rounded border-l-2 border-orange-300">
+                      <strong>Path {idx + 1}:</strong> {path.reasoning} (Score: {path.score?.toFixed(2) || 'N/A'})
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {response.knowledge_graph.query_keywords && (
+                <div>
+                  <p className="text-xs font-medium text-orange-600 mb-1">🎯 Query Keywords:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {response.knowledge_graph.query_keywords.map((keyword, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs bg-orange-100/50">
+                        {keyword}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {response.performance_metrics && (
+                <div className="pt-2 border-t border-orange-200/30">
+                  <p className="text-xs font-medium text-orange-600 mb-1">📊 Performance:</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <span>Avg Response: {response.performance_metrics.averageResponseTime?.toFixed(0) || 'N/A'}ms</span>
+                    <span>Success Rate: {(response.performance_metrics.successRate * 100)?.toFixed(1) || 'N/A'}%</span>
+                    <span>Cache Hit Rate: {(response.performance_metrics.cacheHitRate * 100)?.toFixed(1) || 'N/A'}%</span>
+                    <span>Memory: {(response.performance_metrics.memoryUsage / 1024)?.toFixed(1) || 'N/A'}KB</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
