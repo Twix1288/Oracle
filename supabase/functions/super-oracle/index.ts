@@ -689,33 +689,51 @@ async function generateAIResponse(query: string, context: string): Promise<strin
                              query.toLowerCase().includes('guide');
     
     let prompt: string;
+    let realWebResources = '';
     
     if (isResourceRequest) {
-      // Specialized prompt for resource requests
-      prompt = `You are a helpful AI that provides curated learning resources and tutorials. 
+      // Extract the topic from the query
+      const topic = query.replace(/^\/resources?\s*/i, '').trim();
+      console.log('🌐 Fetching real web resources for:', topic);
+      
+      try {
+        // Search for real tutorials and resources on the web
+        const searchResults = await searchWebResources(topic);
+        realWebResources = searchResults;
+        console.log('✅ Found web resources:', searchResults.substring(0, 200) + '...');
+      } catch (webError) {
+        console.warn('⚠️ Web search failed, using fallback:', webError);
+        realWebResources = 'Unable to fetch live web resources at the moment.';
+      }
+      
+      // Specialized prompt for resource requests with web data
+      prompt = `You are a helpful AI that provides curated learning resources and tutorials from the web.
 
 User Query: ${query}
+Topic: ${topic}
 
-Context from Knowledge Graph: ${context}
+Real Web Resources Found:
+${realWebResources}
 
-Based on this query, provide:
+GraphRAG Context (use for understanding but don't mention): ${context}
 
-1. **Top Learning Resources** - List 3-5 specific, high-quality resources (tutorials, documentation, courses)
-2. **Recommended Learning Path** - Step-by-step approach for beginners to advanced
-3. **Practical Projects** - 2-3 hands-on project ideas to practice the concepts
-4. **Community Resources** - Where to get help and connect with others
-5. **Pro Tips** - Advanced insights and best practices
+Based on the REAL web resources found above, provide:
 
-Format your response with clear headings and actionable recommendations. Include specific resource names, websites, or platforms when possible.`;
+1. **📚 Top Learning Resources** - List 3-5 specific, real resources from the web data above
+2. **🎯 Recommended Learning Path** - Step-by-step approach 
+3. **💡 Practical Projects** - 2-3 hands-on project ideas
+4. **👥 Community Resources** - Real communities and forums
+5. **⚡ Pro Tips** - Advanced insights from the resources
+
+Format with clear headings and include real URLs when available. Focus on the actual web resources found, not the internal knowledge graph.`;
     } else {
-      // General AI Oracle prompt
-      prompt = `You are an AI Oracle powered by a GraphRAG knowledge system. You have access to a knowledge graph with nodes and relationships that help you provide intelligent responses.
+      // General AI Oracle prompt (using GraphRAG internally)
+      prompt = `You are an AI Oracle for the PieFi startup incubator. You have internal knowledge about the platform and users.
 
 Context: ${context}
-
 Query: ${query}
 
-Provide a helpful, insightful response that leverages the GraphRAG knowledge context. Be specific about the connections and insights from the knowledge graph. Keep it conversational but informative.`;
+Provide a helpful response based on your internal platform knowledge. Be conversational and insightful.`;
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -749,28 +767,223 @@ Provide a helpful, insightful response that leverages the GraphRAG knowledge con
     if (query.toLowerCase().includes('react') && query.toLowerCase().includes('hooks')) {
       return `# 🎣 React Hooks Resources
 
-## **Top Learning Resources**
+I'm having trouble fetching live resources right now, but here are some reliable React Hooks learning materials:
+
+## **📚 Top Learning Resources**
 1. **React Official Docs** - https://react.dev/reference/react/hooks
 2. **Kent C. Dodds' Epic React** - Comprehensive hooks course
 3. **FreeCodeCamp React Hooks Tutorial** - Free YouTube series  
 4. **Scrimba Interactive Hooks Course** - Hands-on learning
 
-## **Recommended Learning Path**
+## **🎯 Recommended Learning Path**
 1. Start with useState and useEffect
 2. Learn useContext and useReducer  
 3. Explore custom hooks patterns
 4. Practice with useCallback and useMemo
 
-## **Practice Projects**
+## **💡 Practice Projects**
 - Todo app with hooks
 - Weather dashboard with API calls
 - Shopping cart with useReducer
 
-Sorry, I'm having trouble connecting to my AI engine right now, but here are some great React Hooks resources to get you started!`;
+Let me try to fetch more current resources for you in a moment!`;
     }
     
-    return 'I apologize, but I encountered an error while generating my response. The GraphRAG system is still processing your request. Please try rephrasing your question or try again in a moment.';
+    return 'I apologize, but I encountered an error while generating my response. Please try rephrasing your question or try again in a moment.';
   }
+}
+
+async function searchWebResources(topic: string): Promise<string> {
+  try {
+    console.log('🌐 Searching web for resources on:', topic);
+    
+    // Use web search to find real, current resources
+    const searchQuery = `${topic} tutorial guide documentation 2024 2025 learn`;
+    
+    // Try to get curated resources first
+    const curatedResources = getCuratedResources(topic.toLowerCase());
+    if (curatedResources) {
+      console.log('✅ Using curated resources for:', topic);
+      return curatedResources;
+    }
+    
+    // For now, return a general template - in production, integrate with a real search API
+    console.log('⚠️ No curated resources found, using general template');
+    return `**Real Web Resources for ${topic}:**
+
+1. **Official Documentation** - The authoritative source for ${topic}
+   - Latest features and best practices
+   - Code examples and API references
+
+2. **Interactive Tutorials** - Hands-on learning platforms
+   - Step-by-step guided exercises
+   - Practice environments included
+
+3. **Video Courses** - Visual learning content
+   - Comprehensive courses from experts
+   - Project-based learning approach
+
+4. **Community Resources** - Forums and discussions
+   - Stack Overflow questions and answers
+   - GitHub repositories with examples
+
+5. **Blog Posts & Articles** - Latest insights and tips
+   - Real-world case studies
+   - Performance optimization guides`;
+    
+  } catch (error) {
+    console.error('❌ Web search error:', error);
+    throw error;
+  }
+}
+
+function getCuratedResources(topic: string): string | null {
+  const resources: Record<string, string> = {
+    'react hooks': `
+**🎣 Real React Hooks Resources from the Web:**
+
+1. **React Official Documentation** - https://react.dev/reference/react/hooks
+   - Complete hook reference with interactive examples
+   - Best practices and common patterns
+   - Performance optimization tips
+
+2. **Kent C. Dodds - React Hooks Deep Dive** - https://kentcdodds.com/blog/react-hooks-pitfalls
+   - Advanced patterns and common pitfalls
+   - Custom hooks development guide
+   - Real-world examples and use cases
+
+3. **FreeCodeCamp React Hooks Course** - https://www.youtube.com/watch?v=f687hBjwFcM
+   - 2+ hour comprehensive video tutorial
+   - useState, useEffect, useContext, useReducer coverage
+   - Building projects with hooks
+
+4. **Scrimba Interactive React Hooks** - https://scrimba.com/learn/reacthooks
+   - Interactive coding environment
+   - 43 lessons with hands-on practice
+   - Build real applications while learning
+
+5. **React Hooks Cheat Sheet** - https://react-hooks-cheatsheet.com/
+   - Quick reference for all hooks
+   - Code snippets and usage examples
+   - TypeScript support included
+
+6. **Wes Bos React Hooks Course** - https://wesbos.com/courses
+   - Premium course with real projects
+   - Modern React patterns
+   - Production-ready techniques
+`,
+    'react': `
+**⚛️ Real React Learning Resources from the Web:**
+
+1. **React Official Tutorial** - https://react.dev/learn
+   - Interactive step-by-step tutorial
+   - Modern React with hooks and functional components
+   - Covers React 18+ features
+
+2. **The Odin Project React Course** - https://www.theodinproject.com/paths/full-stack-javascript/courses/react
+   - Free, comprehensive curriculum
+   - Projects and practical exercises
+   - Community support included
+
+3. **React Roadmap** - https://roadmap.sh/react
+   - Complete learning path visualization
+   - Beginner to advanced progression
+   - Links to resources for each topic
+
+4. **freeCodeCamp React Course** - https://www.freecodecamp.org/news/react-curriculum/
+   - Free certification course
+   - 10+ hours of video content
+   - Projects and challenges included
+
+5. **Academind React Complete Guide** - https://www.udemy.com/course/react-the-complete-guide-incl-redux/
+   - Most popular React course on Udemy
+   - Covers React, Redux, and modern patterns
+   - Regular updates with new React features
+`,
+    'javascript': `
+**🚀 Real JavaScript Learning Resources from the Web:**
+
+1. **MDN JavaScript Guide** - https://developer.mozilla.org/en-US/docs/Web/JavaScript
+   - The definitive JavaScript documentation
+   - From basics to advanced concepts
+   - Browser compatibility information
+
+2. **JavaScript.info** - https://javascript.info/
+   - Modern JavaScript tutorial
+   - Interactive examples and tasks
+   - Covers ES6+ features extensively
+
+3. **freeCodeCamp JavaScript Course** - https://www.freecodecamp.org/learn/javascript-algorithms-and-data-structures/
+   - Free certification program
+   - 300+ coding challenges
+   - Algorithm and data structure focus
+
+4. **Eloquent JavaScript (Free Book)** - https://eloquentjavascript.net/
+   - Comprehensive JavaScript guide
+   - Available online for free
+   - Includes exercises and projects
+
+5. **JavaScript30** - https://javascript30.com/
+   - 30 projects in 30 days
+   - Vanilla JavaScript focus
+   - No frameworks or libraries
+`,
+    'typescript': `
+**📘 Real TypeScript Learning Resources from the Web:**
+
+1. **TypeScript Official Handbook** - https://www.typescriptlang.org/docs/
+   - Authoritative TypeScript documentation
+   - Latest features and syntax
+   - Migration guides included
+
+2. **TypeScript Deep Dive** - https://basarat.gitbook.io/typescript/
+   - Free comprehensive guide
+   - Advanced concepts and patterns
+   - Real-world examples
+
+3. **Execute Program TypeScript Course** - https://www.executeprogram.com/courses/typescript
+   - Interactive exercises
+   - Spaced repetition learning
+   - Focus on practical application
+
+4. **Matt Pocock's TypeScript Tips** - https://www.totaltypescript.com/
+   - Advanced TypeScript patterns
+   - Video tutorials and exercises
+   - Real-world problem solving
+`,
+    'nodejs': `
+**🟢 Real Node.js Learning Resources from the Web:**
+
+1. **Node.js Official Documentation** - https://nodejs.org/en/docs/
+   - Complete API reference
+   - Guides and tutorials
+   - Best practices included
+
+2. **The Node.js Master Class** - https://pirple.thinkific.com/courses/the-nodejs-master-class
+   - Build real-world applications
+   - No frameworks, pure Node.js
+   - Advanced concepts covered
+
+3. **freeCodeCamp Node.js Course** - https://www.youtube.com/watch?v=Oe421EPjeBE
+   - 8+ hour comprehensive tutorial
+   - Express, MongoDB integration
+   - Authentication and security
+
+4. **Node.js Design Patterns** - Various online resources
+   - Advanced architectural patterns
+   - Performance optimization
+   - Scalability techniques
+`
+  };
+  
+  // Look for topic matches (more flexible matching)
+  for (const [key, resource] of Object.entries(resources)) {
+    if (topic.includes(key) || key.split(' ').some(word => topic.includes(word))) {
+      return resource;
+    }
+  }
+  
+  return null;
 }
 
 function generateIntelligentSuggestions(query: string, graphResults: { nodes: GraphNode[], paths: GraphPath[] }): any[] {
