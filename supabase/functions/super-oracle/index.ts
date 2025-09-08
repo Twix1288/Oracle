@@ -831,16 +831,21 @@ serve(async (req) => {
   }
 
   const url = new URL(req.url);
+  console.log('🔍 Request:', req.method, url.pathname);
   
   try {
     // Initialize knowledge graph on first request
     if (knowledgeGraph.size === 0) {
+      console.log('🚀 Initializing GraphRAG Knowledge Base...');
       initializeKnowledgeGraph();
+      console.log('✅ GraphRAG initialized with', knowledgeGraph.size, 'nodes and', graphEdges.length, 'edges');
     }
 
-    // Main Oracle endpoint
-    if (url.pathname === '/oracle' || url.pathname === '/') {
+    // Handle POST requests to the main endpoint (this is the default for Supabase functions)
+    if (req.method === 'POST') {
       const request: SuperOracleRequest = await req.json();
+      console.log('📝 Oracle request:', request.type, request.query?.substring(0, 50));
+      
       const response = await handleOracleQuery(request);
       
       // Log to Supabase
@@ -857,6 +862,8 @@ serve(async (req) => {
         context_used: response.context_used
       });
       
+      console.log('✅ Oracle response generated, confidence:', response.confidence);
+      
       // Format for Discord if needed
       if (isDiscordRequest(req)) {
         return new Response(JSON.stringify(formatDiscordResponse(response)), {
@@ -869,20 +876,21 @@ serve(async (req) => {
       });
     }
     
-    // Performance metrics endpoint
-    if (url.pathname === '/metrics') {
-      return new Response(JSON.stringify({
-        ...performanceMetrics,
-        knowledge_graph_size: knowledgeGraph.size,
-        cache_size: cache.size,
-        uptime: Date.now() - performanceMetrics.lastResetTime.getTime()
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    // System status endpoint
-    if (url.pathname === '/status') {
+    // Handle GET requests for metrics and status
+    if (req.method === 'GET') {
+      // Performance metrics endpoint
+      if (url.pathname.includes('/metrics')) {
+        return new Response(JSON.stringify({
+          ...performanceMetrics,
+          knowledge_graph_size: knowledgeGraph.size,
+          cache_size: cache.size,
+          uptime: Date.now() - performanceMetrics.lastResetTime.getTime()
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // System status endpoint (default GET response)
       return new Response(JSON.stringify({
         status: 'healthy',
         graphrag_initialized: knowledgeGraph.size > 0,
@@ -893,7 +901,7 @@ serve(async (req) => {
         },
         features: [
           'In-memory GraphRAG',
-          'No vectorization queries',
+          'No vectorization queries', 
           'Performance optimization',
           'Discord integration',
           'Batch processing',
