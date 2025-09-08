@@ -449,30 +449,17 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
     <div key={index} className="space-y-4">
       {/* Query Display */}
       <div className="text-sm text-muted-foreground mb-2">
-        <strong>You:</strong> {response.query}
+        <strong>You asked:</strong> {response.query}
       </div>
 
-      {/* Model and Strategy Info */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline" className="text-xs">
-          {response.model_used}
-        </Badge>
-        <Badge variant="outline" className="text-xs">
-          {response.search_strategy}
-        </Badge>
-        <span>Confidence: {Math.round(response.confidence * 100)}%</span>
-        <span>Sources: {response.sources}</span>
-        <span>Time: {response.processing_time}ms</span>
-      </div>
-
-      {/* Main Oracle Response */}
+      {/* Main Oracle Response - Make this more prominent */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-full bg-primary/20">
               <Sparkles className="h-3 w-3 text-primary" />
             </div>
-            <h4 className="font-semibold text-sm text-primary">Oracle Response</h4>
+            <h4 className="font-semibold text-base text-primary">Oracle Response</h4>
             {response.sources > 0 && (
               <Badge variant="outline" className="text-xs">
                 {response.sources} sources
@@ -484,24 +471,44 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
               <ReactMarkdown
                 components={{
-                  h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
-                  h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
+                  h1: ({...props}) => <h2 className="font-bold text-lg text-primary mb-3" {...props} />,
+                  h2: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
                   h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
                   ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
                   ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
                   li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
                   strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
+                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground" {...props} />,
                   blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
                   code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                  a: ({...props}) => <a className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer" {...props} />,
                 }}
               >
-                {response.answer}
+                {response.answer || "No response generated. Please try your query again."}
               </ReactMarkdown>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Technical Details - Made collapsible/less prominent */}
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer hover:text-foreground mb-2">
+          Technical Details ({response.model_used}, {Math.round(response.confidence * 100)}% confidence)
+        </summary>
+        <div className="flex flex-wrap items-center gap-2 pl-4">
+          <Badge variant="outline" className="text-xs">
+            {response.search_strategy}
+          </Badge>
+          <span>Sources: {response.sources}</span>
+          <span>Time: {response.processing_time}ms</span>
+          {response.cache_hit && (
+            <Badge variant="outline" className="text-xs bg-green-100/50 text-green-700">
+              ⚡ Cached
+            </Badge>
+          )}
+        </div>
+      </details>
 
       {/* Resources Section */}
       {response.resources && response.resources.length > 0 && (

@@ -681,13 +681,42 @@ function generateSuggestedActions(request: SuperOracleRequest, graphResults: { n
 
 async function generateAIResponse(query: string, context: string): Promise<string> {
   try {
-    const prompt = `You are an AI Oracle powered by a GraphRAG knowledge system. You have access to a knowledge graph with nodes and relationships that help you provide intelligent responses.
+    // Check if this is a resource request
+    const isResourceRequest = query.toLowerCase().includes('/resources') || 
+                             query.toLowerCase().includes('resources') ||
+                             query.toLowerCase().includes('tutorials') ||
+                             query.toLowerCase().includes('learn') ||
+                             query.toLowerCase().includes('guide');
+    
+    let prompt: string;
+    
+    if (isResourceRequest) {
+      // Specialized prompt for resource requests
+      prompt = `You are a helpful AI that provides curated learning resources and tutorials. 
+
+User Query: ${query}
+
+Context from Knowledge Graph: ${context}
+
+Based on this query, provide:
+
+1. **Top Learning Resources** - List 3-5 specific, high-quality resources (tutorials, documentation, courses)
+2. **Recommended Learning Path** - Step-by-step approach for beginners to advanced
+3. **Practical Projects** - 2-3 hands-on project ideas to practice the concepts
+4. **Community Resources** - Where to get help and connect with others
+5. **Pro Tips** - Advanced insights and best practices
+
+Format your response with clear headings and actionable recommendations. Include specific resource names, websites, or platforms when possible.`;
+    } else {
+      // General AI Oracle prompt
+      prompt = `You are an AI Oracle powered by a GraphRAG knowledge system. You have access to a knowledge graph with nodes and relationships that help you provide intelligent responses.
 
 Context: ${context}
 
 Query: ${query}
 
 Provide a helpful, insightful response that leverages the GraphRAG knowledge context. Be specific about the connections and insights from the knowledge graph. Keep it conversational but informative.`;
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -698,19 +727,49 @@ Provide a helpful, insightful response that leverages the GraphRAG knowledge con
       body: JSON.stringify({
         model: 'gpt-5-2025-08-07',
         messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 500,
+        max_completion_tokens: 800,
       }),
     });
 
     if (!response.ok) {
+      console.error('OpenAI API error:', response.status, await response.text());
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const aiResponse = data.choices[0].message.content;
+    
+    console.log('✅ AI response generated:', aiResponse.substring(0, 100) + '...');
+    return aiResponse;
+    
   } catch (error) {
-    console.error('AI response generation error:', error);
-    return 'I apologize, but I encountered an error while generating my response. The GraphRAG system is still processing your request.';
+    console.error('❌ AI response generation error:', error);
+    
+    // Provide a better fallback response
+    if (query.toLowerCase().includes('react') && query.toLowerCase().includes('hooks')) {
+      return `# 🎣 React Hooks Resources
+
+## **Top Learning Resources**
+1. **React Official Docs** - https://react.dev/reference/react/hooks
+2. **Kent C. Dodds' Epic React** - Comprehensive hooks course
+3. **FreeCodeCamp React Hooks Tutorial** - Free YouTube series  
+4. **Scrimba Interactive Hooks Course** - Hands-on learning
+
+## **Recommended Learning Path**
+1. Start with useState and useEffect
+2. Learn useContext and useReducer  
+3. Explore custom hooks patterns
+4. Practice with useCallback and useMemo
+
+## **Practice Projects**
+- Todo app with hooks
+- Weather dashboard with API calls
+- Shopping cart with useReducer
+
+Sorry, I'm having trouble connecting to my AI engine right now, but here are some great React Hooks resources to get you started!`;
+    }
+    
+    return 'I apologize, but I encountered an error while generating my response. The GraphRAG system is still processing your request. Please try rephrasing your question or try again in a moment.';
   }
 }
 
