@@ -26,6 +26,7 @@ interface SuperOracleResponse {
   // Query and timestamp
   query?: string;
   timestamp?: string;
+  error?: string;
   // Journey-specific responses
   detected_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
   feedback?: string;
@@ -331,6 +332,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           timestamp: new Date().toISOString()
         };
 
+        console.log('📤 Slash command response received:', newResponse);
         setResponses(prev => [newResponse, ...prev]);
         setQuery("");
 
@@ -362,6 +364,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           timestamp: new Date().toISOString()
         };
 
+        console.log('📤 Regular query response received:', newResponse);
         setResponses(prev => [newResponse, ...prev]);
         setQuery("");
 
@@ -420,22 +423,33 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           
           <div className="p-4 rounded-lg bg-background/50 border border-primary/10">
             <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
-              <ReactMarkdown
-                components={{
-                  h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
-                  h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
-                  h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
-                  ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
-                  ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
-                  li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
-                  strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
-                  blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
-                  code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
-                }}
-              >
-                {response.answer}
-              </ReactMarkdown>
+              {response.answer ? (
+                <ReactMarkdown
+                  components={{
+                    h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
+                    h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
+                    h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
+                    ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
+                    ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
+                    li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
+                    strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
+                    p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
+                    blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
+                    code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
+                  }}
+                >
+                  {response.answer}
+                </ReactMarkdown>
+              ) : (
+                <div className="text-muted-foreground text-sm">
+                  No response generated. Please try your query again.
+                  {response.error && (
+                    <div className="mt-2 text-red-500 text-xs">
+                      Error: {response.error}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

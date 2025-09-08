@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 const AI_MODELS = {
   openai: {
     apiKey: Deno.env.get('OPENAI_API_KEY'),
-    model: 'gpt-4o'
+    model: 'gpt-4o' // Using legacy model that supports temperature and max_tokens
   }
 };
 
@@ -517,6 +517,13 @@ async function getUserContext(userId?: string, teamId?: string): Promise<any> {
 // Simple AI response generation
 async function generateAIResponse(query: string, context: string, userContext: any): Promise<string> {
   try {
+    console.log('🤖 Generating AI response for query:', query.substring(0, 100));
+    
+    if (!AI_MODELS.openai.apiKey) {
+      console.error('❌ OpenAI API key not found');
+      return 'I apologize, but the AI service is not properly configured. Please contact support.';
+    }
+
     const prompt = `You are an AI assistant helping a user with their query. 
     
 User Context: ${userContext ? JSON.stringify(userContext) : 'No context available'}
@@ -525,6 +532,7 @@ Context Information: ${context}
 
 Please provide a helpful, relevant response based on the user's context and query. Be concise but informative.`;
 
+    console.log('🔄 Making OpenAI API request...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -540,14 +548,24 @@ Please provide a helpful, relevant response based on the user's context and quer
     });
 
     if (!response.ok) {
-      throw new Error('OpenAI API request failed');
+      const errorText = await response.text();
+      console.error('❌ OpenAI API request failed:', response.status, errorText);
+      throw new Error(`OpenAI API request failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const aiAnswer = data.choices?.[0]?.message?.content;
+    
+    if (!aiAnswer) {
+      console.error('❌ No AI response content received:', data);
+      return 'I apologize, but I could not generate a response. Please try rephrasing your question.';
+    }
+
+    console.log('✅ AI response generated successfully');
+    return aiAnswer;
   } catch (error) {
-    console.error('AI response generation error:', error);
-    return 'I apologize, but I encountered an error while processing your request. Please try again.';
+    console.error('❌ AI response generation error:', error);
+    return `I apologize, but I encountered an error while processing your request: ${error.message}. Please try again.`;
   }
 }
 
