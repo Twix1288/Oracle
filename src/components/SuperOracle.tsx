@@ -44,27 +44,10 @@ interface SuperOracleResponse {
   vectorized?: boolean;
   similarity_score?: number;
   related_content?: any[];
-  // GraphRAG results (updated structure)
-  knowledge_graph?: {
-    nodes: any[];
-    edges: any[];
-    paths: any[];
-    query_keywords: string[];
-  };
-  graph_nodes?: any[];  // Legacy support
-  graph_relationships?: any[];  // Legacy support
-  // New GraphRAG fields
-  cache_hit?: boolean;
-  performance_metrics?: {
-    queryCount: number;
-    totalResponseTime: number;
-    cacheHitRate: number;
-    averageResponseTime: number;
-    graphBuildTime: number;
-    memoryUsage: number;
-    errorCount: number;
-    successRate: number;
-  };
+  // GraphRAG results
+  knowledge_graph?: any;
+  graph_nodes?: any[];
+  graph_relationships?: any[];
 }
 
 interface RolePermissions {
@@ -121,13 +104,6 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState<SuperOracleResponse[]>([]);
   const { toast } = useToast();
-
-  console.log('🔧 SuperOracle initialized:', {
-    selectedRole,
-    teamId,
-    userId,
-    hasTeam: Boolean(teamId)
-  });
 
   const permissions = rolePermissions[selectedRole];
 
@@ -274,17 +250,6 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
 
     setIsLoading(true);
     
-    const teamIdProp = teamId;
-    const userIdProp = userId;
-
-    console.log('🚀 Oracle query started:', {
-      query: query.substring(0, 50) + '...',
-      role: selectedRole,
-      teamId: teamIdProp,
-      userId: userIdProp,
-      hasTeam: Boolean(teamIdProp)
-    });
-    
     try {
       // Check for slash commands first
       const slashCommand = detectSlashCommand(query);
@@ -334,7 +299,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             break;
         }
 
-        console.log('📝 Processing slash command:', slashCommand.type, 'as', commandType);
+        console.log('Enhanced slash command query:', enhancedQuery);
 
         // Route through Super Oracle with enhanced capabilities
         const response = await supabase.functions.invoke('super-oracle', {
@@ -342,10 +307,10 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             query: enhancedQuery,
             type: commandType,
             role: selectedRole,
-            teamId: teamIdProp || undefined,
-            userId: userIdProp || undefined,
+            teamId,
+            userId,
             context: { 
-              hasTeam: Boolean(teamIdProp),
+              hasTeam: Boolean(teamId),
               commandType: slashCommand.type,
               originalQuery: slashCommand.query,
               isSlashCommand: true
@@ -353,19 +318,8 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           }
         });
 
-        console.log('📡 Slash command response:', {
-          hasError: !!response.error,
-          hasData: !!response.data
-        });
-
         if (response.error) {
-          console.error('❌ Slash command error:', response.error);
-          throw new Error(response.error.message || 'Slash command failed');
-        }
-
-        if (!response.data) {
-          console.error('❌ No data in slash command response');
-          throw new Error('No response data received from Oracle');
+          throw new Error(response.error.message);
         }
 
         // Add response to history with enhanced metadata
@@ -382,40 +336,24 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
 
         toast({
           title: `/${slashCommand.type} executed`,
-          description: `Processed successfully`,
+          description: `Processed with ${response.data.model_used}`,
         });
 
       } else {
         // Handle regular queries through Super Oracle
-        console.log('📝 Processing regular query');
-        
         const response = await supabase.functions.invoke('super-oracle', {
           body: {
             query: query.trim(),
             type: 'chat',
             role: selectedRole,
-            teamId: teamIdProp || undefined,
-            userId: userIdProp || undefined,
-            context: { 
-              hasTeam: Boolean(teamIdProp),
-              isSlashCommand: false
-            }
+            teamId,
+            userId,
+            context: { hasTeam: Boolean(teamId) }
           }
         });
 
-        console.log('📡 Regular query response:', {
-          hasError: !!response.error,
-          hasData: !!response.data
-        });
-
         if (response.error) {
-          console.error('❌ Regular query error:', response.error);
-          throw new Error(response.error.message || 'Oracle query failed');
-        }
-
-        if (!response.data) {
-          console.error('❌ No data in regular query response');
-          throw new Error('No response data received from Oracle');
+          throw new Error(response.error.message);
         }
 
         const newResponse: SuperOracleResponse = {
@@ -449,17 +387,30 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
     <div key={index} className="space-y-4">
       {/* Query Display */}
       <div className="text-sm text-muted-foreground mb-2">
-        <strong>You asked:</strong> {response.query}
+        <strong>You:</strong> {response.query}
       </div>
 
-      {/* Main Oracle Response - Make this more prominent */}
+      {/* Model and Strategy Info */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline" className="text-xs">
+          {response.model_used}
+        </Badge>
+        <Badge variant="outline" className="text-xs">
+          {response.search_strategy}
+        </Badge>
+        <span>Confidence: {Math.round(response.confidence * 100)}%</span>
+        <span>Sources: {response.sources}</span>
+        <span>Time: {response.processing_time}ms</span>
+      </div>
+
+      {/* Main Oracle Response */}
       <Card className="glow-border bg-card/50 backdrop-blur">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-full bg-primary/20">
               <Sparkles className="h-3 w-3 text-primary" />
             </div>
-            <h4 className="font-semibold text-base text-primary">Oracle Response</h4>
+            <h4 className="font-semibold text-sm text-primary">Oracle Response</h4>
             {response.sources > 0 && (
               <Badge variant="outline" className="text-xs">
                 {response.sources} sources
@@ -471,44 +422,24 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             <div className="text-sm leading-relaxed space-y-3 max-h-96 overflow-y-auto">
               <ReactMarkdown
                 components={{
-                  h1: ({...props}) => <h2 className="font-bold text-lg text-primary mb-3" {...props} />,
-                  h2: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
+                  h1: ({...props}) => <h3 className="font-semibold text-base text-primary mb-2" {...props} />,
+                  h2: ({...props}) => <h4 className="font-medium text-sm text-primary mb-1" {...props} />,
                   h3: ({...props}) => <h4 className="font-medium text-sm text-foreground mb-1" {...props} />,
                   ul: ({...props}) => <ul className="list-disc pl-4 space-y-1 mb-3" {...props} />,
                   ol: ({...props}) => <ol className="list-decimal pl-4 space-y-1 mb-3" {...props} />,
                   li: ({...props}) => <li className="text-sm leading-relaxed" {...props} />,
                   strong: ({...props}) => <strong className="font-semibold text-foreground" {...props} />,
-                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground" {...props} />,
+                  p: ({...props}) => <p className="mb-2 text-sm leading-relaxed text-foreground/90" {...props} />,
                   blockquote: ({...props}) => <blockquote className="border-l-2 border-primary/30 pl-3 italic text-muted-foreground" {...props} />,
                   code: ({...props}) => <code className="bg-muted/50 px-1 py-0.5 rounded text-xs font-mono" {...props} />,
-                  a: ({...props}) => <a className="text-primary hover:text-primary/80 underline" target="_blank" rel="noopener noreferrer" {...props} />,
                 }}
               >
-                {response.answer || "No response generated. Please try your query again."}
+                {response.answer}
               </ReactMarkdown>
             </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Technical Details - Made collapsible/less prominent */}
-      <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer hover:text-foreground mb-2">
-          Technical Details ({response.model_used}, {Math.round(response.confidence * 100)}% confidence)
-        </summary>
-        <div className="flex flex-wrap items-center gap-2 pl-4">
-          <Badge variant="outline" className="text-xs">
-            {response.search_strategy}
-          </Badge>
-          <span>Sources: {response.sources}</span>
-          <span>Time: {response.processing_time}ms</span>
-          {response.cache_hit && (
-            <Badge variant="outline" className="text-xs bg-green-100/50 text-green-700">
-              ⚡ Cached
-            </Badge>
-          )}
-        </div>
-      </details>
 
       {/* Resources Section */}
       {response.resources && response.resources.length > 0 && (
@@ -614,24 +545,59 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
         </Card>
       )}
 
-      {/* Suggested Actions */}
-      {response.suggested_actions && response.suggested_actions.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">🎯 Suggested Actions:</p>
-          <div className="flex flex-wrap gap-2">
-            {response.suggested_actions.map((action, idx) => (
-              <Button
-                key={idx}
-                variant="outline"
-                size="sm"
-                className="text-xs h-7 px-2"
-                onClick={() => setQuery(action)}
-              >
-                {action}
-              </Button>
-            ))}
-          </div>
-        </div>
+      {/* Vectorization Results */}
+      {response.vectorized && (
+        <Card className="glow-border bg-card/50 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full bg-purple-500/20">
+                <Sparkles className="h-3 w-3 text-purple-500" />
+              </div>
+              <h4 className="font-semibold text-sm text-purple-600">AI Intelligence</h4>
+              <Badge variant="outline" className="text-xs">
+                Vector Search
+              </Badge>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-background/50 border border-purple-200/20">
+              <p className="text-sm text-muted-foreground">
+                Similarity Score: <span className="font-medium text-purple-600">{(response.similarity_score * 100).toFixed(1)}%</span>
+              </p>
+              {response.related_content && response.related_content.length > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Found {response.related_content.length} related content pieces
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Knowledge Graph Results */}
+      {response.knowledge_graph && response.graph_nodes && response.graph_nodes.length > 0 && (
+        <Card className="glow-border bg-card/50 backdrop-blur">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-full bg-orange-500/20">
+                <Sparkles className="h-3 w-3 text-orange-500" />
+              </div>
+              <h4 className="font-semibold text-sm text-orange-600">Knowledge Graph</h4>
+              <Badge variant="outline" className="text-xs">
+                {response.graph_nodes.length} nodes
+              </Badge>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-background/50 border border-orange-200/20">
+              <p className="text-sm text-muted-foreground mb-2">
+                Built knowledge graph with {response.graph_nodes.length} nodes and {response.graph_relationships?.length || 0} relationships
+              </p>
+              <div className="text-xs text-muted-foreground">
+                <p>Query: {response.knowledge_graph.query}</p>
+                <p>User Context: {response.knowledge_graph.user_context}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
