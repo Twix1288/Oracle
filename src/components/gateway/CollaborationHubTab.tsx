@@ -207,7 +207,29 @@ export const CollaborationHubTab = () => {
 
   const handleExpressInterest = async (type: string, id: string) => {
     try {
-      // In real implementation, this would create a connection request
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "Please log in to express interest.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create connection request based on type
+      const { error } = await supabase
+        .from('connection_requests')
+        .insert({
+          requester_id: user.id,
+          requested_id: id, // This would be the creator's ID in real implementation
+          request_type: type === 'micro' ? 'collaboration' : 
+                       type === 'skill' ? 'skill_exchange' : 'partnership',
+          message: `I'm interested in your ${type} opportunity. Let's discuss how we can work together!`,
+          oracle_generated: false
+        });
+
+      if (error) throw error;
+
       toast({
         title: "Interest Expressed",
         description: "The creator will be notified of your interest!",
@@ -217,6 +239,192 @@ export const CollaborationHubTab = () => {
       toast({
         title: "Error",
         description: "Failed to express interest.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateMicroCollab = async () => {
+    try {
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "Please log in to create collaborations.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newCollab.title || !newCollab.description) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create micro collaboration
+      const { error } = await supabase
+        .from('collaboration_proposals')
+        .insert({
+          proposer_id: user.id,
+          title: newCollab.title,
+          description: newCollab.description,
+          collaboration_type: newCollab.collaboration_type,
+          urgency: newCollab.urgency,
+          estimated_hours: newCollab.estimated_hours,
+          skills_needed: newCollab.skills_needed,
+          status: 'open'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Micro-Collaboration Created",
+        description: "Your collaboration opportunity has been posted!",
+      });
+
+      // Reset form
+      setNewCollab({
+        title: '',
+        description: '',
+        skills_needed: [],
+        estimated_hours: 2,
+        urgency: 'medium',
+        collaboration_type: 'code_review'
+      });
+
+      // Refresh data
+      fetchCollaborations();
+    } catch (error) {
+      console.error('Error creating micro collaboration:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create collaboration. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateSkillExchange = async () => {
+    try {
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "Please log in to create skill exchanges.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newSkillExchange.offering_skill || !newSkillExchange.seeking_skill || !newSkillExchange.description) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create skill exchange
+      const { error } = await supabase
+        .from('skill_offers')
+        .insert({
+          user_id: user.id,
+          offering_skill: newSkillExchange.offering_skill,
+          seeking_skill: newSkillExchange.seeking_skill,
+          description: newSkillExchange.description,
+          exchange_type: newSkillExchange.exchange_type,
+          status: 'active'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Skill Exchange Created",
+        description: "Your skill exchange has been posted!",
+      });
+
+      // Reset form
+      setNewSkillExchange({
+        offering_skill: '',
+        seeking_skill: '',
+        description: '',
+        exchange_type: 'one_time'
+      });
+
+      // Refresh data
+      fetchCollaborations();
+    } catch (error) {
+      console.error('Error creating skill exchange:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create skill exchange. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreatePartnership = async () => {
+    try {
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "Please log in to create partnerships.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!newPartnership.project_name || !newPartnership.description) {
+        toast({
+          title: "Error",
+          description: "Please fill in all required fields.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create partnership opportunity
+      const { error } = await supabase
+        .from('collaboration_proposals')
+        .insert({
+          proposer_id: user.id,
+          title: `Partnership: ${newPartnership.project_name}`,
+          description: newPartnership.description,
+          collaboration_type: 'partnership',
+          partnership_type: newPartnership.partnership_type,
+          commitment_level: newPartnership.commitment_level,
+          equity_offered: newPartnership.equity_offered,
+          skills_needed: newPartnership.skills_needed,
+          status: 'open'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Partnership Created",
+        description: "Your partnership opportunity has been posted!",
+      });
+
+      // Reset form
+      setNewPartnership({
+        project_name: '',
+        partnership_type: 'technical_partner',
+        description: '',
+        commitment_level: 'part_time',
+        equity_offered: '',
+        skills_needed: []
+      });
+
+      // Refresh data
+      fetchCollaborations();
+    } catch (error) {
+      console.error('Error creating partnership:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create partnership. Please try again.",
         variant: "destructive"
       });
     }
@@ -584,7 +792,7 @@ export const CollaborationHubTab = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full">
+                <Button className="w-full" onClick={handleCreateMicroCollab}>
                   Create Micro-Collaboration
                 </Button>
               </div>
@@ -619,7 +827,7 @@ export const CollaborationHubTab = () => {
                     <SelectItem value="workshop">Workshop Style</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button className="w-full">
+                <Button className="w-full" onClick={handleCreateSkillExchange}>
                   Create Skill Exchange
                 </Button>
               </div>
@@ -665,7 +873,7 @@ export const CollaborationHubTab = () => {
                   value={newPartnership.equity_offered}
                   onChange={(e) => setNewPartnership({...newPartnership, equity_offered: e.target.value})}
                 />
-                <Button className="w-full">
+                <Button className="w-full" onClick={handleCreatePartnership}>
                   Create Partnership Opportunity
                 </Button>
               </div>

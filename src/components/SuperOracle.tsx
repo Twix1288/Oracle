@@ -105,6 +105,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState<SuperOracleResponse[]>([]);
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   const permissions = rolePermissions[selectedRole];
 
@@ -309,12 +310,17 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             type: commandType,
             role: selectedRole,
             teamId,
-            userId,
+            userId: user?.id || userId,
             context: { 
               hasTeam: Boolean(teamId),
               commandType: slashCommand.type,
               originalQuery: slashCommand.query,
-              isSlashCommand: true
+              isSlashCommand: true,
+              userProfile: profile,
+              userRole: selectedRole,
+              userSkills: profile?.skills || [],
+              userGoals: profile?.learning_goals || [],
+              userProjects: profile?.project_goals || ''
             }
           }
         });
@@ -349,8 +355,17 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             type: 'chat',
             role: selectedRole,
             teamId,
-            userId,
-            context: { hasTeam: Boolean(teamId) }
+            userId: user?.id || userId,
+            context: { 
+              hasTeam: Boolean(teamId),
+              userProfile: profile,
+              userRole: selectedRole,
+              userSkills: profile?.skills || [],
+              userGoals: profile?.learning_goals || [],
+              userProjects: profile?.project_goals || '',
+              userBio: profile?.bio || '',
+              userLevel: profile?.builder_level || 'novice'
+            }
           }
         });
 
