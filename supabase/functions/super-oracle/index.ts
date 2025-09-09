@@ -40,6 +40,111 @@ interface SuperOracleResponse {
   connections?: any[];
 }
 
+// Get comprehensive user context from database
+async function getUserContext(userId?: string, teamId?: string): Promise<string> {
+  try {
+    console.log('🔍 Getting comprehensive user context...');
+    
+    if (!userId) return '';
+    
+    let context = '';
+    
+    // Get user profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (profile) {
+      context += `\n## User Profile
+- Name: ${profile.full_name || 'Unknown'}
+- Bio: ${profile.bio || 'No bio available'}
+- Skills: ${(profile.skills || []).join(', ')}
+- Builder Level: ${profile.builder_level || 'novice'}
+- Learning Goals: ${(profile.learning_goals || []).join(', ')}
+- Project Goals: ${profile.project_goals || 'No specific goals'}
+- Availability: ${profile.availability_hours || 0} hours/week
+`;
+    }
+    
+    // Get user's teams
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('name, description, status, created_at')
+      .eq('creator_id', userId);
+    
+    if (teams && teams.length > 0) {
+      context += `\n## User's Teams
+${teams.map(team => `- ${team.name}: ${team.description} (${team.status})`).join('\n')}
+`;
+    }
+    
+    // Get user's team memberships
+    const { data: memberships } = await supabase
+      .from('members')
+      .select(`
+        teams!inner(name, description, status),
+        role
+      `)
+      .eq('user_id', userId);
+    
+    if (memberships && memberships.length > 0) {
+      context += `\n## Team Memberships
+${memberships.map(m => `- ${m.teams.name}: ${m.role}`).join('\n')}
+`;
+    }
+    
+    // Get recent progress entries
+    const { data: progress } = await supabase
+      .from('progress_entries')
+      .select('title, description, category, status, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    if (progress && progress.length > 0) {
+      context += `\n## Recent Progress
+${progress.map(p => `- ${p.title}: ${p.description} (${p.status})`).join('\n')}
+`;
+    }
+    
+    // Get recent project updates
+    const { data: updates } = await supabase
+      .from('project_updates')
+      .select('title, content, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    
+    if (updates && updates.length > 0) {
+      context += `\n## Recent Project Updates
+${updates.map(u => `- ${u.title}: ${u.content.substring(0, 100)}...`).join('\n')}
+`;
+    }
+    
+    // Get connection requests
+    const { data: connections } = await supabase
+      .from('connection_requests')
+      .select('request_type, message, status, created_at')
+      .or(`requester_id.eq.${userId},requested_id.eq.${userId}`)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    
+    if (connections && connections.length > 0) {
+      context += `\n## Recent Connections
+${connections.map(c => `- ${c.request_type}: ${c.message.substring(0, 50)}... (${c.status})`).join('\n')}
+`;
+    }
+    
+    console.log('✅ User context retrieved successfully');
+    return context;
+  } catch (error) {
+    console.error('❌ Error getting user context:', error);
+    return '';
+  }
+}
+
 // Search documents for relevant context
 async function searchDocuments(query: string, userId?: string): Promise<string> {
   try {
@@ -93,7 +198,7 @@ async function searchDocuments(query: string, userId?: string): Promise<string> 
 }
 
 // Simple AI response generation
-async function generateAIResponse(query: string, context: string, userContext: any, userId?: string): Promise<string> {
+async function generateAIResponse(query: string, context: string, userContext: any, userId?: string, teamId?: string): Promise<string> {
   try {
     console.log('🤖 Generating AI response for query:', query.substring(0, 100));
     
@@ -102,18 +207,39 @@ async function generateAIResponse(query: string, context: string, userContext: a
       return 'I apologize, but the AI service is not properly configured. Please contact support.';
     }
 
+    // Get comprehensive user context from database
+    const userContextData = await getUserContext(userId, teamId);
+    
     // Search for relevant documents
     const documentContext = await searchDocuments(query, userId);
     const hasDocumentContext = documentContext.length > 0;
     
-    const prompt = `You are an AI assistant helping a user with their query. 
+    const prompt = `You are the PieFi Oracle, an AI assistant helping builders in the PieFi accelerator program. You have access to comprehensive user data and should provide personalized, actionable advice.
 
-User Context: ${userContext ? JSON.stringify(userContext) : 'No context available'}
-Query: ${query}
-Context Information: ${context}
-${hasDocumentContext ? `\nRelevant Documents/Data:\n${documentContext}` : ''}
+## User Context from Database:
+${userContextData}
 
-Please provide a helpful, relevant response based on the user's context and query${hasDocumentContext ? ' and the relevant documents provided' : ''}. Be concise but informative.`;
+## Additional Context:
+${userContext ? JSON.stringify(userContext, null, 2) : 'No additional context available'}
+
+## Query:
+${query}
+
+## Context Information:
+${context}
+
+${hasDocumentContext ? `\n## Relevant Documents/Data:\n${documentContext}` : ''}
+
+## Instructions:
+- Use the user's profile, skills, goals, and recent activity to provide personalized advice
+- Reference their specific projects, teams, and progress when relevant
+- Provide actionable next steps based on their current situation
+- Be encouraging and supportive while being practical
+- If they're asking about collaboration, suggest specific people or projects from their context
+- If they're asking about learning, tailor resources to their skill level and goals
+- Always be specific and reference their actual data when possible
+
+Please provide a helpful, personalized response that leverages their actual PieFi data and context.`;
 
     console.log('🔄 Making OpenAI API request...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -432,12 +558,12 @@ I'm here to help you find great collaborators!
       case 'chat':
       default:
         console.log('💬 Handling chat query');
-        const aiResponse = await generateAIResponse(requestBody.query, '', requestBody.context, requestBody.userId);
+        const aiResponse = await generateAIResponse(requestBody.query, '', requestBody.context, requestBody.userId, requestBody.teamId);
         response.answer = aiResponse;
         response.sources = 0;
         response.context_used = true;
-        response.confidence = 0.75;
-        response.search_strategy = 'ai_chat_with_docs';
+        response.confidence = 0.85;
+        response.search_strategy = 'ai_chat_with_user_context';
         break;
     }
 
