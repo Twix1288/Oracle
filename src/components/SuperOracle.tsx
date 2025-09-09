@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Send } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import type { UserRole, UpdateType } from "@/types/oracle";
 import ReactMarkdown from "react-markdown";
 
@@ -104,7 +105,8 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
   const [query, setQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [responses, setResponses] = useState<SuperOracleResponse[]>([]);
-  const { toast } = useToast();
+  // Using sonner toast directly
+  const { user, profile } = useAuth();
 
   const permissions = rolePermissions[selectedRole];
 
@@ -314,7 +316,12 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               hasTeam: Boolean(teamId),
               commandType: slashCommand.type,
               originalQuery: slashCommand.query,
-              isSlashCommand: true
+              isSlashCommand: true,
+              userProfile: profile,
+              userRole: selectedRole,
+              userSkills: profile?.skills || [],
+              userGoals: profile?.learning_goals || [],
+              userProjects: profile?.project_goals || ''
             }
           }
         });
@@ -336,10 +343,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
         setResponses(prev => [newResponse, ...prev]);
         setQuery("");
 
-        toast({
-          title: `/${slashCommand.type} executed`,
-          description: `Processed with ${response.data.model_used}`,
-        });
+        toast.success(`/${slashCommand.type} executed - Processed with ${response.data.model_used}`);
 
       } else {
         // Handle regular queries through Super Oracle
@@ -349,8 +353,17 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             type: 'chat',
             role: selectedRole,
             teamId,
-            userId,
-            context: { hasTeam: Boolean(teamId) }
+            userId: user?.id || userId,
+            context: { 
+              hasTeam: Boolean(teamId),
+              userProfile: profile,
+              userRole: selectedRole,
+              userSkills: profile?.skills || [],
+              userGoals: profile?.learning_goals || [],
+              userProjects: profile?.project_goals || '',
+              userBio: profile?.bio || '',
+              userLevel: profile?.builder_level || 'novice'
+            }
           }
         });
 
@@ -368,19 +381,12 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
         setResponses(prev => [newResponse, ...prev]);
         setQuery("");
 
-        toast({
-          title: `Super Oracle Response`,
-          description: `Processed in ${newResponse.processing_time}ms using ${newResponse.model_used}`,
-        });
+        toast.success(`Super Oracle Response - Processed in ${newResponse.processing_time}ms using ${newResponse.model_used}`);
       }
 
     } catch (error) {
       console.error('Super Oracle query error:', error);
-      toast({
-        title: "Super Oracle Error",
-        description: "Failed to process your request. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Super Oracle Error - Failed to process your request. Please try again.");
     } finally {
       setIsLoading(false);
     }
