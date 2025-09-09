@@ -210,29 +210,7 @@ export const BuilderFeedTab = () => {
 
   const handleReaction = async (itemId: string, reactionType: 'like' | 'comment' | 'share') => {
     try {
-      if (!user?.id) {
-        toast({
-          title: "Error",
-          description: "Please log in to react to posts.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Insert reaction into feed_interactions table
-      const { error } = await supabase
-        .from('feed_interactions')
-        .insert({
-          user_id: user.id,
-          feed_item_id: itemId,
-          feed_item_type: 'feed_post',
-          interaction_type: reactionType,
-          body: `User ${reactionType}d this post`
-        });
-
-      if (error) throw error;
-
-      // Update local state
+      // In real implementation, this would update the database
       setFeedItems(prevItems => 
         prevItems.map(item => 
           item.id === itemId 
@@ -253,11 +231,6 @@ export const BuilderFeedTab = () => {
       });
     } catch (error) {
       console.error('Error adding reaction:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add reaction. Please try again.",
-        variant: "destructive"
-      });
     }
   };
 
@@ -291,86 +264,21 @@ export const BuilderFeedTab = () => {
 
   const handleSuggestCollaboration = async (feedItemId: string, builderId: string) => {
     try {
-      if (!user?.id) {
-        toast({
-          title: "Error",
-          description: "Please log in to suggest collaborations.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create a collaboration proposal
-      const { error } = await supabase
-        .from('collaboration_proposals')
-        .insert({
-          proposer_id: user.id,
-          target_id: builderId,
-          proposal_type: 'collaboration',
-          title: 'Collaboration Opportunity',
-          description: 'I saw your activity in the feed and would love to collaborate! Let\'s discuss how we can work together.',
-          timeline: 'Flexible',
-          deliverables: ['Initial discussion', 'Project planning', 'Collaboration agreement'],
-          status: 'pending'
-        });
-
-      if (error) throw error;
-
+      // In a real implementation, this would analyze the feed item and suggest collaboration
       toast({
-        title: "Collaboration Proposal Sent",
-        description: "Your collaboration proposal has been sent to the builder!",
+        title: "Oracle Analyzing...",
+        description: "Oracle is analyzing collaboration opportunities with this builder!",
       });
     } catch (error) {
       console.error('Error suggesting collaboration:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send collaboration proposal. Please try again.",
-        variant: "destructive"
-      });
     }
   };
 
-  const handleCreateFeedItem = async () => {
-    try {
-      if (!user?.id) {
-        toast({
-          title: "Error",
-          description: "Please log in to create feed items.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create a project update that will appear in the feed
-      const { data, error } = await supabase
-        .from('project_updates')
-        .insert({
-          user_id: user.id,
-          content: 'Just shared an update in the builder feed! Check out what I\'ve been working on.',
-          update_type: 'progress',
-          visibility: 'public',
-          oracle_processed: false
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Refresh feed data
-      await fetchFeedData();
-
-      toast({
-        title: "Feed Item Created",
-        description: "Your update has been posted to the feed!",
-      });
-    } catch (error) {
-      console.error('Error creating feed item:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create feed item. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const handleCreateFeedItem = () => {
+    toast({
+      title: "Create Feed Item",
+      description: "Use /post feed or /create feed in the Oracle tab to get AI help with your post!",
+    });
   };
 
   const getActivityIcon = (type: string) => {

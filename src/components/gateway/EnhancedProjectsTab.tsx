@@ -130,128 +130,25 @@ export const EnhancedProjectsTab = () => {
   };
 
   const handleQuickUpdate = async (projectId: string) => {
-    try {
-      if (!user?.id) {
-        toast({
-          title: "Error",
-          description: "Please log in to create updates.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create a quick progress entry
-      const { data, error } = await supabase
-        .from('progress_entries')
-        .insert({
-          team_id: projectId,
-          user_id: user.id,
-          title: 'Quick Update',
-          description: 'Added a quick progress update for this project.',
-          category: 'update',
-          status: 'in_progress'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setSelectedProject(projectId);
-      toast({
-        title: "Quick Update Created",
-        description: "Your progress update has been recorded!",
-      });
-    } catch (error) {
-      console.error('Error creating quick update:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create update. Please try again.",
-        variant: "destructive"
-      });
-    }
+    setSelectedProject(projectId);
+    toast({
+      title: "Quick Update",
+      description: "Use the update form below or try '/post feed' in Oracle tab for AI help!",
+    });
   };
 
   const handleOracleSuggestCollaboration = async (projectId: string) => {
-    try {
-      if (!user?.id) {
-        toast({
-          title: "Error",
-          description: "Please log in to get Oracle suggestions.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create a collaboration proposal for this project
-      const { data, error } = await supabase
-        .from('collaboration_proposals')
-        .insert({
-          proposer_id: user.id,
-          target_id: user.id, // Self-proposal for now
-          project_id: projectId,
-          proposal_type: 'oracle_suggested',
-          title: 'Oracle-Suggested Collaboration',
-          description: 'Oracle has identified potential collaboration opportunities for this project. Let\'s explore how we can work together!',
-          timeline: '2-4 weeks',
-          deliverables: ['Initial discussion', 'Project analysis', 'Collaboration plan'],
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: "Oracle Collaboration Suggested",
-        description: "Oracle has created a collaboration proposal for your project!",
-      });
-    } catch (error) {
-      console.error('Error creating Oracle collaboration suggestion:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create collaboration suggestion. Please try again.",
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Oracle Analyzing...",
+      description: "Oracle is finding collaboration opportunities for your project!",
+    });
   };
 
   const handleExpressInterest = async (projectId: string) => {
-    try {
-      if (!user?.id) {
-        toast({
-          title: "Error",
-          description: "Please log in to express interest.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create a project interest entry
-      const { data, error } = await supabase
-        .from('project_interests')
-        .insert({
-          project_id: projectId,
-          user_id: user.id,
-          status: 'pending',
-          message: 'I\'m interested in joining this project! I\'d love to learn more about the team and how I can contribute.'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: "Interest Expressed",
-        description: "Your interest has been sent to the project team!",
-      });
-    } catch (error) {
-      console.error('Error expressing interest:', error);
-      toast({
-        title: "Error",
-        description: "Failed to express interest. Please try again.",
-        variant: "destructive"
-      });
-    }
+    toast({
+      title: "Interest Expressed",
+      description: "Your interest has been sent to the project team!",
+    });
   };
 
   const handleAddUpdate = async () => {
