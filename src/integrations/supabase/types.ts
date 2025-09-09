@@ -21,6 +21,7 @@ export type Database = {
           created_at: string | null
           current_progress: number | null
           description: string | null
+          embedding_vector: string | null
           id: string
           oracle_generated: boolean | null
           reward_points: number | null
@@ -35,6 +36,7 @@ export type Database = {
           created_at?: string | null
           current_progress?: number | null
           description?: string | null
+          embedding_vector?: string | null
           id?: string
           oracle_generated?: boolean | null
           reward_points?: number | null
@@ -49,6 +51,7 @@ export type Database = {
           created_at?: string | null
           current_progress?: number | null
           description?: string | null
+          embedding_vector?: string | null
           id?: string
           oracle_generated?: boolean | null
           reward_points?: number | null
@@ -125,6 +128,7 @@ export type Database = {
         Row: {
           created_at: string | null
           embedding: string | null
+          embedding_vector: string | null
           id: string
           message: string
           sender_id: string | null
@@ -134,6 +138,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           message: string
           sender_id?: string | null
@@ -143,6 +148,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           message?: string
           sender_id?: string | null
@@ -162,6 +168,73 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaboration_proposals: {
+        Row: {
+          created_at: string | null
+          deliverables: Json | null
+          description: string | null
+          id: string
+          project_id: string | null
+          proposal_type: string
+          proposer_id: string | null
+          responded_at: string | null
+          status: string | null
+          target_id: string | null
+          timeline: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          deliverables?: Json | null
+          description?: string | null
+          id?: string
+          project_id?: string | null
+          proposal_type: string
+          proposer_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+          target_id?: string | null
+          timeline?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          deliverables?: Json | null
+          description?: string | null
+          id?: string
+          project_id?: string | null
+          proposal_type?: string
+          proposer_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+          target_id?: string | null
+          timeline?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaboration_proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaboration_proposals_proposer_id_fkey"
+            columns: ["proposer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collaboration_proposals_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -223,6 +296,7 @@ export type Database = {
           content_type: string
           created_at: string
           embedding: string | null
+          embedding_vector: string | null
           id: string
           metadata: Json | null
           source_id: string | null
@@ -234,6 +308,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           metadata?: Json | null
           source_id?: string | null
@@ -245,6 +320,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           metadata?: Json | null
           source_id?: string | null
@@ -252,6 +328,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      feed_interactions: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          feed_item_id: string | null
+          feed_item_type: string | null
+          id: string
+          interaction_type: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          feed_item_id?: string | null
+          feed_item_type?: string | null
+          id?: string
+          interaction_type: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          feed_item_id?: string | null
+          feed_item_type?: string | null
+          id?: string
+          interaction_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feed_interactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       members: {
         Row: {
@@ -300,6 +414,7 @@ export type Database = {
           content: string
           created_at: string | null
           embedding: string | null
+          embedding_vector: string | null
           id: string
           read_at: string | null
           receiver_id: string | null
@@ -312,6 +427,7 @@ export type Database = {
           content: string
           created_at?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           read_at?: string | null
           receiver_id?: string | null
@@ -324,6 +440,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           read_at?: string | null
           receiver_id?: string | null
@@ -356,6 +473,47 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: string
+          message: string | null
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          message?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          message?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oracle_logs: {
         Row: {
           command_executed: boolean | null
@@ -365,6 +523,7 @@ export type Database = {
           context_used: boolean | null
           created_at: string | null
           embedding: string | null
+          embedding_vector: string | null
           graph_nodes: Json | null
           graph_relationships: Json | null
           helpful: boolean | null
@@ -393,6 +552,7 @@ export type Database = {
           context_used?: boolean | null
           created_at?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           graph_nodes?: Json | null
           graph_relationships?: Json | null
           helpful?: boolean | null
@@ -421,6 +581,7 @@ export type Database = {
           context_used?: boolean | null
           created_at?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           graph_nodes?: Json | null
           graph_relationships?: Json | null
           helpful?: boolean | null
@@ -468,6 +629,7 @@ export type Database = {
           created_at: string | null
           email: string
           embedding: string | null
+          embedding_vector: string | null
           experience_level: string | null
           expertise_areas: string[] | null
           full_name: string | null
@@ -518,6 +680,7 @@ export type Database = {
           created_at?: string | null
           email: string
           embedding?: string | null
+          embedding_vector?: string | null
           experience_level?: string | null
           expertise_areas?: string[] | null
           full_name?: string | null
@@ -568,6 +731,7 @@ export type Database = {
           created_at?: string | null
           email?: string
           embedding?: string | null
+          embedding_vector?: string | null
           experience_level?: string | null
           expertise_areas?: string[] | null
           full_name?: string | null
@@ -622,6 +786,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           embedding: string | null
+          embedding_vector: string | null
           id: string
           status: string | null
           team_id: string | null
@@ -638,6 +803,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           status?: string | null
           team_id?: string | null
@@ -654,6 +820,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           status?: string | null
           team_id?: string | null
@@ -678,10 +845,56 @@ export type Database = {
           },
         ]
       }
+      project_interests: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string | null
+          project_id: string | null
+          responded_at: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          project_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          project_id?: string | null
+          responded_at?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_interests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_interests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_updates: {
         Row: {
           content: string
           created_at: string | null
+          embedding_vector: string | null
           id: string
           oracle_insights: Json | null
           oracle_processed: boolean | null
@@ -693,6 +906,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string | null
+          embedding_vector?: string | null
           id?: string
           oracle_insights?: Json | null
           oracle_processed?: boolean | null
@@ -704,6 +918,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string | null
+          embedding_vector?: string | null
           id?: string
           oracle_insights?: Json | null
           oracle_processed?: boolean | null
@@ -771,6 +986,50 @@ export type Database = {
           },
         ]
       }
+      skill_offers: {
+        Row: {
+          availability: string | null
+          created_at: string | null
+          description: string | null
+          embedding_vector: string | null
+          id: string
+          owner_id: string | null
+          skill: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          availability?: string | null
+          created_at?: string | null
+          description?: string | null
+          embedding_vector?: string | null
+          id?: string
+          owner_id?: string | null
+          skill: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          availability?: string | null
+          created_at?: string | null
+          description?: string | null
+          embedding_vector?: string | null
+          id?: string
+          owner_id?: string | null
+          skill?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_offers_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_status: {
         Row: {
           id: string
@@ -812,6 +1071,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           embedding: string | null
+          embedding_vector: string | null
           id: string
           last_activity: string | null
           market_research: string | null
@@ -845,6 +1105,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           last_activity?: string | null
           market_research?: string | null
@@ -878,6 +1139,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           last_activity?: string | null
           market_research?: string | null
@@ -911,6 +1173,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           embedding: string | null
+          embedding_vector: string | null
           id: string
           team_id: string | null
           type: Database["public"]["Enums"]["update_type"] | null
@@ -920,6 +1183,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           team_id?: string | null
           type?: Database["public"]["Enums"]["update_type"] | null
@@ -929,6 +1193,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           embedding?: string | null
+          embedding_vector?: string | null
           id?: string
           team_id?: string | null
           type?: Database["public"]["Enums"]["update_type"] | null
@@ -988,6 +1253,59 @@ export type Database = {
           {
             foreignKeyName: "weekly_digests_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshops: {
+        Row: {
+          attendees: Json | null
+          created_at: string | null
+          description: string | null
+          duration_minutes: number | null
+          embedding_vector: string | null
+          host_id: string | null
+          id: string
+          max_attendees: number | null
+          scheduled_at: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          attendees?: Json | null
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          embedding_vector?: string | null
+          host_id?: string | null
+          id?: string
+          max_attendees?: number | null
+          scheduled_at?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          attendees?: Json | null
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          embedding_vector?: string | null
+          host_id?: string | null
+          id?: string
+          max_attendees?: number | null
+          scheduled_at?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshops_host_id_fkey"
+            columns: ["host_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1110,6 +1428,16 @@ export type Database = {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
       }
+      search_graph_rag: {
+        Args: { k?: number; q_emb: number[] }
+        Returns: {
+          distance: number
+          id: string
+          snippet: string
+          src_type: string
+          title: string
+        }[]
+      }
       sparsevec_out: {
         Args: { "": unknown }
         Returns: unknown
@@ -1140,6 +1468,18 @@ export type Database = {
       }
       store_update_as_document: {
         Args: { p_update_id: string }
+        Returns: undefined
+      }
+      team_neighbors: {
+        Args: { team_id: string }
+        Returns: {
+          full_name: string
+          role: string
+          user_id: string
+        }[]
+      }
+      upsert_embedding: {
+        Args: { emb: number[]; row_id: string; tablename: string }
         Returns: undefined
       }
       use_access_code: {
