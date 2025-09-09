@@ -354,31 +354,7 @@ export const BuilderRadarTab = () => {
                   {message.type.replace('_', ' ')}
                 </Badge>
               </div>
-              <Button 
-                size="sm" 
-                className="ml-4"
-                onClick={() => {
-                  if (message.action === 'View Connections') {
-                    // Navigate to connections or show connection suggestions
-                    toast({
-                      title: "Viewing Connections",
-                      description: "Showing you relevant connection opportunities.",
-                    });
-                  } else if (message.action === 'Offer Help') {
-                    // Navigate to help offering or show help opportunities
-                    toast({
-                      title: "Offering Help",
-                      description: "Let me show you opportunities to help other builders.",
-                    });
-                  } else if (message.action === 'Join Workshop') {
-                    // Navigate to workshops
-                    toast({
-                      title: "Joining Workshop",
-                      description: "Taking you to available workshops.",
-                    });
-                  }
-                }}
-              >
+              <Button size="sm" className="ml-4">
                 {message.action}
               </Button>
             </div>
