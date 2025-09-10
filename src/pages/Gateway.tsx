@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap, MessageSquare, Inbox, Brain, BarChart3, Users, AlertTriangle } from 'lucide-react';
+import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap, MessageSquare, Inbox, Users } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { useAuth } from '@/hooks/useAuth';
 import { BuilderRadarTab } from '@/components/gateway/BuilderRadarTab';
@@ -11,10 +11,7 @@ import { CollaborationHubTab } from '@/components/gateway/CollaborationHubTab';
 import { BuilderFeedTab } from '@/components/gateway/BuilderFeedTab';
 import { KnowledgeExchangeTab } from '@/components/gateway/KnowledgeExchangeTab';
 import { InboxTab } from '@/components/gateway/InboxTab';
-import { SmartCollaborationMatcher } from '@/components/SmartCollaborationMatcher';
-import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { ConnectionsList } from '@/components/ConnectionsList';
-import { FunctionalityTest } from '@/components/FunctionalityTest';
 
 export default function Gateway() {
   const [activeTab, setActiveTab] = useState('builder-radar');
@@ -39,14 +36,10 @@ export default function Gateway() {
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-11 mb-8">
+            <TabsList className="grid w-full grid-cols-8 mb-8">
               <TabsTrigger value="builder-radar" className="flex items-center gap-2">
                 <Radar className="h-4 w-4" />
                 <span className="hidden sm:inline">Radar</span>
-              </TabsTrigger>
-              <TabsTrigger value="smart-matches" className="flex items-center gap-2">
-                <Brain className="h-4 w-4" />
-                <span className="hidden sm:inline">AI Matches</span>
               </TabsTrigger>
               <TabsTrigger value="projects" className="flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" />
@@ -55,10 +48,6 @@ export default function Gateway() {
               <TabsTrigger value="oracle" className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 <span className="hidden sm:inline">Oracle</span>
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Analytics</span>
               </TabsTrigger>
               <TabsTrigger value="inbox" className="flex items-center gap-2">
                 <Inbox className="h-4 w-4" />
@@ -80,18 +69,10 @@ export default function Gateway() {
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Network</span>
               </TabsTrigger>
-              <TabsTrigger value="test" className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="hidden sm:inline">Test</span>
-              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="builder-radar" className="mt-0">
               <BuilderRadarTab />
-            </TabsContent>
-            
-            <TabsContent value="smart-matches" className="mt-0">
-              <SmartCollaborationMatcher />
             </TabsContent>
             
             <TabsContent value="projects" className="mt-0">
@@ -100,10 +81,6 @@ export default function Gateway() {
             
             <TabsContent value="oracle" className="mt-0">
               <SuperOracle selectedRole="builder" userId={user?.id} />
-            </TabsContent>
-            
-            <TabsContent value="analytics" className="mt-0">
-              <AnalyticsDashboard />
             </TabsContent>
             
             <TabsContent value="inbox" className="mt-0">
@@ -124,10 +101,6 @@ export default function Gateway() {
             
             <TabsContent value="connections" className="mt-0">
               <ConnectionsList />
-            </TabsContent>
-            
-            <TabsContent value="test" className="mt-0">
-              <FunctionalityTest />
             </TabsContent>
           </Tabs>
 
