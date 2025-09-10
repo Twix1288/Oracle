@@ -263,6 +263,45 @@ export const BuilderRadarTab = () => {
     setProactiveMessages(messages);
   };
 
+  const handleExpressInterest = async (type: string, id: string) => {
+    try {
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "Please log in to express interest.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create connection request based on type
+      const { error } = await supabase
+        .from('connection_requests')
+        .insert({
+          requester_id: user.id,
+          requested_id: id, // This would be the creator's ID in real implementation
+          request_type: type === 'micro' ? 'collaboration' : 
+                       type === 'skill' ? 'skill_exchange' : 'partnership',
+          message: `I'm interested in your ${type} opportunity. Let's discuss how we can work together!`,
+          oracle_generated: false
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Interest Expressed",
+        description: "The creator will be notified of your interest!",
+      });
+    } catch (error) {
+      console.error('Error expressing interest:', error);
+      toast({
+        title: "Error",
+        description: "Failed to express interest.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleConnectRequest = async (builderId: string, connectionType: string) => {
     try {
       const { error } = await supabase
@@ -354,9 +393,33 @@ export const BuilderRadarTab = () => {
                   {message.type.replace('_', ' ')}
                 </Badge>
               </div>
-              <Button size="sm" className="ml-4">
-                {message.action}
-              </Button>
+                <Button 
+                  size="sm" 
+                  className="ml-4"
+                  onClick={() => {
+                    if (message.action === 'View Connections') {
+                      // Navigate to connections or show connection suggestions
+                      toast({
+                        title: "Viewing Connections",
+                        description: "Showing you relevant connection opportunities.",
+                      });
+                    } else if (message.action === 'Offer Help') {
+                      // Navigate to help offering or show help opportunities
+                      toast({
+                        title: "Offering Help",
+                        description: "Let me show you opportunities to help other builders.",
+                      });
+                    } else if (message.action === 'Join Workshop') {
+                      // Navigate to workshops
+                      toast({
+                        title: "Joining Workshop",
+                        description: "Taking you to available workshops.",
+                      });
+                    }
+                  }}
+                >
+                  {message.action}
+                </Button>
             </div>
           ))}
         </CardContent>

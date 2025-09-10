@@ -287,6 +287,54 @@ export const InboxTab = () => {
     }
   };
 
+  const handleCollaborationResponse = async (invitationId: string, response: 'accepted' | 'declined') => {
+    try {
+      // Update collaboration invitation status
+      const { error } = await supabase
+        .from('collaboration_proposals')
+        .update({ 
+          status: response,
+          responded_at: new Date().toISOString()
+        })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      if (response === 'accepted') {
+        // Create team membership or connection
+        const invitation = collaborationInvitations.find(i => i.id === invitationId);
+        if (invitation) {
+          // Add user to the project team
+          await supabase
+            .from('members')
+            .insert({
+              team_id: invitation.project_id,
+              user_id: user?.id,
+              role: invitation.collaboration_type,
+              status: 'active'
+            });
+        }
+      }
+
+      toast({
+        title: response === 'accepted' ? "Collaboration Accepted" : "Invitation Declined",
+        description: response === 'accepted' 
+          ? "You've joined the project team!" 
+          : "Invitation has been declined.",
+      });
+
+      // Refresh data
+      fetchInboxData();
+    } catch (error) {
+      console.error('Error responding to collaboration:', error);
+      toast({
+        title: "Error",
+        description: "Failed to respond to collaboration invitation.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleOracleAction = async (suggestionId: string, action: 'accept' | 'dismiss') => {
     const suggestion = oracleSuggestions.find(s => s.id === suggestionId);
     if (!suggestion) return;
@@ -579,18 +627,37 @@ export const InboxTab = () => {
                       <span>{new Date(invitation.created_at).toLocaleDateString()}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" className="text-xs">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Accept
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-xs">
-                        <X className="h-3 w-3 mr-1" />
-                        Decline
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-xs">
-                        View Project
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => handleCollaborationResponse(invitation.id, 'accepted')}
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Accept
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-xs"
+                          onClick={() => handleCollaborationResponse(invitation.id, 'declined')}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Decline
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-xs"
+                          onClick={() => {
+                            toast({
+                              title: "Viewing Project",
+                              description: `Opening project: ${invitation.project_name}`,
+                            });
+                          }}
+                        >
+                          View Project
+                        </Button>
                     </div>
                   </div>
                 </div>

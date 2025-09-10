@@ -68,30 +68,28 @@ async function getUserContext(userId?: string, teamId?: string): Promise<string>
 `;
     }
     
-    // Get user's teams
-    const { data: teams } = await supabase
+    // Get user's teams (both created and joined)
+    const { data: createdTeams } = await supabase
       .from('teams')
-      .select('name, description, status, created_at')
-      .eq('creator_id', userId);
+      .select('id, name, description, status, created_at, project_description')
+      .eq('team_creator_id', userId);
     
-    if (teams && teams.length > 0) {
-      context += `\n## User's Teams
-${teams.map(team => `- ${team.name}: ${team.description} (${team.status})`).join('\n')}
-`;
-    }
-    
-    // Get user's team memberships
-    const { data: memberships } = await supabase
+    const { data: memberTeams } = await supabase
       .from('members')
       .select(`
-        teams!inner(name, description, status),
+        teams!inner(id, name, description, status, created_at, project_description),
         role
       `)
       .eq('user_id', userId);
     
-    if (memberships && memberships.length > 0) {
-      context += `\n## Team Memberships
-${memberships.map(m => `- ${m.teams.name}: ${m.role}`).join('\n')}
+    const allTeams = [
+      ...(createdTeams || []).map(team => ({ ...team, role: 'creator' })),
+      ...(memberTeams || []).map(m => ({ ...m.teams, role: m.role }))
+    ];
+    
+    if (allTeams && allTeams.length > 0) {
+      context += `\n## User's Projects/Teams
+${allTeams.map(team => `- ${team.name}: ${team.description || team.project_description || 'No description'} (${team.status}) - Role: ${team.role}`).join('\n')}
 `;
     }
     
@@ -138,10 +136,12 @@ ${connections.map(c => `- ${c.request_type}: ${c.message.substring(0, 50)}... ($
     }
     
     console.log('✅ User context retrieved successfully');
+    console.log('📊 Context length:', context.length);
+    console.log('📊 Context preview:', context.substring(0, 500));
     return context;
   } catch (error) {
     console.error('❌ Error getting user context:', error);
-    return '';
+    return `Error retrieving user context: ${error.message}`;
   }
 }
 
