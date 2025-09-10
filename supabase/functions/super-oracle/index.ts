@@ -570,9 +570,10 @@ I'm here to help you find great collaborators!
     response.processing_time = Date.now() - startTime;
 
     // Log interaction if user provided
+    let oracleLogId = null;
     if (requestBody.userId) {
       try {
-        await supabase.from('oracle_logs').insert({
+        const { data: logData, error: logError } = await supabase.from('oracle_logs').insert({
           user_id: requestBody.userId,
           team_id: requestBody.teamId,
           query: requestBody.query.substring(0, 500),
@@ -585,11 +586,17 @@ I'm here to help you find great collaborators!
           context_used: response.context_used,
           search_strategy: response.search_strategy,
           model_used: response.model_used
-        });
+        }).select('id').single();
+        
+        if (logError) throw logError;
+        oracleLogId = logData?.id;
       } catch (logError) {
         console.warn('Failed to log Oracle interaction:', logError);
       }
     }
+
+    // Add oracle_log_id to response
+    response.oracle_log_id = oracleLogId;
 
     console.log('✅ Oracle response completed in', response.processing_time, 'ms');
     return new Response(

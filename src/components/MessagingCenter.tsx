@@ -35,6 +35,7 @@ interface MessagingCenterProps {
   userRole: UserRole;
   accessCode: string; // Using access code as user ID for clarity
   teamId?: string;
+  userId?: string; // Real user ID for database operations
 }
 
 const roleColors = {
@@ -44,7 +45,7 @@ const roleColors = {
   guest: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
 };
 
-export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCenterProps) => {
+export const MessagingCenter = ({ userRole, accessCode, teamId, userId }: MessagingCenterProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("inbox");
@@ -125,12 +126,14 @@ export const MessagingCenter = ({ userRole, accessCode, teamId }: MessagingCente
     setIsLoading(true);
     try {
       const messageData = {
-        sender_id: accessCode, // Using access code as sender ID
+        sender_id: userId || accessCode, // Use real user ID if available
         sender_role: userRole,
         content: newMessage.content,
         receiver_role: newMessage.receiverRole,
         ...(newMessage.isBroadcast ? {} : { receiver_id: newMessage.receiverId }),
-        ...(teamId && { team_id: teamId })
+        ...(teamId && { team_id: teamId }),
+        message_type: newMessage.isBroadcast ? 'broadcast' : 'direct',
+        oracle_generated: false
       };
 
       const { error } = await supabase

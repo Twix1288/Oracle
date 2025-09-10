@@ -8,6 +8,8 @@ import { Radar, Users, MessageCircle, Sparkles, Clock, Target } from 'lucide-rea
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { OfferHelpButton } from '@/components/OfferHelpButton';
+import { TakeActionButton } from '@/components/TakeActionButton';
 
 interface BuilderProfile {
   id: string;
@@ -473,14 +475,27 @@ export const BuilderRadarTab = () => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleConnectRequest(suggestion.suggested_builder.id, suggestion.connection_type)}
-                      className="text-xs bg-green-600 hover:bg-green-700"
-                    >
-                      <MessageCircle className="h-3 w-3 mr-1" />
-                      Connect
-                    </Button>
+                    <TakeActionButton
+                      actionType={suggestion.connection_type}
+                      targetUserId={suggestion.suggested_builder.id}
+                      targetUserName={suggestion.suggested_builder.full_name}
+                      targetUserSkills={suggestion.suggested_builder.skills}
+                      suggestionId={suggestion.id}
+                      suggestionDescription={suggestion.match_reason}
+                      confidence={suggestion.confidence}
+                      size="sm"
+                      className="text-xs"
+                    />
+                    <OfferHelpButton
+                      targetUserId={suggestion.suggested_builder.id}
+                      targetUserName={suggestion.suggested_builder.full_name}
+                      targetUserSkills={suggestion.suggested_builder.skills}
+                      connectionType={suggestion.connection_type}
+                      projectContext={suggestion.suggested_builder.project_goals}
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                    />
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -550,14 +565,27 @@ export const BuilderRadarTab = () => {
                       ))}
                     </div>
                     
-                    <Button 
-                      size="sm" 
-                      className="w-full text-xs"
-                      onClick={() => handleConnectRequest(builder.id, 'collaboration')}
-                    >
-                      <Users className="h-3 w-3 mr-1" />
-                      Connect
-                    </Button>
+                    <div className="space-y-2">
+                      <TakeActionButton
+                        actionType="collaboration"
+                        targetUserId={builder.id}
+                        targetUserName={builder.full_name}
+                        targetUserSkills={builder.skills || []}
+                        projectContext={builder.project_goals}
+                        size="sm"
+                        className="w-full text-xs"
+                      />
+                      <OfferHelpButton
+                        targetUserId={builder.id}
+                        targetUserName={builder.full_name}
+                        targetUserSkills={builder.skills || []}
+                        connectionType="collaboration"
+                        projectContext={builder.project_goals}
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -257,21 +257,60 @@ export const InboxTab = () => {
         // Create connection record
         const request = connectionRequests.find(r => r.id === requestId);
         if (request) {
+          // Create bidirectional connection
           await supabase
             .from('builder_connections')
+            .insert([
+              {
+                connector_id: request.requester_id,
+                connectee_id: user?.id,
+                connection_type: request.request_type,
+                status: 'active',
+                facilitated_by_oracle: request.oracle_generated,
+                oracle_confidence: 0.8
+              },
+              {
+                connector_id: user?.id,
+                connectee_id: request.requester_id,
+                connection_type: request.request_type,
+                status: 'active',
+                facilitated_by_oracle: request.oracle_generated,
+                oracle_confidence: 0.8
+              }
+            ]);
+
+          // Send welcome message
+          const { data: aiMessage, error: aiError } = await supabase.functions.invoke('super-oracle', {
+            body: {
+              query: `Generate a friendly welcome message for ${request.requester_name} after accepting their ${request.request_type} request. Keep it warm and professional.`,
+              type: 'chat',
+              role: 'builder',
+              userId: user?.id
+            }
+          });
+
+          let welcomeMessage = `Hi ${request.requester_name}! I'd love to connect and explore ${request.request_type} opportunities with you.`;
+          
+          if (!aiError && aiMessage?.answer) {
+            welcomeMessage = aiMessage.answer;
+          }
+
+          await supabase
+            .from('messages')
             .insert({
-              connector_id: request.requester_id,
-              connectee_id: user?.id,
-              connection_type: request.request_type,
-              status: 'active'
+              sender_id: user?.id,
+              receiver_id: request.requester_id,
+              content: welcomeMessage,
+              message_type: 'connection_accepted',
+              oracle_generated: true
             });
         }
       }
 
       toast({
-        title: response === 'accepted' ? "Connection Accepted" : "Request Declined",
+        title: response === 'accepted' ? "Connection Accepted!" : "Request Declined",
         description: response === 'accepted' 
-          ? "You're now connected! Check your network." 
+          ? `You're now connected with ${connectionRequests.find(r => r.id === requestId)?.requester_name}! A welcome message has been sent.` 
           : "Request has been declined.",
       });
 
@@ -340,25 +379,86 @@ export const InboxTab = () => {
     if (!suggestion) return;
 
     if (action === 'accept') {
-      // Take action based on suggestion type
-      if (suggestion.type === 'connection') {
-        // Create connection request
+      try {
+        // Take action based on suggestion type
+        if (suggestion.type === 'connection') {
+          // Extract user ID from suggestion description (this would be more sophisticated in real implementation)
+          const mentionedUser = suggestion.description.match(/\(([^)]+)\)/)?.[1] || 'Unknown User';
+          
+          // Generate AI-powered connection request message
+          const { data: aiMessage, error: aiError } = await supabase.functions.invoke('super-oracle', {
+            body: {
+              query: `Generate a professional connection request message for ${mentionedUser} based on this suggestion: "${suggestion.description}". Include why you want to connect and what you can offer.`,
+              type: 'chat',
+              role: 'builder',
+              userId: user?.id
+            }
+          });
+
+          let connectionMessage = `Hi! I'd love to connect and explore collaboration opportunities. ${suggestion.description}`;
+          
+          if (!aiError && aiMessage?.answer) {
+            connectionMessage = aiMessage.answer;
+          }
+
+          // Create connection request (this would need the actual user ID in a real implementation)
+          toast({
+            title: "Connection Request Generated",
+            description: "Oracle has created a personalized connection request for you to send!",
+          });
+
+        } else if (suggestion.type === 'collaboration') {
+          // Generate collaboration interest message
+          const { data: aiMessage, error: aiError } = await supabase.functions.invoke('super-oracle', {
+            body: {
+              query: `Generate a collaboration interest message based on this suggestion: "${suggestion.description}". Express interest in the project and highlight relevant skills.`,
+              type: 'chat',
+              role: 'builder',
+              userId: user?.id
+            }
+          });
+
+          let collaborationMessage = `I'm interested in this collaboration opportunity! ${suggestion.description}`;
+          
+          if (!aiError && aiMessage?.answer) {
+            collaborationMessage = aiMessage.answer;
+          }
+
+          toast({
+            title: "Collaboration Interest Generated",
+            description: "Oracle has created a personalized message expressing your interest!",
+          });
+
+        } else if (suggestion.type === 'mentor') {
+          // Generate mentorship request message
+          const { data: aiMessage, error: aiError } = await supabase.functions.invoke('super-oracle', {
+            body: {
+              query: `Generate a mentorship request message based on this suggestion: "${suggestion.description}". Explain what you want to learn and how they can help.`,
+              type: 'chat',
+              role: 'builder',
+              userId: user?.id
+            }
+          });
+
+          let mentorshipMessage = `I'd love to learn from you! ${suggestion.description}`;
+          
+          if (!aiError && aiMessage?.answer) {
+            mentorshipMessage = aiMessage.answer;
+          }
+
+          toast({
+            title: "Mentorship Request Generated",
+            description: "Oracle has created a personalized mentorship request for you to send!",
+          });
+        }
+      } catch (error) {
+        console.error('Error generating Oracle action:', error);
         toast({
-          title: "Connection Request Sent",
-          description: "Oracle will facilitate the introduction!",
+          title: "Error",
+          description: "Failed to generate action. Please try again.",
+          variant: "destructive"
         });
-      } else if (suggestion.type === 'collaboration') {
-        // Navigate to project or send collaboration request
-        toast({
-          title: "Collaboration Interest Sent",
-          description: "The project team will be notified!",
-        });
-      } else if (suggestion.type === 'mentor') {
-        // Send mentorship request
-        toast({
-          title: "Mentorship Request Sent",
-          description: "Your potential mentor will be contacted!",
-        });
+        return;
       }
     }
 
@@ -372,9 +472,9 @@ export const InboxTab = () => {
     );
 
     toast({
-      title: action === 'accept' ? "Action Taken" : "Suggestion Dismissed",
+      title: action === 'accept' ? "Action Generated!" : "Suggestion Dismissed",
       description: action === 'accept' 
-        ? "Oracle has initiated the recommended action." 
+        ? "Oracle has created a personalized message for you to send." 
         : "Suggestion has been dismissed.",
     });
   };

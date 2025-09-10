@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { UserRole, UpdateType } from "@/types/oracle";
 import ReactMarkdown from "react-markdown";
+import { FeedbackSystem } from "./FeedbackSystem";
 
 interface SuperOracleProps {
   selectedRole: UserRole;
@@ -28,6 +29,9 @@ interface SuperOracleResponse {
   query?: string;
   timestamp?: string;
   error?: string;
+  // Learning system fields
+  oracle_log_id?: string;
+  learning_insights?: any;
   // Journey-specific responses
   detected_stage?: 'ideation' | 'development' | 'testing' | 'launch' | 'growth';
   feedback?: string;
@@ -618,6 +622,28 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Feedback System */}
+      {response.oracle_log_id && (
+        <FeedbackSystem
+          oracleResponseId={response.oracle_log_id}
+          query={response.query || ''}
+          response={response.answer}
+          modelUsed={response.model_used}
+          confidence={response.confidence}
+          onFeedbackSubmitted={(feedback) => {
+            console.log('Feedback submitted:', feedback);
+            // Trigger learning loop analysis
+            supabase.functions.invoke('oracle-learning-loop', {
+              body: {
+                oracle_log_id: response.oracle_log_id,
+                feedback_data: feedback,
+                action: 'analyze_feedback'
+              }
+            }).catch(console.error);
+          }}
+        />
       )}
     </div>
   );
