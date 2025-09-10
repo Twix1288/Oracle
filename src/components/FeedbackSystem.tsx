@@ -91,23 +91,14 @@ export const FeedbackSystem: React.FC<FeedbackSystemProps> = ({
 
       if (updateError) throw updateError;
 
-      // Create detailed feedback record
+      // Store feedback in oracle_logs table since oracle_feedback may not exist
       const { error: feedbackError } = await supabase
-        .from('oracle_feedback')
-        .insert({
-          oracle_log_id: oracleResponseId,
-          satisfaction_score: feedback.satisfaction,
-          helpful: feedback.helpful,
-          response_quality: feedback.response_quality,
-          accuracy: feedback.accuracy,
-          relevance: feedback.relevance,
-          feedback_text: feedback.feedback_text,
-          improvement_suggestions: feedback.improvement_suggestions,
-          model_used: modelUsed,
-          confidence_score: confidence,
-          query_text: query,
-          response_text: response
-        });
+        .from('oracle_logs')
+        .update({
+          feedback: feedback.feedback_text,
+          confidence: feedback.helpful ? (feedback.satisfaction / 5) : 0.1
+        })
+        .eq('id', oracleResponseId);
 
       if (feedbackError) throw feedbackError;
 
