@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sparkles, Radar, FolderOpen, Handshake, Activity, GraduationCap, MessageSquare, Inbox, Users } from 'lucide-react';
+import { Sparkles, Radar, FolderOpen, Handshake, Activity, MessageSquare, Inbox, Users } from 'lucide-react';
 import { LogoutButton } from '@/components/LogoutButton';
 import { useAuth } from '@/hooks/useAuth';
 import { BuilderRadarTab } from '@/components/gateway/BuilderRadarTab';
@@ -12,6 +12,7 @@ import { BuilderFeedTab } from '@/components/gateway/BuilderFeedTab';
 import { KnowledgeExchangeTab } from '@/components/gateway/KnowledgeExchangeTab';
 import { InboxTab } from '@/components/gateway/InboxTab';
 import { ConnectionsList } from '@/components/ConnectionsList';
+import { OracleInsightsPage } from '@/components/OracleInsightsPage';
 
 export default function Gateway() {
   const [activeTab, setActiveTab] = useState('builder-radar');
@@ -36,7 +37,7 @@ export default function Gateway() {
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6 mb-8">
+            <TabsList className="grid w-full grid-cols-7 mb-8">
               <TabsTrigger value="builder-radar" className="flex items-center gap-2">
                 <Radar className="h-4 w-4" />
                 <span className="hidden sm:inline">Radar</span>
@@ -61,9 +62,9 @@ export default function Gateway() {
                 <Activity className="h-4 w-4" />
                 <span className="hidden sm:inline">Feed</span>
               </TabsTrigger>
-              <TabsTrigger value="connections" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Network</span>
+              <TabsTrigger value="oracle-insights" className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">Insights</span>
               </TabsTrigger>
             </TabsList>
 
@@ -91,8 +92,8 @@ export default function Gateway() {
               <BuilderFeedTab />
             </TabsContent>
             
-            <TabsContent value="connections" className="mt-0">
-              <ConnectionsList />
+            <TabsContent value="oracle-insights" className="mt-0">
+              <OracleInsightsPage />
             </TabsContent>
           </Tabs>
 

@@ -125,6 +125,15 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
     if (trimmed.startsWith('/suggest collaboration')) {
       return { type: 'suggest_collaboration', query: trimmed.substring(22).trim() || 'suggest collaboration opportunities' };
     }
+    if (trimmed.startsWith('/view connections')) {
+      return { type: 'view_connections', query: 'show my connections and suggest new ones' };
+    }
+    if (trimmed.startsWith('/offer help')) {
+      return { type: 'offer_help', query: trimmed.substring(11).trim() || 'help me offer my skills to others' };
+    }
+    if (trimmed.startsWith('/join workshop')) {
+      return { type: 'join_workshop', query: trimmed.substring(14).trim() || 'find workshops to join' };
+    }
     if (trimmed.startsWith('/create project')) {
       return { type: 'create_project', query: trimmed.substring(15).trim() || 'help me create a new project' };
     }
@@ -276,6 +285,18 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             enhancedQuery = `Analyze my profile and projects to suggest relevant collaboration opportunities. Find builders, projects, and teams that would be good matches for collaboration. ${slashCommand.query}`;
             commandType = 'connect';
             break;
+          case 'view_connections':
+            enhancedQuery = `Show me my current connections and suggest new people I should connect with based on my projects, skills, and goals. Analyze the network data and provide connection insights.`;
+            commandType = 'connections_analysis';
+            break;
+          case 'offer_help':
+            enhancedQuery = `Help me offer my skills and expertise to other builders. Analyze my skills and suggest who I can help and how. ${slashCommand.query}`;
+            commandType = 'skill_matching';
+            break;
+          case 'join_workshop':
+            enhancedQuery = `Find workshops and learning opportunities that match my interests and skill level. Suggest workshops I should join. ${slashCommand.query}`;
+            commandType = 'workshop_matching';
+            break;
           case 'create_project':
             enhancedQuery = `Guide me through creating a new project. Ask about project details, goals, tech stack, team needs, and help structure the project properly. ${slashCommand.query}`;
             commandType = 'project_creation';
@@ -288,18 +309,21 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           case 'help':
             enhancedQuery = `Show available Oracle commands and features:
             
-            **New Commands:**
+            **Core Commands:**
             - \`/ask oracle [question]\` - Ask Oracle any question for detailed insights
             - \`/suggest collaboration\` - Get AI-powered collaboration suggestions
+            - \`/view connections\` - Analyze your network and suggest new connections
+            - \`/offer help\` - Find opportunities to help other builders
+            - \`/join workshop\` - Find workshops and learning opportunities
             - \`/create project\` - Get help creating a new project
             - \`/post feed\` - Get help creating feed content
-            - \`/create feed\` - Create engaging feed posts
             
             **Features:**
             - Natural language queries (just type normally)
             - Evidence-based suggestions with reasoning
-            - Project analysis and recommendations
-            - Builder matching and networking
+            - Network analysis and relationship insights
+            - Skill matching and collaboration opportunities
+            - Learning feedback loop for continuous improvement
             
             Oracle provides intelligent, context-aware responses with evidence and actionable insights.`;
             commandType = 'chat';
