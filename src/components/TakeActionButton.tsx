@@ -80,7 +80,7 @@ export const TakeActionButton: React.FC<TakeActionButtonProps> = ({
         case 'mentorship':
           prompt = `Generate a mentorship request message for ${targetUserName || 'this person'}.
           Context: ${suggestionDescription || 'Oracle suggested this mentorship opportunity'}
-          Your learning goals: ${profile?.learning_goals?.join(', ') || 'General growth'}
+          Your learning goals: ${profile?.goals?.join(', ') || 'General growth'}
           Their expertise: ${targetUserSkills.join(', ')}
           Be humble, specific about what you want to learn, and show appreciation for their expertise.`;
           break;
@@ -156,8 +156,8 @@ export const TakeActionButton: React.FC<TakeActionButtonProps> = ({
             sender_id: user.id,
             receiver_id: targetUserId,
             content: generatedMessage,
-            message_type: `${actionType}_request`,
-            oracle_generated: true
+            sender_role: profile?.role || 'builder',
+            receiver_role: 'builder'
           });
 
         if (messageError) throw messageError;
@@ -171,7 +171,6 @@ export const TakeActionButton: React.FC<TakeActionButtonProps> = ({
             request_type: actionType,
             message: generatedMessage,
             oracle_generated: true,
-            oracle_confidence: confidence,
             status: 'pending'
           });
 
@@ -188,19 +187,12 @@ export const TakeActionButton: React.FC<TakeActionButtonProps> = ({
         await supabase
           .from('oracle_logs')
           .insert({
-            user_id: user.id,
             query: `Take action: ${actionType}`,
             response: generatedMessage,
             query_type: 'action_taken',
             user_role: profile?.role || 'builder',
             confidence: confidence,
-            sources: [suggestionDescription || 'Oracle suggestion'],
             processing_time: 0,
-            context_used: JSON.stringify({
-              action_type: actionType,
-              target_user: targetUserName,
-              suggestion_id: suggestionId
-            }),
             search_strategy: 'action_generation',
             model_used: 'gpt-4o'
           });

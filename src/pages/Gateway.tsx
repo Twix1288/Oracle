@@ -36,7 +36,7 @@ export default function Gateway() {
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-8 mb-8">
+            <TabsList className="grid w-full grid-cols-6 mb-8">
               <TabsTrigger value="builder-radar" className="flex items-center gap-2">
                 <Radar className="h-4 w-4" />
                 <span className="hidden sm:inline">Radar</span>
@@ -60,10 +60,6 @@ export default function Gateway() {
               <TabsTrigger value="builder-feed" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 <span className="hidden sm:inline">Feed</span>
-              </TabsTrigger>
-              <TabsTrigger value="knowledge-exchange" className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4" />
-                <span className="hidden sm:inline">Learn</span>
               </TabsTrigger>
               <TabsTrigger value="connections" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
@@ -93,10 +89,6 @@ export default function Gateway() {
             
             <TabsContent value="builder-feed" className="mt-0">
               <BuilderFeedTab />
-            </TabsContent>
-            
-            <TabsContent value="knowledge-exchange" className="mt-0">
-              <KnowledgeExchangeTab />
             </TabsContent>
             
             <TabsContent value="connections" className="mt-0">
