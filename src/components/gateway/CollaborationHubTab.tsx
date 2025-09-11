@@ -268,14 +268,10 @@ export const CollaborationHubTab = () => {
       const { error } = await supabase
         .from('collaboration_proposals')
         .insert({
-          proposer_id: user.id,
           title: newCollab.title,
           description: newCollab.description,
-          collaboration_type: newCollab.collaboration_type,
-          urgency: newCollab.urgency,
-          estimated_hours: newCollab.estimated_hours,
-          skills_needed: newCollab.skills_needed,
-          status: 'open'
+          proposal_type: newCollab.collaboration_type,
+          status: 'pending'
         });
 
       if (error) throw error;
@@ -331,11 +327,10 @@ export const CollaborationHubTab = () => {
       const { error } = await supabase
         .from('skill_offers')
         .insert({
-          user_id: user.id,
-          offering_skill: newSkillExchange.offering_skill,
-          seeking_skill: newSkillExchange.seeking_skill,
+          owner_id: user.id,
+          skill: newSkillExchange.offering_skill,
           description: newSkillExchange.description,
-          exchange_type: newSkillExchange.exchange_type,
+          availability: 'flexible',
           status: 'active'
         });
 
@@ -390,15 +385,10 @@ export const CollaborationHubTab = () => {
       const { error } = await supabase
         .from('collaboration_proposals')
         .insert({
-          proposer_id: user.id,
           title: `Partnership: ${newPartnership.project_name}`,
           description: newPartnership.description,
-          collaboration_type: 'partnership',
-          partnership_type: newPartnership.partnership_type,
-          commitment_level: newPartnership.commitment_level,
-          equity_offered: newPartnership.equity_offered,
-          skills_needed: newPartnership.skills_needed,
-          status: 'open'
+          proposal_type: 'partnership',
+          status: 'pending'
         });
 
       if (error) throw error;

@@ -164,7 +164,7 @@ export const ConnectionsList: React.FC = () => {
         request_type: request.request_type as any,
         message: request.message,
         oracle_generated: request.oracle_generated || false,
-        oracle_confidence: request.oracle_confidence,
+        oracle_confidence: 0.8,
         created_at: request.created_at
       }));
 
@@ -258,8 +258,8 @@ export const ConnectionsList: React.FC = () => {
             sender_id: user?.id,
             receiver_id: request.requester.id,
             content: `Hi ${request.requester.name}! I'd love to connect and explore ${request.request_type} opportunities. Looking forward to collaborating!`,
-            message_type: 'connection_accepted',
-            oracle_generated: false
+            sender_role: 'builder',
+            receiver_role: 'builder'
           });
       }
 
@@ -334,7 +334,10 @@ export const ConnectionsList: React.FC = () => {
   const filteredConnections = connections.filter(connection => {
     const matchesSearch = connection.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         connection.user.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesFilter = filterType === 'all' || connection.connection_type === filterType;
+    const matchesFilter = filterType === 'all' || 
+      (filterType === 'friends' && connection.connection_type === 'friend') ||
+      (filterType === 'mentors' && connection.connection_type === 'mentor') ||
+      (filterType === 'collaborators' && connection.connection_type === 'collaborator');
     return matchesSearch && matchesFilter;
   });
 
@@ -499,7 +502,7 @@ export const ConnectionsList: React.FC = () => {
                       {/* Actions */}
                       <div className="flex items-center gap-2 pt-2">
                         <TakeActionButton
-                          actionType={connection.connection_type}
+                          actionType="connection"
                           targetUserId={connection.user.id}
                           targetUserName={connection.user.name}
                           targetUserSkills={connection.user.skills}
@@ -510,7 +513,6 @@ export const ConnectionsList: React.FC = () => {
                           targetUserId={connection.user.id}
                           targetUserName={connection.user.name}
                           targetUserSkills={connection.user.skills}
-                          connectionType={connection.connection_type}
                           size="sm"
                           variant="outline"
                         />

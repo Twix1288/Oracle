@@ -152,7 +152,8 @@ export function TeamPage() {
             )}
             
             <OfferHelpButton
-              onSuccess={handleActionSuccess}
+              targetUserId={team.id}
+              targetUserName={team.name}
             />
 
             <OracleSuggestButton

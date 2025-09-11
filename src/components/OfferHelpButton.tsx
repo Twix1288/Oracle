@@ -104,8 +104,8 @@ export const OfferHelpButton: React.FC<OfferHelpButtonProps> = ({
           sender_id: user.id,
           receiver_id: targetUserId,
           content: helpMessage,
-          message_type: 'help_offer',
-          oracle_generated: true
+          sender_role: 'builder',
+          receiver_role: 'builder'
         });
 
       if (messageError) throw messageError;

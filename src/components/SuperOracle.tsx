@@ -324,8 +324,8 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               userProfile: profile,
               userRole: selectedRole,
               userSkills: profile?.skills || [],
-              userGoals: profile?.learning_goals || [],
-              userProjects: profile?.project_goals || ''
+              userGoals: profile?.bio || '',
+              userProjects: profile?.bio || ''
             }
           }
         });
@@ -363,10 +363,10 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               userProfile: profile,
               userRole: selectedRole,
               userSkills: profile?.skills || [],
-              userGoals: profile?.learning_goals || [],
-              userProjects: profile?.project_goals || '',
+              userGoals: profile?.bio || '',
+              userProjects: profile?.bio || '',
               userBio: profile?.bio || '',
-              userLevel: profile?.builder_level || 'novice'
+              userLevel: profile?.experience_level || 'novice'
             }
           }
         });

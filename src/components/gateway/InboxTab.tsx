@@ -301,8 +301,8 @@ export const InboxTab = () => {
               sender_id: user?.id,
               receiver_id: request.requester_id,
               content: welcomeMessage,
-              message_type: 'connection_accepted',
-              oracle_generated: true
+              sender_role: 'builder',
+              receiver_role: 'builder'
             });
         }
       }
@@ -347,10 +347,8 @@ export const InboxTab = () => {
           await supabase
             .from('members')
             .insert({
-              team_id: invitation.project_id,
               user_id: user?.id,
-              role: invitation.collaboration_type,
-              status: 'active'
+              role: 'builder'
             });
         }
       }

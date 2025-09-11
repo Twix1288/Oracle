@@ -80,7 +80,7 @@ export const TakeActionButton: React.FC<TakeActionButtonProps> = ({
         case 'mentorship':
           prompt = `Generate a mentorship request message for ${targetUserName || 'this person'}.
           Context: ${suggestionDescription || 'Oracle suggested this mentorship opportunity'}
-          Your learning goals: ${profile?.goals?.join(', ') || 'General growth'}
+          Your learning goals: ${profile?.bio || 'General growth'}
           Their expertise: ${targetUserSkills.join(', ')}
           Be humble, specific about what you want to learn, and show appreciation for their expertise.`;
           break;
