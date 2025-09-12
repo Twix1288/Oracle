@@ -38,6 +38,7 @@ interface SuperOracleResponse {
   search_strategy: string;
   resources?: any[];
   connections?: any[];
+  oracle_log_id?: string;
 }
 
 // Get comprehensive user context from database
@@ -577,15 +578,20 @@ I'm here to help you find great collaborators!
           user_id: requestBody.userId,
           team_id: requestBody.teamId,
           query: requestBody.query.substring(0, 500),
-          response: response.answer.substring(0, 500),
+          response: JSON.stringify({
+            answer: response.answer.substring(0, 500),
+            sources: response.sources,
+            context_used: response.context_used,
+            model_used: response.model_used,
+            confidence: response.confidence,
+            processing_time: response.processing_time,
+            search_strategy: response.search_strategy
+          }),
           query_type: requestBody.type,
-          user_role: requestBody.role,
+          model_used: response.model_used,
           confidence: response.confidence,
           sources: response.sources,
-          processing_time: response.processing_time,
-          context_used: response.context_used,
-          search_strategy: response.search_strategy,
-          model_used: response.model_used
+          context_used: response.context_used
         }).select('id').single();
         
         if (logError) throw logError;

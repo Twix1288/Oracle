@@ -144,6 +144,43 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
       return { type: 'create_feed', query: trimmed.substring(12).trim() || 'help me create a feed item' };
     }
     
+    // Functional commands that actually execute actions
+    if (trimmed.startsWith('/message ')) {
+      const messageMatch = trimmed.match(/^\/message\s+([^:]+):\s*(.+)$/);
+      if (messageMatch) {
+        return { 
+          type: 'send_message', 
+          query: trimmed,
+          recipient: messageMatch[1].trim(),
+          message: messageMatch[2].trim()
+        };
+      }
+      return { type: 'send_message', query: trimmed.substring(9).trim() };
+    }
+    if (trimmed.startsWith('/update ')) {
+      return { 
+        type: 'create_update', 
+        query: trimmed.substring(8).trim() || 'help me create a project update'
+      };
+    }
+    
+    // AI-powered commands
+    if (trimmed.startsWith('/ask oracle ')) {
+      return { type: 'ask_oracle', query: trimmed.substring(12).trim() };
+    }
+    if (trimmed.startsWith('/view connections')) {
+      return { type: 'view_connections', query: 'show me my network connections' };
+    }
+    if (trimmed.startsWith('/offer help')) {
+      return { type: 'offer_help', query: 'find opportunities to help others' };
+    }
+    if (trimmed.startsWith('/join workshop')) {
+      return { type: 'join_workshop', query: 'find workshops to join' };
+    }
+    if (trimmed.startsWith('/suggest collaboration')) {
+      return { type: 'suggest_collaboration', query: 'suggest collaboration opportunities' };
+    }
+    
     // Legacy commands for backward compatibility
     if (trimmed.startsWith('/help')) {
       return { type: 'help', query: 'help with Oracle commands and features' };
@@ -174,10 +211,10 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
           const progressContent = match[4] || match[0];
           if (teamId) {
             const { error } = await supabase.from('updates').insert({
-              team_id: teamId,
+              title: `Progress Update - ${new Date().toLocaleDateString()}`,
               content: progressContent,
               type: 'progress' as const,
-              created_by: userId || `${selectedRole}_user`
+              user_id: userId || 'system'
             });
             
             if (error) throw error;
@@ -275,6 +312,99 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
         let commandType = slashCommand.type;
         let enhancedQuery = slashCommand.query;
         
+        // Handle functional commands that execute actions directly
+        if (commandType === 'send_message') {
+          try {
+            if (!user?.id) {
+              throw new Error('User not authenticated');
+            }
+            
+            const recipient = slashCommand.recipient || 'team';
+            const message = slashCommand.message || slashCommand.query;
+            
+            // Create the message in the database using the correct schema
+            const { data: messageData, error: messageError } = await supabase
+              .from('messages')
+              .insert({
+                content: message,
+                sender_id: user.id,
+                team_id: teamId || null
+              })
+              .select()
+              .single();
+
+            if (messageError) throw messageError;
+
+            // Create a success response
+            const successResponse: SuperOracleResponse = {
+              answer: `✅ **Message sent successfully!**\n\n**Content:** ${message}\n**Recipient:** ${recipient}\n**Message ID:** ${messageData.id}\n\nYour message has been delivered and is now visible in the team chat.`,
+              sources: 0,
+              context_used: true,
+              model_used: 'oracle_command',
+              confidence: 1.0,
+              processing_time: 0,
+              search_strategy: 'direct_execution',
+              query: query,
+              timestamp: new Date().toISOString()
+            };
+
+            setResponses(prev => [successResponse, ...prev]);
+            setQuery("");
+            toast.success(`Message sent to ${recipient}`);
+            return;
+          } catch (error) {
+            console.error('Message sending error:', error);
+            toast.error(`Failed to send message: ${error.message}`);
+            return;
+          }
+        }
+
+        if (commandType === 'create_update') {
+          try {
+            if (!user?.id) {
+              throw new Error('User not authenticated');
+            }
+            
+            const updateContent = slashCommand.query;
+            
+            // Create the update in the database using the correct schema
+            const { data: updateData, error: updateError } = await supabase
+              .from('updates')
+              .insert({
+                title: `Project Update - ${new Date().toLocaleDateString()}`,
+                content: updateContent,
+                type: 'general',
+                user_id: user.id
+              })
+              .select()
+              .single();
+
+            if (updateError) throw updateError;
+
+            // Create a success response
+            const successResponse: SuperOracleResponse = {
+              answer: `✅ **Project update created successfully!**\n\n**Title:** ${updateData.title}\n**Content:** ${updateContent}\n**Update ID:** ${updateData.id}\n\nYour update has been posted and is now visible to your team and network.`,
+              sources: 0,
+              context_used: true,
+              model_used: 'oracle_command',
+              confidence: 1.0,
+              processing_time: 0,
+              search_strategy: 'direct_execution',
+              query: query,
+              timestamp: new Date().toISOString()
+            };
+
+            setResponses(prev => [successResponse, ...prev]);
+            setQuery("");
+            toast.success(`Project update created successfully`);
+            return;
+          } catch (error) {
+            console.error('Update creation error:', error);
+            toast.error(`Failed to create update: ${error.message}`);
+            return;
+          }
+        }
+        
         // Enhance queries with context for better AI understanding
         switch (commandType) {
           case 'ask_oracle':
@@ -318,6 +448,10 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             - \`/create project\` - Get help creating a new project
             - \`/post feed\` - Get help creating feed content
             
+            **Functional Commands:**
+            - \`/message [recipient]: [message]\` - Send a message to someone
+            - \`/update [content]\` - Create a project update
+            
             **Features:**
             - Natural language queries (just type normally)
             - Evidence-based suggestions with reasoning
@@ -332,6 +466,25 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
 
         console.log('Enhanced slash command query:', enhancedQuery);
 
+        // For certain commands, enhance the query for better AI understanding
+        if (['view_connections', 'offer_help', 'join_workshop', 'suggest_collaboration'].includes(commandType)) {
+          // Enhance the query with specific context for better AI responses
+          switch (commandType) {
+            case 'view_connections':
+              enhancedQuery = `Analyze my network and suggest new connections. Show me who I should connect with and why. ${enhancedQuery}`;
+              break;
+            case 'offer_help':
+              enhancedQuery = `Find opportunities where I can help other builders. Show me people who need help with skills I have. ${enhancedQuery}`;
+              break;
+            case 'join_workshop':
+              enhancedQuery = `Find workshops and learning opportunities that would be valuable for me. Show me upcoming workshops I should join. ${enhancedQuery}`;
+              break;
+            case 'suggest_collaboration':
+              enhancedQuery = `Suggest collaboration opportunities. Find people I could work with on projects. ${enhancedQuery}`;
+              break;
+          }
+        }
+
         // Route through Super Oracle with enhanced capabilities
         const response = await supabase.functions.invoke('super-oracle', {
           body: {
@@ -339,7 +492,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
             type: commandType,
             role: selectedRole,
             teamId,
-            userId,
+            userId: user?.id || userId,
             context: { 
               hasTeam: Boolean(teamId),
               commandType: slashCommand.type,

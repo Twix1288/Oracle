@@ -87,7 +87,7 @@ export function OracleInsightsPage() {
     try {
       setIsLoading(true);
       
-      // Load Oracle insights from logs
+      // Load Oracle insights from logs with user context
       const { data: oracleLogs, error: logsError } = await supabase
         .from('oracle_logs')
         .select('*')
@@ -97,17 +97,34 @@ export function OracleInsightsPage() {
 
       if (logsError) throw logsError;
 
-      // Transform oracle logs into insights
-      const transformedInsights: OracleInsight[] = oracleLogs.map(log => ({
-        id: log.id,
-        type: log.query_type === 'suggest' ? 'collaboration' : 'connection',
-        title: `Oracle Insight: ${log.query_type}`,
-        description: log.query.substring(0, 150) + '...',
-        confidence: log.confidence || 0,
-        evidence_count: log.sources || 0,
-        actionable: log.helpful || false,
-        created_at: log.created_at
-      }));
+      // Transform oracle logs into insights with better context
+      const transformedInsights: OracleInsight[] = oracleLogs.map(log => {
+        let insightType: 'connection' | 'skill_match' | 'workshop' | 'collaboration' = 'collaboration';
+        let title = `Oracle Insight: ${log.query_type}`;
+        
+        // Better categorization based on query content and user profile
+        if (log.query.toLowerCase().includes('connect') || log.query.toLowerCase().includes('network')) {
+          insightType = 'connection';
+          title = `Network Analysis: ${profile?.role || 'Builder'} Insights`;
+        } else if (log.query.toLowerCase().includes('skill') || log.query.toLowerCase().includes('help')) {
+          insightType = 'skill_match';
+          title = `Skill Matching: ${profile?.skills?.join(', ') || 'Your Skills'}`;
+        } else if (log.query.toLowerCase().includes('workshop') || log.query.toLowerCase().includes('learn')) {
+          insightType = 'workshop';
+          title = `Learning Opportunity: ${profile?.role || 'Builder'} Development`;
+        }
+
+        return {
+          id: log.id,
+          type: insightType,
+          title,
+          description: log.query.substring(0, 150) + '...',
+          confidence: log.confidence || 0.8,
+          evidence_count: log.sources || 0,
+          actionable: log.helpful !== false,
+          created_at: log.created_at
+        };
+      });
 
       setInsights(transformedInsights);
 
@@ -234,7 +251,75 @@ export function OracleInsightsPage() {
     console.log('Oracle command executed:', command);
     
     try {
-      // Call GraphRAG for the command
+      // Handle functional commands directly
+      if (command.startsWith('/message ')) {
+        if (!user?.id) {
+          toast({
+            title: "Authentication Required",
+            description: "Please log in to send messages.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        const messageMatch = command.match(/^\/message\s+([^:]+):\s*(.+)$/);
+        const recipient = messageMatch?.[1] || 'team';
+        const message = messageMatch?.[2] || command.substring(9);
+        
+        const { data: messageData, error: messageError } = await supabase
+          .from('messages')
+          .insert({
+            content: message,
+            sender_id: user.id,
+            team_id: teamId || null
+          })
+          .select()
+          .single();
+
+        if (messageError) throw messageError;
+
+        toast({
+          title: "Message Sent",
+          description: `Message sent to ${recipient}: "${message}"`,
+        });
+        loadOracleData();
+        return;
+      }
+
+      if (command.startsWith('/update ')) {
+        if (!user?.id) {
+          toast({
+            title: "Authentication Required",
+            description: "Please log in to create updates.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        const updateContent = command.substring(8);
+        
+        const { data: updateData, error: updateError } = await supabase
+          .from('updates')
+          .insert({
+            title: `Project Update - ${new Date().toLocaleDateString()}`,
+            content: updateContent,
+            type: 'general',
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Update Created",
+          description: `Project update created: "${updateContent}"`,
+        });
+        loadOracleData();
+        return;
+      }
+
+      // Call GraphRAG for other commands
       const response = await supabase.functions.invoke('graphrag', {
         body: {
           action: 'oracle_command',
@@ -293,16 +378,64 @@ export function OracleInsightsPage() {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground mb-2">{insight.description}</p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{insight.evidence_count} sources</span>
-          <span>•</span>
-          <span>{new Date(insight.created_at).toLocaleDateString()}</span>
-          {insight.actionable && (
-            <>
-              <span>•</span>
-              <Badge variant="secondary" className="text-xs">Actionable</Badge>
-            </>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{insight.evidence_count} sources</span>
+            <span>•</span>
+            <span>{new Date(insight.created_at).toLocaleDateString()}</span>
+            {insight.actionable && (
+              <>
+                <span>•</span>
+                <Badge variant="secondary" className="text-xs">Actionable</Badge>
+              </>
+            )}
+          </div>
+          <div className="flex gap-1">
+            {insight.type === 'connection' && (
+              <Button 
+                onClick={() => handleOracleCommand('/view connections')} 
+                variant="outline" 
+                size="sm"
+                className="text-xs"
+              >
+                <Users className="mr-1 h-3 w-3" />
+                View Network
+              </Button>
+            )}
+            {insight.type === 'skill_match' && (
+              <Button 
+                onClick={() => handleOracleCommand('/offer help')} 
+                variant="outline" 
+                size="sm"
+                className="text-xs"
+              >
+                <HandHeart className="mr-1 h-3 w-3" />
+                Offer Help
+              </Button>
+            )}
+            {insight.type === 'workshop' && (
+              <Button 
+                onClick={() => handleOracleCommand('/join workshop')} 
+                variant="outline" 
+                size="sm"
+                className="text-xs"
+              >
+                <GraduationCap className="mr-1 h-3 w-3" />
+                Find Workshops
+              </Button>
+            )}
+            {insight.type === 'collaboration' && (
+              <Button 
+                onClick={() => handleOracleCommand('/suggest collaboration')} 
+                variant="outline" 
+                size="sm"
+                className="text-xs"
+              >
+                <MessageCircle className="mr-1 h-3 w-3" />
+                Find Collaborators
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -330,6 +463,14 @@ export function OracleInsightsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => handleOracleCommand('/message team: Hello team! How is everyone doing?')} variant="outline" size="sm">
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Send Message
+          </Button>
+          <Button onClick={() => handleOracleCommand('/update Just made great progress on our project!')} variant="outline" size="sm">
+            <Activity className="mr-2 h-4 w-4" />
+            Create Update
+          </Button>
           <Button onClick={triggerLearningLoop} variant="outline" size="sm">
             <Activity className="mr-2 h-4 w-4" />
             Trigger Learning Loop
@@ -399,7 +540,7 @@ export function OracleInsightsPage() {
                   className="ml-auto"
                 >
                   <Eye className="mr-2 h-4 w-4" />
-                  View Connections Oracle Insights
+                  Analyze Network
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -449,7 +590,7 @@ export function OracleInsightsPage() {
                   className="ml-auto"
                 >
                   <HandHeart className="mr-2 h-4 w-4" />
-                  Offer Help via Oracle
+                  Find Help Opportunities
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -488,7 +629,7 @@ export function OracleInsightsPage() {
                   className="ml-auto"
                 >
                   <GraduationCap className="mr-2 h-4 w-4" />
-                  Find Workshops via Oracle
+                  Find Workshops
                 </Button>
               </CardTitle>
             </CardHeader>

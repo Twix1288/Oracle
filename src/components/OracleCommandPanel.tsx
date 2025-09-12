@@ -50,6 +50,18 @@ const availableCommands: OracleCommand[] = [
     category: 'connection'
   },
   {
+    command: '/message team: Hello everyone!',
+    description: 'Send a message to your team',
+    icon: <MessageCircle className="h-4 w-4" />,
+    category: 'general'
+  },
+  {
+    command: '/update Just completed the authentication system',
+    description: 'Create a project update',
+    icon: <Activity className="h-4 w-4" />,
+    category: 'general'
+  },
+  {
     command: '/ask oracle',
     description: 'Ask Oracle any question for detailed insights',
     icon: <Sparkles className="h-4 w-4" />,
