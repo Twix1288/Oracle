@@ -13,7 +13,8 @@ import {
   Network,
   MessageCircle,
   UserPlus,
-  BookOpen
+  BookOpen,
+  HandHeart
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +24,7 @@ import { OracleSuggestButton } from './OracleSuggestButton';
 import { OfferHelpButton } from './OfferHelpButton';
 import { ConnectButton } from './ConnectButton';
 import { JoinWorkshopButton } from './JoinWorkshopButton';
+import { OracleCommandPanel } from './OracleCommandPanel';
 
 interface OracleInsight {
   id: string;
@@ -228,6 +230,56 @@ export function OracleInsightsPage() {
     }
   };
 
+  const handleOracleCommand = async (command: string) => {
+    console.log('Oracle command executed:', command);
+    
+    try {
+      // Call GraphRAG for the command
+      const response = await supabase.functions.invoke('graphrag', {
+        body: {
+          action: 'oracle_command',
+          actor_id: user?.id,
+          target_id: user?.id,
+          body: { 
+            command: command,
+            context: 'oracle_insights_page'
+          }
+        }
+      });
+
+      if (response.error) throw response.error;
+
+      // Trigger learning loop
+      await supabase.functions.invoke('oracle-learning-loop', {
+        body: {
+          oracle_log_id: response.data?.log_id || '',
+          feedback_data: { 
+            command: command, 
+            success: true,
+            user_id: user?.id,
+            context: 'oracle_insights_interaction'
+          },
+          action: 'analyze_feedback'
+        }
+      });
+
+      // Refresh data to show new insights
+      loadOracleData();
+      
+      toast({
+        title: "Oracle Command Executed",
+        description: `Command "${command}" processed successfully`,
+      });
+    } catch (error) {
+      console.error('Oracle command error:', error);
+      toast({
+        title: "Command Failed",
+        description: `Failed to execute: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderInsightCard = (insight: OracleInsight) => (
     <Card key={insight.id} className="mb-4">
       <CardHeader className="pb-2">
@@ -340,7 +392,12 @@ export function OracleInsightsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Network className="h-5 w-5" />
                 Your Network
-                <Button onClick={loadOracleData} variant="ghost" size="sm" className="ml-auto">
+                <Button 
+                  onClick={() => handleOracleCommand('/view connections')} 
+                  variant="ghost" 
+                  size="sm" 
+                  className="ml-auto"
+                >
                   <Eye className="mr-2 h-4 w-4" />
                   View Connections Oracle Insights
                 </Button>
@@ -385,13 +442,15 @@ export function OracleInsightsPage() {
               <CardTitle className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5" />
                 Skill Offers & Matching
-                <OfferHelpButton
-                  targetUserId="general"
-                  targetUserName="Community"
-                  variant="outline"
-                  size="sm"
+                <Button 
+                  onClick={() => handleOracleCommand('/offer help')} 
+                  variant="outline" 
+                  size="sm" 
                   className="ml-auto"
-                />
+                >
+                  <HandHeart className="mr-2 h-4 w-4" />
+                  Offer Help via Oracle
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -422,6 +481,15 @@ export function OracleInsightsPage() {
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
                 Recommended Workshops
+                <Button 
+                  onClick={() => handleOracleCommand('/join workshop')} 
+                  variant="outline" 
+                  size="sm" 
+                  className="ml-auto"
+                >
+                  <GraduationCap className="mr-2 h-4 w-4" />
+                  Find Workshops via Oracle
+                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -454,11 +522,17 @@ export function OracleInsightsPage() {
         </TabsContent>
 
         <TabsContent value="oracle" className="space-y-4">
-          <SuperOracle 
-            selectedRole={profile?.role || 'builder'}
-            teamId={profile?.team_id}
-            userId={user?.id}
-          />
+          <div className="grid gap-6">
+            <OracleCommandPanel 
+              onCommandExecute={handleOracleCommand}
+              className="mb-4"
+            />
+            <SuperOracle 
+              selectedRole={profile?.role || 'builder'}
+              teamId={profile?.team_id}
+              userId={user?.id}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

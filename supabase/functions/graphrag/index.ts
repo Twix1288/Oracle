@@ -390,6 +390,97 @@ serve(async (req) => {
           break;
         }
 
+        case 'oracle_command': {
+          const { command, context } = body;
+          
+          if (!command) {
+            return new Response(
+              JSON.stringify({ error: 'Command is required for oracle_command action' }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          console.log('Oracle command executed:', command, 'Context:', context);
+
+          // Log the Oracle command interaction
+          const { data: logEntry, error: logError } = await supabase
+            .from('oracle_logs')
+            .insert({
+              user_id: actor_id,
+              query: command,
+              query_type: 'command',
+              model_used: 'graphrag-system',
+              confidence: 0.95,
+              sources: 1,
+              context_used: true,
+              helpful: true,
+              response: JSON.stringify({
+                command_executed: command,
+                context: context,
+                timestamp: new Date().toISOString()
+              })
+            })
+            .select()
+            .single();
+
+          if (logError) {
+            console.error('Failed to log Oracle command:', logError);
+          }
+
+          // Process command-specific logic
+          let commandResult = {};
+          
+          if (command.includes('view connections')) {
+            // Get user's connections for analysis
+            const { data: connections } = await supabase
+              .from('connection_requests')
+              .select('*, requester:profiles!requester_id(*), requested:profiles!requested_id(*)')
+              .or(`requester_id.eq.${actor_id},requested_id.eq.${actor_id}`)
+              .eq('status', 'accepted')
+              .limit(10);
+            
+            commandResult = { 
+              type: 'connections_analysis',
+              data: connections || [],
+              insight: 'Connection analysis completed'
+            };
+          } else if (command.includes('offer help')) {
+            // Get skills and opportunities
+            const { data: skillOffers } = await supabase
+              .from('skill_offers')
+              .select('*, owner:profiles!owner_id(*)')
+              .eq('status', 'active')
+              .limit(5);
+            
+            commandResult = { 
+              type: 'help_opportunities',
+              data: skillOffers || [],
+              insight: 'Help opportunities analyzed'
+            };
+          } else if (command.includes('join workshop')) {
+            // Get available workshops
+            const { data: workshops } = await supabase
+              .from('workshops')
+              .select('*')
+              .gte('scheduled_at', new Date().toISOString())
+              .order('scheduled_at', { ascending: true })
+              .limit(5);
+            
+            commandResult = { 
+              type: 'workshop_recommendations',
+              data: workshops || [],
+              insight: 'Workshop recommendations generated'
+            };
+          }
+
+          result = { 
+            command_processed: true,
+            log_id: logEntry?.id,
+            result: commandResult
+          };
+          break;
+        }
+
         default:
           return new Response(
             JSON.stringify({ error: 'Unknown action' }),
