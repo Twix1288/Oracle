@@ -25,12 +25,25 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     const url = new URL(req.url);
-    const endpoint = url.pathname.split('/').pop();
+    let endpoint = url.pathname.split('/').pop() || '';
 
-    console.log('GraphRAG endpoint called:', endpoint);
+    // Parse body once for supabase.functions.invoke root calls
+    let payload: any = null;
+    if (req.method === 'POST') {
+      try { payload = await req.json(); } catch (_) { /* no body */ }
+    }
+
+    // Allow root invocations without subpath by inferring intent from payload
+    if (!['embed','search','button_action'].includes(endpoint)) {
+      if (payload?.action) endpoint = 'button_action';
+      else if (payload?.query) endpoint = 'search';
+      else if (payload?.table) endpoint = 'embed';
+    }
+
+    console.log('GraphRAG endpoint resolved:', endpoint);
 
     if (endpoint === 'embed' && req.method === 'POST') {
-      const { table, id, text } = await req.json();
+      const { table, id, text } = payload || {};
       
       if (!table || !id || !text) {
         return new Response(
