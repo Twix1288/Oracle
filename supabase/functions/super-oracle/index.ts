@@ -41,108 +41,471 @@ interface SuperOracleResponse {
   oracle_log_id?: string;
 }
 
-// Get comprehensive user context from database
-async function getUserContext(userId?: string, teamId?: string): Promise<string> {
+// Get comprehensive user context from database (inspired by ai_bot.py)
+async function getUserContext(userId?: string, teamId?: string): Promise<{ context: string; userData: any }> {
   try {
     console.log('🔍 Getting comprehensive user context...');
     
-    if (!userId) return '';
+    if (!userId) {
+      console.log('No userId provided, returning empty context');
+      return { context: '', userData: {} };
+    }
     
     let context = '';
+    let userData: any = {};
     
-    // Get user profile
-    const { data: profile } = await supabase
+    // Get user profile with comprehensive data
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
     
+    if (profileError) {
+      console.warn('Profile query error:', profileError);
+    }
+    
     if (profile) {
+      userData.profile = profile;
       context += `\n## User Profile
-- Name: ${profile.full_name || 'Unknown'}
+- Name: ${profile.full_name || profile.display_name || 'Unknown'}
 - Bio: ${profile.bio || 'No bio available'}
 - Skills: ${(profile.skills || []).join(', ')}
 - Builder Level: ${profile.builder_level || 'novice'}
 - Learning Goals: ${(profile.learning_goals || []).join(', ')}
 - Project Goals: ${profile.project_goals || 'No specific goals'}
 - Availability: ${profile.availability_hours || 0} hours/week
+- Current Week: ${profile.current_week || 'Unknown'}
+- Onboarding Completed: ${profile.onboarding_completed || false}
 `;
     }
     
+    // Get comprehensive user data from ALL available tables
+    const contextData: any = {};
+    
     // Get user's teams (both created and joined)
-    const { data: createdTeams } = await supabase
-      .from('teams')
-      .select('id, name, description, status, created_at, project_description')
-      .eq('team_creator_id', userId);
-    
-    const { data: memberTeams } = await supabase
-      .from('members')
-      .select(`
-        teams!inner(id, name, description, status, created_at, project_description),
-        role
-      `)
-      .eq('user_id', userId);
-    
-    const allTeams = [
-      ...(createdTeams || []).map(team => ({ ...team, role: 'creator' })),
-      ...(memberTeams || []).map(m => ({ ...m.teams, role: m.role }))
-    ];
-    
-    if (allTeams && allTeams.length > 0) {
-      context += `\n## User's Projects/Teams
-${allTeams.map(team => `- ${team.name}: ${team.description || team.project_description || 'No description'} (${team.status}) - Role: ${team.role}`).join('\n')}
+    try {
+      const { data: createdTeams } = await supabase
+        .from('teams')
+        .select('id, name, description, status, created_at')
+        .eq('team_creator_id', userId);
+      
+      const { data: memberTeams } = await supabase
+        .from('team_members')
+        .select(`
+          teams!inner(id, name, description, status, created_at),
+          role
+        `)
+        .eq('user_id', userId);
+      
+      const allTeams = [
+        ...(createdTeams || []).map(team => ({ ...team, role: 'creator' })),
+        ...(memberTeams || []).map(m => ({ ...m.teams, role: m.role }))
+      ];
+      
+      contextData.teams = allTeams;
+      if (allTeams && allTeams.length > 0) {
+        context += `\n## User's Projects/Teams (${allTeams.length} entries)
+${allTeams.map(team => `- ${team.name}: ${team.description || 'No description'} (${team.status}) - Role: ${team.role}`).join('\n')}
 `;
+      }
+    } catch (error) {
+      console.warn('Teams query error:', error);
+      contextData.teams = [];
     }
     
     // Get recent progress entries
-    const { data: progress } = await supabase
-      .from('progress_entries')
-      .select('title, description, category, status, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    
-    if (progress && progress.length > 0) {
-      context += `\n## Recent Progress
+    try {
+      const { data: progress } = await supabase
+        .from('progress_entries')
+        .select('title, description, category, status, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.progress = progress || [];
+      if (progress && progress.length > 0) {
+        context += `\n## Recent Progress (${progress.length} entries)
 ${progress.map(p => `- ${p.title}: ${p.description} (${p.status})`).join('\n')}
 `;
+      }
+    } catch (error) {
+      console.warn('Progress query error:', error);
+      contextData.progress = [];
     }
     
     // Get recent project updates
-    const { data: updates } = await supabase
-      .from('project_updates')
-      .select('title, content, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(3);
-    
-    if (updates && updates.length > 0) {
-      context += `\n## Recent Project Updates
+    try {
+      const { data: updates } = await supabase
+        .from('project_updates')
+        .select('title, content, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      contextData.updates = updates || [];
+      if (updates && updates.length > 0) {
+        context += `\n## Recent Project Updates (${updates.length} entries)
 ${updates.map(u => `- ${u.title}: ${u.content.substring(0, 100)}...`).join('\n')}
 `;
+      }
+    } catch (error) {
+      console.warn('Updates query error:', error);
+      contextData.updates = [];
     }
     
     // Get connection requests
-    const { data: connections } = await supabase
-      .from('connection_requests')
-      .select('request_type, message, status, created_at')
-      .or(`requester_id.eq.${userId},requested_id.eq.${userId}`)
-      .order('created_at', { ascending: false })
-      .limit(3);
-    
-    if (connections && connections.length > 0) {
-      context += `\n## Recent Connections
+    try {
+      const { data: connections } = await supabase
+        .from('connection_requests')
+        .select('request_type, message, status, created_at')
+        .or(`requester_id.eq.${userId},requested_id.eq.${userId}`)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      contextData.connections = connections || [];
+      if (connections && connections.length > 0) {
+        context += `\n## Recent Connections (${connections.length} entries)
 ${connections.map(c => `- ${c.request_type}: ${c.message.substring(0, 50)}... (${c.status})`).join('\n')}
 `;
+      }
+    } catch (error) {
+      console.warn('Connections query error:', error);
+      contextData.connections = [];
     }
+    
+    // Get ALL users data for intelligent matching and recommendations
+    try {
+      const { data: allUsers } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(50);
+      
+      contextData.allUsers = allUsers || [];
+      console.log(`📊 Retrieved ${contextData.allUsers.length} total users for matching`);
+      
+      if (contextData.allUsers && contextData.allUsers.length > 0) {
+        console.log('👥 Available users:');
+        contextData.allUsers.slice(0, 5).forEach((user: any) => {
+          console.log(`   - ${user.full_name || user.display_name || 'Unknown'} (ID: ${user.id})`);
+        });
+      }
+    } catch (error) {
+      console.warn('All users query error:', error);
+      contextData.allUsers = [];
+    }
+    
+    // Get all community updates for better context (using updates table)
+    try {
+      const { data: allUpdates } = await supabase
+        .from('updates')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      contextData.allCommunityActivity = allUpdates || [];
+      console.log(`📊 Retrieved ${contextData.allCommunityActivity.length} community updates for context`);
+    } catch (error) {
+      console.warn('Community updates query error:', error);
+      contextData.allCommunityActivity = [];
+    }
+    
+    // Get all projects for skill and interest matching
+    try {
+      const { data: allProjects } = await supabase
+        .from('teams')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio)
+        `)
+        .limit(50);
+      
+      contextData.allProjects = allProjects || [];
+      console.log(`📊 Retrieved ${contextData.allProjects.length} projects for matching`);
+    } catch (error) {
+      console.warn('All projects query error:', error);
+      contextData.allProjects = [];
+    }
+    
+    // Get user's skill offers
+    try {
+      const { data: skillOffers } = await supabase
+        .from('skill_offers')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.skillOffers = skillOffers || [];
+      if (skillOffers && skillOffers.length > 0) {
+        context += `\n## User's Skill Offers (${skillOffers.length} offers)
+${skillOffers.map(skill => `- ${skill.skill}: ${skill.description || 'No description'} (${skill.availability || 'No availability info'})`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Skill offers query error:', error);
+      contextData.skillOffers = [];
+    }
+    
+    // Get user's collaboration proposals
+    try {
+      const { data: proposals } = await supabase
+        .from('collaboration_proposals')
+        .select('*')
+        .or(`proposer_id.eq.${userId},target_id.eq.${userId}`)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.collaborationProposals = proposals || [];
+      if (proposals && proposals.length > 0) {
+        context += `\n## User's Collaboration Proposals (${proposals.length} proposals)
+${proposals.map(prop => `- ${prop.proposal_type}: ${prop.message ? prop.message.substring(0, 50) + '...' : 'No message'} (${prop.status})`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Collaboration proposals query error:', error);
+      contextData.collaborationProposals = [];
+    }
+    
+    // Get user's project interests
+    try {
+      const { data: projectInterests } = await supabase
+        .from('project_interests')
+        .select(`
+          *,
+          teams!inner(name, description)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.projectInterests = projectInterests || [];
+      if (projectInterests && projectInterests.length > 0) {
+        context += `\n## User's Project Interests (${projectInterests.length} interests)
+${projectInterests.map(interest => `- ${interest.teams?.name || 'Unknown Project'}: ${interest.message ? interest.message.substring(0, 50) + '...' : 'No message'} (${interest.status})`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Project interests query error:', error);
+      contextData.projectInterests = [];
+    }
+    
+    // Get user's builder challenges
+    try {
+      const { data: challenges } = await supabase
+        .from('builder_challenges')
+        .select('*')
+        .eq('creator_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.builderChallenges = challenges || [];
+      if (challenges && challenges.length > 0) {
+        context += `\n## User's Builder Challenges (${challenges.length} challenges)
+${challenges.map(challenge => `- ${challenge.title}: ${challenge.description ? challenge.description.substring(0, 50) + '...' : 'No description'} (${challenge.difficulty})`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Builder challenges query error:', error);
+      contextData.builderChallenges = [];
+    }
+    
+    // Get user's workshops
+    try {
+      const { data: workshops } = await supabase
+        .from('workshops')
+        .select('*')
+        .eq('host_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.workshops = workshops || [];
+      if (workshops && workshops.length > 0) {
+        context += `\n## User's Workshops (${workshops.length} workshops)
+${workshops.map(workshop => `- ${workshop.title}: ${workshop.description ? workshop.description.substring(0, 50) + '...' : 'No description'} (${workshop.max_attendees || 'No limit'} max attendees)`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Workshops query error:', error);
+      contextData.workshops = [];
+    }
+    
+    // Get user's messages
+    try {
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('sender_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      contextData.messages = messages || [];
+      if (messages && messages.length > 0) {
+        context += `\n## User's Recent Messages (${messages.length} messages)
+${messages.slice(0, 5).map(msg => `- ${msg.content ? msg.content.substring(0, 60) + '...' : 'No content'}`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Messages query error:', error);
+      contextData.messages = [];
+    }
+    
+    // Get user's notifications
+    try {
+      const { data: notifications } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      contextData.notifications = notifications || [];
+      if (notifications && notifications.length > 0) {
+        context += `\n## User's Recent Notifications (${notifications.length} notifications)
+${notifications.slice(0, 5).map(notif => `- ${notif.title}: ${notif.message ? notif.message.substring(0, 50) + '...' : 'No message'} (${notif.type})`).join('\n')}
+`;
+      }
+    } catch (error) {
+      console.warn('Notifications query error:', error);
+      contextData.notifications = [];
+    }
+    
+    // Store all context data
+    userData.contextData = contextData;
+    
+    console.log('📊 Comprehensive user data gathered:');
+    Object.keys(contextData).forEach(key => {
+      const value = contextData[key];
+      if (Array.isArray(value)) {
+        console.log(`   ${key}: ${value.length} items`);
+      } else {
+        console.log(`   ${key}: ${typeof value}`);
+      }
+    });
     
     console.log('✅ User context retrieved successfully');
     console.log('📊 Context length:', context.length);
-    console.log('📊 Context preview:', context.substring(0, 500));
-    return context;
+    return { context, userData };
   } catch (error) {
     console.error('❌ Error getting user context:', error);
-    return `Error retrieving user context: ${error.message}`;
+    return { context: `Error retrieving user context: ${error.message}`, userData: {} };
+  }
+}
+
+// Get real-time platform data (inspired by ai_bot.py)
+async function getRealtimePlatformData(): Promise<any> {
+  try {
+    console.log('🌐 Getting real-time platform data...');
+    
+    const platformData: any = {};
+    
+    // Get leaderboard data
+    try {
+      const { data: leaderboard } = await supabase
+        .from('teams')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio, current_week)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      platformData.leaderboard = leaderboard || [];
+      console.log(`Retrieved ${platformData.leaderboard.length} leaderboard entries`);
+    } catch (error) {
+      console.warn('Leaderboard query error:', error);
+      platformData.leaderboard = [];
+    }
+    
+    // Get recent community updates
+    try {
+      const { data: updates } = await supabase
+        .from('updates')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      platformData.recentUpdates = updates || [];
+    } catch (error) {
+      console.warn('Recent updates query error:', error);
+      platformData.recentUpdates = [];
+    }
+    
+    // Get active users
+    try {
+      const { data: activeUsers } = await supabase
+        .from('profiles')
+        .select('full_name, display_name, bio, role, location')
+        .limit(20);
+      
+      platformData.activeUsers = activeUsers || [];
+    } catch (error) {
+      console.warn('Active users query error:', error);
+      platformData.activeUsers = [];
+    }
+    
+    // Get recent skill offers
+    try {
+      const { data: skillOffers } = await supabase
+        .from('skill_offers')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      platformData.skillOffers = skillOffers || [];
+    } catch (error) {
+      console.warn('Skill offers query error:', error);
+      platformData.skillOffers = [];
+    }
+    
+    // Get recent workshops
+    try {
+      const { data: workshops } = await supabase
+        .from('workshops')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      platformData.workshops = workshops || [];
+    } catch (error) {
+      console.warn('Workshops query error:', error);
+      platformData.workshops = [];
+    }
+    
+    // Get recent builder challenges
+    try {
+      const { data: challenges } = await supabase
+        .from('builder_challenges')
+        .select(`
+          *,
+          profiles!inner(full_name, display_name, bio)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      platformData.builderChallenges = challenges || [];
+    } catch (error) {
+      console.warn('Builder challenges query error:', error);
+      platformData.builderChallenges = [];
+    }
+    
+    console.log('✅ Platform data retrieved successfully');
+    return platformData;
+  } catch (error) {
+    console.error('❌ Error getting platform data:', error);
+    return {};
   }
 }
 
@@ -198,7 +561,7 @@ async function searchDocuments(query: string, userId?: string): Promise<string> 
   }
 }
 
-// Simple AI response generation
+// Enhanced AI response generation (inspired by ai_bot.py)
 async function generateAIResponse(query: string, context: string, userContext: any, userId?: string, teamId?: string): Promise<string> {
   try {
     console.log('🤖 Generating AI response for query:', query.substring(0, 100));
@@ -208,39 +571,264 @@ async function generateAIResponse(query: string, context: string, userContext: a
       return 'I apologize, but the AI service is not properly configured. Please contact support.';
     }
 
-    // Get comprehensive user context from database
-    const userContextData = await getUserContext(userId, teamId);
+    // Get comprehensive user context and platform data
+    const { context: userContextData, userData } = await getUserContext(userId, teamId);
+    const platformData = await getRealtimePlatformData();
     
     // Search for relevant documents
     const documentContext = await searchDocuments(query, userId);
     const hasDocumentContext = documentContext.length > 0;
     
-    const prompt = `You are the PieFi Oracle, an AI assistant helping builders in the PieFi accelerator program. You have access to comprehensive user data and should provide personalized, actionable advice.
+    // Build comprehensive context string with ALL user data
+    let contextStr = '';
+    
+    // User profile information
+    if (userData.profile) {
+      contextStr += `👤 Current User: ${userData.profile.full_name || userData.profile.display_name || 'Unknown'}\n`;
+      contextStr += `   Bio: ${userData.profile.bio || 'No bio available'}\n`;
+      contextStr += `   Current Week: ${userData.profile.current_week || 'Unknown'}\n`;
+      contextStr += `   Onboarding Completed: ${userData.profile.onboarding_completed || false}\n`;
+    }
+    
+    // User's comprehensive data from contextData
+    if (userData.contextData) {
+      const userDataContext = userData.contextData;
+      
+      // User's projects and teams
+      if (userDataContext.teams && userDataContext.teams.length > 0) {
+        contextStr += `\n🚀 User's Projects/Teams (${userDataContext.teams.length} entries):\n`;
+        userDataContext.teams.slice(0, 3).forEach((team: any) => {
+          contextStr += `   - ${team.name}: ${team.description || team.project_description || 'No description'}...\n`;
+          contextStr += `     Status: ${team.status}, Role: ${team.role}\n`;
+        });
+      }
+      
+      // User's community activity
+      if (userDataContext.allCommunityActivity && userDataContext.allCommunityActivity.length > 0) {
+        contextStr += `\n💬 User's Community Activity (${userDataContext.allCommunityActivity.length} posts/comments):\n`;
+        userDataContext.allCommunityActivity.slice(0, 5).forEach((update: any) => {
+          const content = update.content ? update.content.substring(0, 80) : 'No content';
+          const created = update.created_at ? update.created_at.substring(0, 10) : 'Unknown date';
+          contextStr += `   - [${created}] ${content}...\n`;
+        });
+      }
+      
+      // User's recent progress
+      if (userDataContext.progress && userDataContext.progress.length > 0) {
+        contextStr += `\n✅ User's Recent Progress (${userDataContext.progress.length} entries):\n`;
+        userDataContext.progress.slice(0, 3).forEach((progress: any) => {
+          const desc = progress.description ? progress.description.substring(0, 60) : 'No description';
+          contextStr += `   - ${progress.title}: ${desc}...\n`;
+        });
+      }
+      
+      // User's project updates
+      if (userDataContext.updates && userDataContext.updates.length > 0) {
+        contextStr += `\n📝 User's Recent Project Updates (${userDataContext.updates.length} entries):\n`;
+        userDataContext.updates.slice(0, 3).forEach((update: any) => {
+          const content = update.content ? update.content.substring(0, 60) : 'No content';
+          contextStr += `   - ${update.title}: ${content}...\n`;
+        });
+      }
+      
+      // User's connections
+      if (userDataContext.connections && userDataContext.connections.length > 0) {
+        contextStr += `\n🤝 User's Recent Connections (${userDataContext.connections.length} entries):\n`;
+        userDataContext.connections.slice(0, 3).forEach((conn: any) => {
+          const message = conn.message ? conn.message.substring(0, 50) : 'No message';
+          contextStr += `   - ${conn.request_type}: ${message}... (${conn.status})\n`;
+        });
+      }
+      
+      // User's skill offers
+      if (userDataContext.skillOffers && userDataContext.skillOffers.length > 0) {
+        contextStr += `\n🎯 User's Skill Offers (${userDataContext.skillOffers.length} offers):\n`;
+        userDataContext.skillOffers.slice(0, 3).forEach((skill: any) => {
+          const desc = skill.description ? skill.description.substring(0, 60) : 'No description';
+          contextStr += `   - ${skill.skill}: ${desc}... (${skill.availability || 'No availability'})\n`;
+        });
+      }
+      
+      // User's collaboration proposals
+      if (userDataContext.collaborationProposals && userDataContext.collaborationProposals.length > 0) {
+        contextStr += `\n🤝 User's Collaboration Proposals (${userDataContext.collaborationProposals.length} proposals):\n`;
+        userDataContext.collaborationProposals.slice(0, 3).forEach((prop: any) => {
+          const message = prop.message ? prop.message.substring(0, 50) : 'No message';
+          contextStr += `   - ${prop.proposal_type}: ${message}... (${prop.status})\n`;
+        });
+      }
+      
+      // User's project interests
+      if (userDataContext.projectInterests && userDataContext.projectInterests.length > 0) {
+        contextStr += `\n💡 User's Project Interests (${userDataContext.projectInterests.length} interests):\n`;
+        userDataContext.projectInterests.slice(0, 3).forEach((interest: any) => {
+          const projectName = interest.teams?.name || 'Unknown Project';
+          const message = interest.message ? interest.message.substring(0, 50) : 'No message';
+          contextStr += `   - ${projectName}: ${message}... (${interest.status})\n`;
+        });
+      }
+      
+      // User's builder challenges
+      if (userDataContext.builderChallenges && userDataContext.builderChallenges.length > 0) {
+        contextStr += `\n🏆 User's Builder Challenges (${userDataContext.builderChallenges.length} challenges):\n`;
+        userDataContext.builderChallenges.slice(0, 3).forEach((challenge: any) => {
+          const desc = challenge.description ? challenge.description.substring(0, 60) : 'No description';
+          contextStr += `   - ${challenge.title}: ${desc}... (${challenge.difficulty})\n`;
+        });
+      }
+      
+      // User's workshops
+      if (userDataContext.workshops && userDataContext.workshops.length > 0) {
+        contextStr += `\n🎓 User's Workshops (${userDataContext.workshops.length} workshops):\n`;
+        userDataContext.workshops.slice(0, 3).forEach((workshop: any) => {
+          const desc = workshop.description ? workshop.description.substring(0, 60) : 'No description';
+          contextStr += `   - ${workshop.title}: ${desc}... (${workshop.max_attendees || 'No limit'} max)\n`;
+        });
+      }
+      
+      // User's messages
+      if (userDataContext.messages && userDataContext.messages.length > 0) {
+        contextStr += `\n💬 User's Recent Messages (${userDataContext.messages.length} messages):\n`;
+        userDataContext.messages.slice(0, 3).forEach((msg: any) => {
+          const content = msg.content ? msg.content.substring(0, 60) : 'No content';
+          contextStr += `   - ${content}...\n`;
+        });
+      }
+      
+      // User's notifications
+      if (userDataContext.notifications && userDataContext.notifications.length > 0) {
+        contextStr += `\n🔔 User's Recent Notifications (${userDataContext.notifications.length} notifications):\n`;
+        userDataContext.notifications.slice(0, 3).forEach((notif: any) => {
+          const message = notif.message ? notif.message.substring(0, 50) : 'No message';
+          contextStr += `   - ${notif.title}: ${message}... (${notif.type})\n`;
+        });
+      }
+      
+      // Intelligent user matching and recommendations
+      if (userDataContext.allUsers && userDataContext.allUsers.length > 0) {
+        const currentUserId = userData.profile?.id;
+        const otherUsers = userDataContext.allUsers.filter((user: any) => user.id !== currentUserId);
+        
+        // Get 5 random users for recommendations
+        const recommendedUsers = otherUsers.slice(0, 5);
+        
+        if (recommendedUsers.length > 0) {
+          contextStr += `\n👥 RECOMMENDED USERS TO WORK WITH (${recommendedUsers.length} users):\n`;
+          recommendedUsers.forEach((user: any, index: number) => {
+            const userName = user.full_name || user.display_name || 'Unknown';
+            const bio = user.bio || 'No bio available';
+            const currentWeek = user.current_week || 'Unknown';
+            contextStr += `   ${index + 1}. ${userName} (ID: ${user.id}): ${bio.substring(0, 100)}... (Week ${currentWeek})\n`;
+          });
+        }
+      }
+    }
+    
+    // Platform-wide data
+    if (platformData.leaderboard && platformData.leaderboard.length > 0) {
+      contextStr += `\n🏆 Current Platform Leaderboard:\n`;
+      platformData.leaderboard.slice(0, 5).forEach((entry: any, index: number) => {
+        const name = entry.profiles?.full_name || entry.profiles?.display_name || 'Unknown User';
+        const description = entry.description || entry.project_description || 'No description available';
+        contextStr += `${index + 1}. ${name}: ${description.substring(0, 100)}...\n`;
+      });
+    }
+    
+    // Recent community updates
+    if (platformData.recentUpdates && platformData.recentUpdates.length > 0) {
+      contextStr += `\n📢 Recent Community Updates:\n`;
+      platformData.recentUpdates.slice(0, 3).forEach((update: any) => {
+        const author = update.profiles?.full_name || update.profiles?.display_name || 'Unknown';
+        const content = update.content ? update.content.substring(0, 100) : 'No content';
+        contextStr += `- ${author}: ${content}...\n`;
+      });
+    }
+    
+    // Active users
+    if (platformData.activeUsers && platformData.activeUsers.length > 0) {
+      contextStr += `\n👥 Active Community Members: ${platformData.activeUsers.length} users online\n`;
+    }
+    
+    // Recent skill offers
+    if (platformData.skillOffers && platformData.skillOffers.length > 0) {
+      contextStr += `\n🎯 Recent Skill Offers:\n`;
+      platformData.skillOffers.slice(0, 3).forEach((skill: any) => {
+        const author = skill.profiles?.full_name || skill.profiles?.display_name || 'Unknown';
+        const desc = skill.description ? skill.description.substring(0, 80) : 'No description';
+        contextStr += `- ${author}: ${skill.skill} - ${desc}...\n`;
+      });
+    }
+    
+    // Recent workshops
+    if (platformData.workshops && platformData.workshops.length > 0) {
+      contextStr += `\n🎓 Recent Workshops:\n`;
+      platformData.workshops.slice(0, 3).forEach((workshop: any) => {
+        const host = workshop.profiles?.full_name || workshop.profiles?.display_name || 'Unknown';
+        const desc = workshop.description ? workshop.description.substring(0, 80) : 'No description';
+        contextStr += `- ${host}: ${workshop.title} - ${desc}...\n`;
+      });
+    }
+    
+    // Recent builder challenges
+    if (platformData.builderChallenges && platformData.builderChallenges.length > 0) {
+      contextStr += `\n🏆 Recent Builder Challenges:\n`;
+      platformData.builderChallenges.slice(0, 3).forEach((challenge: any) => {
+        const creator = challenge.profiles?.full_name || challenge.profiles?.display_name || 'Unknown';
+        const desc = challenge.description ? challenge.description.substring(0, 80) : 'No description';
+        contextStr += `- ${creator}: ${challenge.title} - ${desc}... (${challenge.difficulty})\n`;
+      });
+    }
+    
+    // Create the enhanced prompt
+    const systemPrompt = `You are PieFi AI, an intelligent community assistant with comprehensive access to ALL user data and advanced matching capabilities. You help builders, entrepreneurs, and creators with:
 
-## User Context from Database:
-${userContextData}
+1. **Intelligent User Matching**: Find users with similar projects, skills, or complementary expertise
+2. **Personalized Resource Recommendations**: Suggest resources based on their specific skills and interests
+3. **Project-Specific Advice**: Provide feedback tailored to their exact projects and progress
+4. **Strategic Networking**: Connect users with the most relevant community members
+5. **Skill-Based Mentorship**: Match users with mentors or mentees based on expertise
+6. **Contextual Problem-Solving**: Use their complete history to solve current challenges
 
-## Additional Context:
-${userContext ? JSON.stringify(userContext, null, 2) : 'No additional context available'}
+You have INTELLIGENT ACCESS to:
+- Complete user profiles, projects, and activity history
+- Similar users based on project descriptions and interests
+- Complementary users with different but related skills
+- All community activity and user interactions
+- Project rankings and difficulty levels
+- User skills extracted from posts and projects
 
-## Query:
-${query}
+INTELLIGENT MATCHING CAPABILITIES:
+- **Similar Users**: Find users working on similar projects or with matching interests
+- **Complementary Skills**: Identify users with skills that complement the user's expertise
+- **Resource Matching**: Suggest resources based on their specific skill set and project needs
+- **Mentorship Matching**: Connect users for knowledge sharing and collaboration
+- **Project Collaboration**: Find potential collaborators for specific projects
 
-## Context Information:
-${context}
+IMPORTANT INSTRUCTIONS:
+- When asked about "good people to work with", you MUST use the EXACT user names provided in the "RECOMMENDED USERS TO WORK WITH" section
+- NEVER make up or invent user names like "User A", "User B", "Unknown User" - only use the exact names from the database
+- Use the exact display names provided (e.g., "John", "Sarah", "Mike", etc.)
+- For resource recommendations, match resources to their specific skills and current projects
+- Always provide specific user names (from the database) and suggest why they might be helpful
+- Reference their actual projects, bio, and current week in recommendations
+- Be encouraging about connecting with these community members
+- Suggest specific ways they could collaborate or help each other
+- If no users are available, say "I don't see any other users in the database right now" instead of making up names`;
 
-${hasDocumentContext ? `\n## Relevant Documents/Data:\n${documentContext}` : ''}
+    const userPrompt = `Comprehensive User Context and Platform Data:
+${contextStr}
 
-## Instructions:
-- Use the user's profile, skills, goals, and recent activity to provide personalized advice
-- Reference their specific projects, teams, and progress when relevant
-- Provide actionable next steps based on their current situation
-- Be encouraging and supportive while being practical
-- If they're asking about collaboration, suggest specific people or projects from their context
-- If they're asking about learning, tailor resources to their skill level and goals
-- Always be specific and reference their actual data when possible
+User Query: ${query}
 
-Please provide a helpful, personalized response that leverages their actual PieFi data and context.`;
+Please provide a highly personalized response that:
+1. Addresses the user by name and references their specific projects, posts, or activities
+2. Uses their complete history to provide relevant advice
+3. References their specific achievements, progress, and community activity
+4. Connects their current question to their past work and future goals
+5. Provides actionable recommendations based on their data
+6. Be encouraging about their progress and specific about next steps
+
+Make the response personal, specific, and highly relevant to their unique situation and history on the platform.`;
 
     console.log('🔄 Making OpenAI API request...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -251,8 +839,11 @@ Please provide a helpful, personalized response that leverages their actual PieF
       },
       body: JSON.stringify({
         model: AI_MODELS.openai.model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 800,
         temperature: 0.7,
       }),
     });
@@ -561,10 +1152,10 @@ I'm here to help you find great collaborators!
         console.log('💬 Handling chat query');
         const aiResponse = await generateAIResponse(requestBody.query, '', requestBody.context, requestBody.userId, requestBody.teamId);
         response.answer = aiResponse;
-        response.sources = 0;
+        response.sources = 1; // We now have comprehensive user data as a source
         response.context_used = true;
-        response.confidence = 0.85;
-        response.search_strategy = 'ai_chat_with_user_context';
+        response.confidence = 0.9; // Higher confidence with comprehensive context
+        response.search_strategy = 'ai_chat_with_comprehensive_user_context';
         break;
     }
 
@@ -602,7 +1193,7 @@ I'm here to help you find great collaborators!
     }
 
     // Add oracle_log_id to response
-    response.oracle_log_id = oracleLogId;
+    response.oracle_log_id = oracleLogId || undefined;
 
     console.log('✅ Oracle response completed in', response.processing_time, 'ms');
     return new Response(
