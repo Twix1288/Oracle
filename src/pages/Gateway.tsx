@@ -12,7 +12,6 @@ import { BuilderFeedTab } from '@/components/gateway/BuilderFeedTab';
 import { KnowledgeExchangeTab } from '@/components/gateway/KnowledgeExchangeTab';
 import { InboxTab } from '@/components/gateway/InboxTab';
 import { ConnectionsList } from '@/components/ConnectionsList';
-import { OracleInsightsPage } from '@/components/OracleInsightsPage';
 
 export default function Gateway() {
   const [activeTab, setActiveTab] = useState('builder-radar');
@@ -37,7 +36,7 @@ export default function Gateway() {
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-7 mb-8">
+            <TabsList className="grid w-full grid-cols-6 mb-8">
               <TabsTrigger value="builder-radar" className="flex items-center gap-2">
                 <Radar className="h-4 w-4" />
                 <span className="hidden sm:inline">Radar</span>
@@ -61,10 +60,6 @@ export default function Gateway() {
               <TabsTrigger value="builder-feed" className="flex items-center gap-2">
                 <Activity className="h-4 w-4" />
                 <span className="hidden sm:inline">Feed</span>
-              </TabsTrigger>
-              <TabsTrigger value="oracle-insights" className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                <span className="hidden sm:inline">Insights</span>
               </TabsTrigger>
             </TabsList>
 
@@ -90,10 +85,6 @@ export default function Gateway() {
             
             <TabsContent value="builder-feed" className="mt-0">
               <BuilderFeedTab />
-            </TabsContent>
-            
-            <TabsContent value="oracle-insights" className="mt-0">
-              <OracleInsightsPage />
             </TabsContent>
           </Tabs>
 

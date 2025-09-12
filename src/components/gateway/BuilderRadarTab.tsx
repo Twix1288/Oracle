@@ -398,25 +398,97 @@ export const BuilderRadarTab = () => {
                 <Button 
                   size="sm" 
                   className="ml-4"
-                  onClick={() => {
+                  onClick={async () => {
                     if (message.action === 'View Connections') {
-                      // Navigate to connections or show connection suggestions
-                      toast({
-                        title: "Viewing Connections",
-                        description: "Showing you relevant connection opportunities.",
-                      });
+                      try {
+                        const response = await supabase.functions.invoke('graphrag', {
+                          body: {
+                            action: 'oracle_command',
+                            actor_id: user?.id,
+                            command: 'view_connections',
+                            target_id: null,
+                            body: { query: 'Show me relevant connection opportunities' }
+                          }
+                        });
+                        
+                        if (response.error) throw response.error;
+                        
+                        toast({
+                          title: "Oracle Processing",
+                          description: "Analyzing your connection opportunities...",
+                        });
+                      } catch (error) {
+                        console.error('Error viewing connections:', error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to analyze connections.",
+                          variant: "destructive"
+                        });
+                      }
                     } else if (message.action === 'Offer Help') {
-                      // Navigate to help offering or show help opportunities
-                      toast({
-                        title: "Offering Help",
-                        description: "Let me show you opportunities to help other builders.",
-                      });
+                      try {
+                        const response = await supabase.functions.invoke('graphrag', {
+                          body: {
+                            action: 'offer_help',
+                            actor_id: user?.id,
+                            skill: 'Development Assistance',
+                            availability: 'Available for consultation',
+                            body: 'I can help with technical questions and code reviews'
+                          }
+                        });
+                        
+                        if (response.error) throw response.error;
+                        
+                        toast({
+                          title: "Help Offer Created",
+                          description: "Your offer has been registered in the Oracle system.",
+                        });
+                      } catch (error) {
+                        console.error('Error offering help:', error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to register help offer.",
+                          variant: "destructive"
+                        });
+                      }
                     } else if (message.action === 'Join Workshop') {
-                      // Navigate to workshops
-                      toast({
-                        title: "Joining Workshop",
-                        description: "Taking you to available workshops.",
-                      });
+                      try {
+                        // First, let's find available workshops
+                        const { data: workshops } = await supabase
+                          .from('workshops')
+                          .select('*')
+                          .limit(1);
+                        
+                        if (workshops && workshops.length > 0) {
+                          const response = await supabase.functions.invoke('graphrag', {
+                            body: {
+                              action: 'join_workshop',
+                              actor_id: user?.id,
+                              target_id: workshops[0].id,
+                              body: { message: 'Interested in joining this workshop' }
+                            }
+                          });
+                          
+                          if (response.error) throw response.error;
+                          
+                          toast({
+                            title: "Workshop Registration",
+                            description: "Successfully registered for the workshop!",
+                          });
+                        } else {
+                          toast({
+                            title: "No Workshops",
+                            description: "No workshops available at the moment.",
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error joining workshop:', error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to join workshop.",
+                          variant: "destructive"
+                        });
+                      }
                     }
                   }}
                 >

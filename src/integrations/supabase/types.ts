@@ -16,454 +16,221 @@ export type Database = {
     Tables: {
       builder_challenges: {
         Row: {
-          challenge_type: string
-          completed_at: string | null
-          created_at: string | null
-          current_progress: number | null
+          created_at: string
+          creator_id: string
           description: string | null
+          difficulty: string | null
           embedding_vector: string | null
           id: string
-          oracle_generated: boolean | null
-          reward_points: number | null
-          target_metric: number | null
+          tags: string[] | null
           title: string
-          user_id: string | null
-          week_assigned: string
         }
         Insert: {
-          challenge_type: string
-          completed_at?: string | null
-          created_at?: string | null
-          current_progress?: number | null
+          created_at?: string
+          creator_id: string
           description?: string | null
+          difficulty?: string | null
           embedding_vector?: string | null
           id?: string
-          oracle_generated?: boolean | null
-          reward_points?: number | null
-          target_metric?: number | null
+          tags?: string[] | null
           title: string
-          user_id?: string | null
-          week_assigned: string
         }
         Update: {
-          challenge_type?: string
-          completed_at?: string | null
-          created_at?: string | null
-          current_progress?: number | null
+          created_at?: string
+          creator_id?: string
           description?: string | null
+          difficulty?: string | null
           embedding_vector?: string | null
           id?: string
-          oracle_generated?: boolean | null
-          reward_points?: number | null
-          target_metric?: number | null
+          tags?: string[] | null
           title?: string
-          user_id?: string | null
-          week_assigned?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "builder_challenges_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      builder_connections: {
-        Row: {
-          connectee_id: string | null
-          connection_type: string | null
-          connector_id: string | null
-          created_at: string | null
-          facilitated_by_oracle: boolean | null
-          id: string
-          oracle_confidence: number | null
-          oracle_reasoning: string | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          connectee_id?: string | null
-          connection_type?: string | null
-          connector_id?: string | null
-          created_at?: string | null
-          facilitated_by_oracle?: boolean | null
-          id?: string
-          oracle_confidence?: number | null
-          oracle_reasoning?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          connectee_id?: string | null
-          connection_type?: string | null
-          connector_id?: string | null
-          created_at?: string | null
-          facilitated_by_oracle?: boolean | null
-          id?: string
-          oracle_confidence?: number | null
-          oracle_reasoning?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "builder_connections_connectee_id_fkey"
-            columns: ["connectee_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "builder_connections_connector_id_fkey"
-            columns: ["connector_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       builder_conversations: {
         Row: {
-          created_at: string | null
-          embedding: string | null
+          content: string | null
+          created_at: string
+          creator_id: string
           embedding_vector: string | null
           id: string
-          message: string
-          sender_id: string | null
-          team_id: string | null
-          updated_at: string | null
+          participants: string[]
+          title: string
         }
         Insert: {
-          created_at?: string | null
-          embedding?: string | null
+          content?: string | null
+          created_at?: string
+          creator_id: string
           embedding_vector?: string | null
           id?: string
-          message: string
-          sender_id?: string | null
-          team_id?: string | null
-          updated_at?: string | null
+          participants: string[]
+          title: string
         }
         Update: {
-          created_at?: string | null
-          embedding?: string | null
+          content?: string | null
+          created_at?: string
+          creator_id?: string
           embedding_vector?: string | null
           id?: string
-          message?: string
-          sender_id?: string | null
+          participants?: string[]
+          title?: string
+        }
+        Relationships: []
+      }
+      collaboration_proposals: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          proposal_type: string
+          proposer_id: string
+          status: string | null
+          target_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          proposal_type: string
+          proposer_id: string
+          status?: string | null
+          target_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          proposal_type?: string
+          proposer_id?: string
+          status?: string | null
+          target_id?: string
+        }
+        Relationships: []
+      }
+      connection_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          requested_id: string
+          requester_id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          requested_id: string
+          requester_id: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          requested_id?: string
+          requester_id?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          content: string | null
+          created_at: string
+          embedding_vector: string | null
+          id: string
+          team_id: string | null
+          title: string
+          type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          embedding_vector?: string | null
+          id?: string
           team_id?: string | null
-          updated_at?: string | null
+          title: string
+          type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          embedding_vector?: string | null
+          id?: string
+          team_id?: string | null
+          title?: string
+          type?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "builder_conversations_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "builder_conversations_team_id_fkey"
+            foreignKeyName: "documents_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
-      }
-      collaboration_proposals: {
-        Row: {
-          created_at: string | null
-          deliverables: Json | null
-          description: string | null
-          id: string
-          project_id: string | null
-          proposal_type: string
-          proposer_id: string | null
-          responded_at: string | null
-          status: string | null
-          target_id: string | null
-          timeline: string | null
-          title: string
-        }
-        Insert: {
-          created_at?: string | null
-          deliverables?: Json | null
-          description?: string | null
-          id?: string
-          project_id?: string | null
-          proposal_type: string
-          proposer_id?: string | null
-          responded_at?: string | null
-          status?: string | null
-          target_id?: string | null
-          timeline?: string | null
-          title: string
-        }
-        Update: {
-          created_at?: string | null
-          deliverables?: Json | null
-          description?: string | null
-          id?: string
-          project_id?: string | null
-          proposal_type?: string
-          proposer_id?: string | null
-          responded_at?: string | null
-          status?: string | null
-          target_id?: string | null
-          timeline?: string | null
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "collaboration_proposals_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "collaboration_proposals_proposer_id_fkey"
-            columns: ["proposer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "collaboration_proposals_target_id_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      connection_requests: {
-        Row: {
-          created_at: string | null
-          id: string
-          message: string | null
-          oracle_generated: boolean | null
-          request_type: string | null
-          requested_id: string | null
-          requester_id: string | null
-          responded_at: string | null
-          status: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          message?: string | null
-          oracle_generated?: boolean | null
-          request_type?: string | null
-          requested_id?: string | null
-          requester_id?: string | null
-          responded_at?: string | null
-          status?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          message?: string | null
-          oracle_generated?: boolean | null
-          request_type?: string | null
-          requested_id?: string | null
-          requester_id?: string | null
-          responded_at?: string | null
-          status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "connection_requests_requested_id_fkey"
-            columns: ["requested_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "connection_requests_requester_id_fkey"
-            columns: ["requester_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      documents: {
-        Row: {
-          content: string
-          content_type: string
-          created_at: string
-          embedding: string | null
-          embedding_vector: string | null
-          id: string
-          metadata: Json | null
-          source_id: string | null
-          source_table: string | null
-          updated_at: string
-        }
-        Insert: {
-          content: string
-          content_type?: string
-          created_at?: string
-          embedding?: string | null
-          embedding_vector?: string | null
-          id?: string
-          metadata?: Json | null
-          source_id?: string | null
-          source_table?: string | null
-          updated_at?: string
-        }
-        Update: {
-          content?: string
-          content_type?: string
-          created_at?: string
-          embedding?: string | null
-          embedding_vector?: string | null
-          id?: string
-          metadata?: Json | null
-          source_id?: string | null
-          source_table?: string | null
-          updated_at?: string
-        }
-        Relationships: []
       }
       feed_interactions: {
         Row: {
           body: string | null
-          created_at: string | null
-          feed_item_id: string | null
-          feed_item_type: string | null
+          created_at: string
+          feed_item_id: string
           id: string
-          interaction_type: string
-          user_id: string | null
+          type: string
+          user_id: string
         }
         Insert: {
           body?: string | null
-          created_at?: string | null
-          feed_item_id?: string | null
-          feed_item_type?: string | null
+          created_at?: string
+          feed_item_id: string
           id?: string
-          interaction_type: string
-          user_id?: string | null
+          type: string
+          user_id: string
         }
         Update: {
           body?: string | null
-          created_at?: string | null
-          feed_item_id?: string | null
-          feed_item_type?: string | null
+          created_at?: string
+          feed_item_id?: string
           id?: string
-          interaction_type?: string
-          user_id?: string | null
+          type?: string
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "feed_interactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      members: {
-        Row: {
-          created_at: string | null
-          id: string
-          joined_at: string | null
-          role: Database["public"]["Enums"]["user_role"]
-          team_id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          joined_at?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          team_id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          joined_at?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          team_id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "members_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "members_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       messages: {
         Row: {
           content: string
-          created_at: string | null
-          embedding: string | null
+          created_at: string
           embedding_vector: string | null
           id: string
-          read_at: string | null
-          receiver_id: string | null
-          receiver_role: Database["public"]["Enums"]["user_role"]
-          sender_id: string | null
-          sender_role: Database["public"]["Enums"]["user_role"]
+          sender_id: string
           team_id: string | null
         }
         Insert: {
           content: string
-          created_at?: string | null
-          embedding?: string | null
+          created_at?: string
           embedding_vector?: string | null
           id?: string
-          read_at?: string | null
-          receiver_id?: string | null
-          receiver_role: Database["public"]["Enums"]["user_role"]
-          sender_id?: string | null
-          sender_role: Database["public"]["Enums"]["user_role"]
+          sender_id: string
           team_id?: string | null
         }
         Update: {
           content?: string
-          created_at?: string | null
-          embedding?: string | null
+          created_at?: string
           embedding_vector?: string | null
           id?: string
-          read_at?: string | null
-          receiver_id?: string | null
-          receiver_role?: Database["public"]["Enums"]["user_role"]
-          sender_id?: string | null
-          sender_role?: Database["public"]["Enums"]["user_role"]
+          sender_id?: string
           team_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "messages_receiver_id_fkey"
-            columns: ["receiver_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "messages_team_id_fkey"
             columns: ["team_id"]
@@ -475,54 +242,44 @@ export type Database = {
       }
       notifications: {
         Row: {
-          created_at: string | null
+          created_at: string
           data: Json | null
           id: string
           message: string | null
-          read_at: string | null
+          read: boolean | null
           title: string
           type: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           data?: Json | null
           id?: string
           message?: string | null
-          read_at?: string | null
+          read?: boolean | null
           title: string
           type: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           data?: Json | null
           id?: string
           message?: string | null
-          read_at?: string | null
+          read?: boolean | null
           title?: string
           type?: string
-          user_id?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "notifications_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       oracle_logs: {
         Row: {
           command_executed: boolean | null
           command_result: Json | null
-          command_type: string | null
           confidence: number | null
           context_used: boolean | null
-          created_at: string | null
-          embedding: string | null
+          created_at: string
           embedding_vector: string | null
           graph_nodes: Json | null
           graph_relationships: Json | null
@@ -530,28 +287,20 @@ export type Database = {
           id: string
           knowledge_graph: Json | null
           model_used: string | null
-          processing_time: number | null
           query: string
           query_type: string
-          response: string
-          search_strategy: string | null
+          response: Json
           similarity_score: number | null
           sources: number | null
           team_id: string | null
-          updated_at: string | null
-          user_feedback: string | null
-          user_id: string | null
-          user_role: Database["public"]["Enums"]["user_role"]
-          user_satisfaction: number | null
+          user_id: string
         }
         Insert: {
           command_executed?: boolean | null
           command_result?: Json | null
-          command_type?: string | null
           confidence?: number | null
           context_used?: boolean | null
-          created_at?: string | null
-          embedding?: string | null
+          created_at?: string
           embedding_vector?: string | null
           graph_nodes?: Json | null
           graph_relationships?: Json | null
@@ -559,28 +308,20 @@ export type Database = {
           id?: string
           knowledge_graph?: Json | null
           model_used?: string | null
-          processing_time?: number | null
           query: string
           query_type?: string
-          response: string
-          search_strategy?: string | null
+          response: Json
           similarity_score?: number | null
           sources?: number | null
           team_id?: string | null
-          updated_at?: string | null
-          user_feedback?: string | null
-          user_id?: string | null
-          user_role: Database["public"]["Enums"]["user_role"]
-          user_satisfaction?: number | null
+          user_id: string
         }
         Update: {
           command_executed?: boolean | null
           command_result?: Json | null
-          command_type?: string | null
           confidence?: number | null
           context_used?: boolean | null
-          created_at?: string | null
-          embedding?: string | null
+          created_at?: string
           embedding_vector?: string | null
           graph_nodes?: Json | null
           graph_relationships?: Json | null
@@ -588,245 +329,94 @@ export type Database = {
           id?: string
           knowledge_graph?: Json | null
           model_used?: string | null
-          processing_time?: number | null
           query?: string
           query_type?: string
-          response?: string
-          search_strategy?: string | null
+          response?: Json
           similarity_score?: number | null
           sources?: number | null
           team_id?: string | null
-          updated_at?: string | null
-          user_feedback?: string | null
-          user_id?: string | null
-          user_role?: Database["public"]["Enums"]["user_role"]
-          user_satisfaction?: number | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "oracle_logs_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
-          availability: string | null
-          availability_hours: number | null
           avatar_url: string | null
           bio: string | null
-          builder_level: string | null
-          career_aspirations: string[] | null
-          challenge_areas: string[] | null
-          collaboration_karma: number | null
-          collaboration_preferences: string | null
-          collaboration_style: string | null
-          communication_style: string | null
-          connection_streak: number | null
-          created_at: string | null
-          email: string
-          embedding: string | null
+          created_at: string
+          display_name: string | null
           embedding_vector: string | null
-          experience_level: string | null
-          expertise_areas: string[] | null
           full_name: string | null
-          github_url: string | null
-          help_needed: string[] | null
           id: string
-          individual_stage:
-            | Database["public"]["Enums"]["individual_stage"]
-            | null
-          industry_focus: string | null
-          interests: string[] | null
-          learning_goals: string[] | null
-          learning_style: string | null
-          linkedin_url: string | null
-          mentorship_needs: string | null
-          networking_goals: string[] | null
-          onboarding_completed: boolean | null
-          oracle_interaction_count: number | null
-          oracle_last_interaction: string | null
-          oracle_preferences: Json | null
-          personal_goals: string[] | null
-          portfolio_url: string | null
-          preferred_learning_style: string | null
-          preferred_technologies: string[] | null
-          project_goals: string | null
-          project_vision: string | null
-          role: Database["public"]["Enums"]["user_role"]
+          location: string | null
+          role: string | null
           skills: string[] | null
-          success_metrics: string[] | null
-          team_id: string | null
-          timezone: string | null
-          updated_at: string | null
-          work_style: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          availability?: string | null
-          availability_hours?: number | null
           avatar_url?: string | null
           bio?: string | null
-          builder_level?: string | null
-          career_aspirations?: string[] | null
-          challenge_areas?: string[] | null
-          collaboration_karma?: number | null
-          collaboration_preferences?: string | null
-          collaboration_style?: string | null
-          communication_style?: string | null
-          connection_streak?: number | null
-          created_at?: string | null
-          email: string
-          embedding?: string | null
+          created_at?: string
+          display_name?: string | null
           embedding_vector?: string | null
-          experience_level?: string | null
-          expertise_areas?: string[] | null
           full_name?: string | null
-          github_url?: string | null
-          help_needed?: string[] | null
-          id: string
-          individual_stage?:
-            | Database["public"]["Enums"]["individual_stage"]
-            | null
-          industry_focus?: string | null
-          interests?: string[] | null
-          learning_goals?: string[] | null
-          learning_style?: string | null
-          linkedin_url?: string | null
-          mentorship_needs?: string | null
-          networking_goals?: string[] | null
-          onboarding_completed?: boolean | null
-          oracle_interaction_count?: number | null
-          oracle_last_interaction?: string | null
-          oracle_preferences?: Json | null
-          personal_goals?: string[] | null
-          portfolio_url?: string | null
-          preferred_learning_style?: string | null
-          preferred_technologies?: string[] | null
-          project_goals?: string | null
-          project_vision?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          id?: string
+          location?: string | null
+          role?: string | null
           skills?: string[] | null
-          success_metrics?: string[] | null
-          team_id?: string | null
-          timezone?: string | null
-          updated_at?: string | null
-          work_style?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          availability?: string | null
-          availability_hours?: number | null
           avatar_url?: string | null
           bio?: string | null
-          builder_level?: string | null
-          career_aspirations?: string[] | null
-          challenge_areas?: string[] | null
-          collaboration_karma?: number | null
-          collaboration_preferences?: string | null
-          collaboration_style?: string | null
-          communication_style?: string | null
-          connection_streak?: number | null
-          created_at?: string | null
-          email?: string
-          embedding?: string | null
+          created_at?: string
+          display_name?: string | null
           embedding_vector?: string | null
-          experience_level?: string | null
-          expertise_areas?: string[] | null
           full_name?: string | null
-          github_url?: string | null
-          help_needed?: string[] | null
           id?: string
-          individual_stage?:
-            | Database["public"]["Enums"]["individual_stage"]
-            | null
-          industry_focus?: string | null
-          interests?: string[] | null
-          learning_goals?: string[] | null
-          learning_style?: string | null
-          linkedin_url?: string | null
-          mentorship_needs?: string | null
-          networking_goals?: string[] | null
-          onboarding_completed?: boolean | null
-          oracle_interaction_count?: number | null
-          oracle_last_interaction?: string | null
-          oracle_preferences?: Json | null
-          personal_goals?: string[] | null
-          portfolio_url?: string | null
-          preferred_learning_style?: string | null
-          preferred_technologies?: string[] | null
-          project_goals?: string | null
-          project_vision?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          location?: string | null
+          role?: string | null
           skills?: string[] | null
-          success_metrics?: string[] | null
-          team_id?: string | null
-          timezone?: string | null
-          updated_at?: string | null
-          work_style?: string | null
+          updated_at?: string
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_profiles_team"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       progress_entries: {
         Row: {
-          ai_feedback: string | null
-          ai_suggestions: Json | null
-          category: string
-          completed_at: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
-          due_date: string | null
-          embedding: string | null
           embedding_vector: string | null
           id: string
           status: string | null
           team_id: string | null
           title: string
-          updated_at: string | null
-          user_id: string | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          ai_feedback?: string | null
-          ai_suggestions?: Json | null
-          category: string
-          completed_at?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
-          due_date?: string | null
-          embedding?: string | null
           embedding_vector?: string | null
           id?: string
           status?: string | null
           team_id?: string | null
           title: string
-          updated_at?: string | null
-          user_id?: string | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          ai_feedback?: string | null
-          ai_suggestions?: Json | null
-          category?: string
-          completed_at?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
-          due_date?: string | null
-          embedding?: string | null
           embedding_vector?: string | null
           id?: string
           status?: string | null
           team_id?: string | null
           title?: string
-          updated_at?: string | null
-          user_id?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -836,42 +426,32 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "progress_entries_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       project_interests: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           message: string | null
-          project_id: string | null
-          responded_at: string | null
+          project_id: string
           status: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           message?: string | null
-          project_id?: string | null
-          responded_at?: string | null
+          project_id: string
           status?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           message?: string | null
-          project_id?: string | null
-          responded_at?: string | null
+          project_id?: string
           status?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -881,51 +461,35 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "project_interests_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       project_updates: {
         Row: {
-          content: string
-          created_at: string | null
+          author_id: string
+          content: string | null
+          created_at: string
           embedding_vector: string | null
           id: string
-          oracle_insights: Json | null
-          oracle_processed: boolean | null
-          team_id: string | null
-          update_type: string | null
-          user_id: string | null
-          visibility: string | null
+          team_id: string
+          title: string
         }
         Insert: {
-          content: string
-          created_at?: string | null
+          author_id: string
+          content?: string | null
+          created_at?: string
           embedding_vector?: string | null
           id?: string
-          oracle_insights?: Json | null
-          oracle_processed?: boolean | null
-          team_id?: string | null
-          update_type?: string | null
-          user_id?: string | null
-          visibility?: string | null
+          team_id: string
+          title: string
         }
         Update: {
-          content?: string
-          created_at?: string | null
+          author_id?: string
+          content?: string | null
+          created_at?: string
           embedding_vector?: string | null
           id?: string
-          oracle_insights?: Json | null
-          oracle_processed?: boolean | null
-          team_id?: string | null
-          update_type?: string | null
-          user_id?: string | null
-          visibility?: string | null
+          team_id?: string
+          title?: string
         }
         Relationships: [
           {
@@ -935,128 +499,65 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "project_updates_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      role_assignments: {
-        Row: {
-          assigned_by: string | null
-          assigned_role: Database["public"]["Enums"]["user_role"]
-          created_at: string | null
-          id: string
-          reason: string | null
-          user_id: string | null
-        }
-        Insert: {
-          assigned_by?: string | null
-          assigned_role: Database["public"]["Enums"]["user_role"]
-          created_at?: string | null
-          id?: string
-          reason?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          assigned_by?: string | null
-          assigned_role?: Database["public"]["Enums"]["user_role"]
-          created_at?: string | null
-          id?: string
-          reason?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "role_assignments_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "role_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       skill_offers: {
         Row: {
           availability: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
           embedding_vector: string | null
           id: string
-          owner_id: string | null
+          owner_id: string
           skill: string
-          status: string | null
-          updated_at: string | null
         }
         Insert: {
           availability?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           embedding_vector?: string | null
           id?: string
-          owner_id?: string | null
+          owner_id: string
           skill: string
-          status?: string | null
-          updated_at?: string | null
         }
         Update: {
           availability?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           embedding_vector?: string | null
           id?: string
-          owner_id?: string | null
+          owner_id?: string
           skill?: string
-          status?: string | null
-          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "skill_offers_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      team_status: {
+      team_members: {
         Row: {
           id: string
-          last_activity: string | null
-          status: string | null
-          team_id: string | null
-          updated_at: string | null
+          joined_at: string
+          role: string | null
+          team_id: string
+          user_id: string
         }
         Insert: {
           id?: string
-          last_activity?: string | null
-          status?: string | null
-          team_id?: string | null
-          updated_at?: string | null
+          joined_at?: string
+          role?: string | null
+          team_id: string
+          user_id: string
         }
         Update: {
           id?: string
-          last_activity?: string | null
-          status?: string | null
-          team_id?: string | null
-          updated_at?: string | null
+          joined_at?: string
+          role?: string | null
+          team_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "team_status_team_id_fkey"
+            foreignKeyName: "team_members_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1064,313 +565,111 @@ export type Database = {
       }
       teams: {
         Row: {
-          access_code: string | null
-          ai_summary: string | null
-          collaboration_needs: Json | null
-          competitive_advantage: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
-          embedding: string | null
           embedding_vector: string | null
           id: string
-          last_activity: string | null
-          market_research: string | null
-          max_members: number | null
-          mentorship_areas: string | null
           name: string
-          oracle_summary: string | null
-          problem_statement: string | null
-          project_description: string | null
-          project_name: string | null
-          project_type: string | null
-          project_visibility: string | null
-          seeking_collaborators: boolean | null
-          skills_needed: string[] | null
-          solution_approach: string | null
-          stage: string | null
-          success_metrics: string | null
-          target_audience: string | null
-          team_creator_id: string | null
-          team_size_needed: number | null
-          tech_requirements: string[] | null
-          tech_stack: string[] | null
-          timeline_months: number | null
-          updated_at: string | null
+          status: string | null
+          team_creator_id: string
+          updated_at: string
         }
         Insert: {
-          access_code?: string | null
-          ai_summary?: string | null
-          collaboration_needs?: Json | null
-          competitive_advantage?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
-          embedding?: string | null
           embedding_vector?: string | null
           id?: string
-          last_activity?: string | null
-          market_research?: string | null
-          max_members?: number | null
-          mentorship_areas?: string | null
           name: string
-          oracle_summary?: string | null
-          problem_statement?: string | null
-          project_description?: string | null
-          project_name?: string | null
-          project_type?: string | null
-          project_visibility?: string | null
-          seeking_collaborators?: boolean | null
-          skills_needed?: string[] | null
-          solution_approach?: string | null
-          stage?: string | null
-          success_metrics?: string | null
-          target_audience?: string | null
-          team_creator_id?: string | null
-          team_size_needed?: number | null
-          tech_requirements?: string[] | null
-          tech_stack?: string[] | null
-          timeline_months?: number | null
-          updated_at?: string | null
+          status?: string | null
+          team_creator_id: string
+          updated_at?: string
         }
         Update: {
-          access_code?: string | null
-          ai_summary?: string | null
-          collaboration_needs?: Json | null
-          competitive_advantage?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
-          embedding?: string | null
           embedding_vector?: string | null
           id?: string
-          last_activity?: string | null
-          market_research?: string | null
-          max_members?: number | null
-          mentorship_areas?: string | null
           name?: string
-          oracle_summary?: string | null
-          problem_statement?: string | null
-          project_description?: string | null
-          project_name?: string | null
-          project_type?: string | null
-          project_visibility?: string | null
-          seeking_collaborators?: boolean | null
-          skills_needed?: string[] | null
-          solution_approach?: string | null
-          stage?: string | null
-          success_metrics?: string | null
-          target_audience?: string | null
-          team_creator_id?: string | null
-          team_size_needed?: number | null
-          tech_requirements?: string[] | null
-          tech_stack?: string[] | null
-          timeline_months?: number | null
-          updated_at?: string | null
+          status?: string | null
+          team_creator_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
       updates: {
         Row: {
-          content: string
-          created_at: string | null
-          created_by: string | null
-          embedding: string | null
+          content: string | null
+          created_at: string
           embedding_vector: string | null
           id: string
-          team_id: string | null
-          type: Database["public"]["Enums"]["update_type"] | null
+          title: string
+          type: string | null
+          user_id: string
         }
         Insert: {
-          content: string
-          created_at?: string | null
-          created_by?: string | null
-          embedding?: string | null
+          content?: string | null
+          created_at?: string
           embedding_vector?: string | null
           id?: string
-          team_id?: string | null
-          type?: Database["public"]["Enums"]["update_type"] | null
+          title: string
+          type?: string | null
+          user_id: string
         }
         Update: {
-          content?: string
-          created_at?: string | null
-          created_by?: string | null
-          embedding?: string | null
+          content?: string | null
+          created_at?: string
           embedding_vector?: string | null
           id?: string
-          team_id?: string | null
-          type?: Database["public"]["Enums"]["update_type"] | null
+          title?: string
+          type?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "updates_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "updates_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weekly_digests: {
-        Row: {
-          collaboration_matches: Json | null
-          connection_suggestions: Json | null
-          delivered_at: string | null
-          digest_week: string
-          generated_at: string | null
-          id: string
-          learning_opportunities: Json | null
-          project_highlights: Json | null
-          user_id: string | null
-        }
-        Insert: {
-          collaboration_matches?: Json | null
-          connection_suggestions?: Json | null
-          delivered_at?: string | null
-          digest_week: string
-          generated_at?: string | null
-          id?: string
-          learning_opportunities?: Json | null
-          project_highlights?: Json | null
-          user_id?: string | null
-        }
-        Update: {
-          collaboration_matches?: Json | null
-          connection_suggestions?: Json | null
-          delivered_at?: string | null
-          digest_week?: string
-          generated_at?: string | null
-          id?: string
-          learning_opportunities?: Json | null
-          project_highlights?: Json | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weekly_digests_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       workshops: {
         Row: {
           attendees: Json | null
-          created_at: string | null
+          created_at: string
           description: string | null
-          duration_minutes: number | null
           embedding_vector: string | null
-          host_id: string | null
+          host_id: string
           id: string
           max_attendees: number | null
           scheduled_at: string | null
-          status: string | null
           title: string
-          updated_at: string | null
         }
         Insert: {
           attendees?: Json | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
-          duration_minutes?: number | null
           embedding_vector?: string | null
-          host_id?: string | null
+          host_id: string
           id?: string
           max_attendees?: number | null
           scheduled_at?: string | null
-          status?: string | null
           title: string
-          updated_at?: string | null
         }
         Update: {
           attendees?: Json | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
-          duration_minutes?: number | null
           embedding_vector?: string | null
-          host_id?: string | null
+          host_id?: string
           id?: string
           max_attendees?: number | null
           scheduled_at?: string | null
-          status?: string | null
           title?: string
-          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "workshops_host_id_fkey"
-            columns: ["host_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      assign_user_role: {
-        Args: {
-          p_role: Database["public"]["Enums"]["user_role"]
-          p_user_id: string
-        }
-        Returns: Json
-      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
-      }
-      create_team_with_project_data: {
-        Args:
-          | {
-              p_description?: string
-              p_name: string
-              p_problem_statement?: string
-              p_project_description?: string
-              p_project_name?: string
-              p_project_type?: string
-              p_skills_needed?: string[]
-              p_solution_approach?: string
-              p_target_audience?: string
-              p_team_size_needed?: number
-              p_tech_requirements?: string[]
-              p_tech_stack?: string[]
-              p_timeline_months?: number
-              p_user_id?: string
-            }
-          | {
-              p_description?: string
-              p_name: string
-              p_project_description?: string
-              p_project_name?: string
-              p_tech_stack?: string[]
-              p_user_id?: string
-            }
-        Returns: Json
-      }
-      generate_access_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_comprehensive_oracle_context: {
-        Args: { p_user_id: string }
-        Returns: Json
-      }
-      get_oracle_team_context: {
-        Args: { p_team_id: string }
-        Returns: Json
-      }
-      get_oracle_user_context: {
-        Args: { p_user_id: string }
-        Returns: Json
       }
       halfvec_avg: {
         Args: { "": number[] }
@@ -1416,10 +715,6 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
-      join_team_with_code: {
-        Args: { p_code: string; p_user_id: string }
-        Returns: Json
-      }
       l2_norm: {
         Args: { "": unknown } | { "": unknown }
         Returns: number
@@ -1450,26 +745,6 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
-      store_message_as_document: {
-        Args: { p_message_id: string }
-        Returns: undefined
-      }
-      store_onboarding_as_documents: {
-        Args: { p_user_id: string }
-        Returns: undefined
-      }
-      store_oracle_log_as_document: {
-        Args: { p_log_id: string }
-        Returns: undefined
-      }
-      store_team_as_document: {
-        Args: { p_team_id: string }
-        Returns: undefined
-      }
-      store_update_as_document: {
-        Args: { p_update_id: string }
-        Returns: undefined
-      }
       team_neighbors: {
         Args: { team_id: string }
         Returns: {
@@ -1481,10 +756,6 @@ export type Database = {
       upsert_embedding: {
         Args: { emb: number[]; row_id: string; tablename: string }
         Returns: undefined
-      }
-      use_access_code: {
-        Args: { p_builder_name?: string; p_code: string; p_user_id: string }
-        Returns: Json
       }
       vector_avg: {
         Args: { "": number[] }
@@ -1512,14 +783,7 @@ export type Database = {
       }
     }
     Enums: {
-      individual_stage:
-        | "ideation"
-        | "development"
-        | "testing"
-        | "launch"
-        | "growth"
-      update_type: "progress" | "milestone" | "issue" | "note"
-      user_role: "builder" | "mentor" | "guest" | "unassigned"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1646,16 +910,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      individual_stage: [
-        "ideation",
-        "development",
-        "testing",
-        "launch",
-        "growth",
-      ],
-      update_type: ["progress", "milestone", "issue", "note"],
-      user_role: ["builder", "mentor", "guest", "unassigned"],
-    },
+    Enums: {},
   },
 } as const
