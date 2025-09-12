@@ -319,6 +319,10 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               throw new Error('User not authenticated');
             }
             
+            if (!teamId) {
+              throw new Error('You must be part of a team to send messages');
+            }
+            
             const recipient = slashCommand.recipient || 'team';
             const message = slashCommand.message || slashCommand.query;
             
@@ -328,7 +332,7 @@ export const SuperOracle = ({ selectedRole, teamId, userId }: SuperOracleProps) 
               .insert({
                 content: message,
                 sender_id: user.id,
-                team_id: teamId || null
+                team_id: teamId
               })
               .select()
               .single();

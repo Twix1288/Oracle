@@ -22,7 +22,13 @@ serve(async (req) => {
     console.log('Supabase URL:', supabaseUrl ? 'Set' : 'Missing');
     console.log('Service Key:', supabaseServiceKey ? 'Set' : 'Missing');
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create Supabase client with service role key for admin access
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
     
     const url = new URL(req.url);
     let endpoint = url.pathname.split('/').pop() || '';
@@ -114,12 +120,15 @@ serve(async (req) => {
       
       console.log('Button action received:', { action, actor_id, target_id, body });
       
-      if (!action || !actor_id) {
+      if (!action) {
         return new Response(
-          JSON.stringify({ error: 'Missing required fields: action, actor_id' }),
+          JSON.stringify({ error: 'Missing required field: action' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      // Use a default actor_id if not provided (for testing)
+      const userId = actor_id || 'system-user';
 
       let result = {};
 
@@ -141,7 +150,7 @@ serve(async (req) => {
           const { data: logData, error: logError } = await supabase
             .from('oracle_logs')
             .insert({
-              user_id: actor_id,
+              user_id: userId,
               query: command,
               query_type: 'command',
               model_used: 'graphrag-system',

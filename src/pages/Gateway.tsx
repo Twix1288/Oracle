@@ -15,7 +15,7 @@ import { ConnectionsList } from '@/components/ConnectionsList';
 
 export default function Gateway() {
   const [activeTab, setActiveTab] = useState('builder-radar');
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-cosmic flex items-center justify-center p-4">
@@ -72,7 +72,11 @@ export default function Gateway() {
             </TabsContent>
             
             <TabsContent value="oracle" className="mt-0">
-              <SuperOracle selectedRole="builder" userId={user?.id} />
+              <SuperOracle 
+                selectedRole="builder" 
+                userId={user?.id} 
+                teamId={profile?.team_id}
+              />
             </TabsContent>
             
             <TabsContent value="inbox" className="mt-0">

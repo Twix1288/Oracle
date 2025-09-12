@@ -262,6 +262,15 @@ export function OracleInsightsPage() {
           return;
         }
         
+        if (!teamId) {
+          toast({
+            title: "Team Required",
+            description: "You must be part of a team to send messages.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
         const messageMatch = command.match(/^\/message\s+([^:]+):\s*(.+)$/);
         const recipient = messageMatch?.[1] || 'team';
         const message = messageMatch?.[2] || command.substring(9);
@@ -271,7 +280,7 @@ export function OracleInsightsPage() {
           .insert({
             content: message,
             sender_id: user.id,
-            team_id: teamId || null
+            team_id: teamId
           })
           .select()
           .single();
@@ -319,34 +328,38 @@ export function OracleInsightsPage() {
         return;
       }
 
-      // Call GraphRAG for other commands
-      const response = await supabase.functions.invoke('graphrag', {
+      // Route AI commands through Super Oracle for consistency
+      const response = await supabase.functions.invoke('super-oracle', {
         body: {
-          action: 'oracle_command',
-          actor_id: user?.id,
-          target_id: user?.id,
-          body: { 
-            command: command,
-            context: 'oracle_insights_page'
+          query: command,
+          type: 'chat',
+          role: 'builder',
+          teamId: teamId,
+          userId: user?.id,
+          context: { 
+            source: 'oracle_insights_page',
+            command: command
           }
         }
       });
 
       if (response.error) throw response.error;
 
-      // Trigger learning loop
-      await supabase.functions.invoke('oracle-learning-loop', {
-        body: {
-          oracle_log_id: response.data?.log_id || '',
-          feedback_data: { 
-            command: command, 
-            success: true,
-            user_id: user?.id,
-            context: 'oracle_insights_interaction'
-          },
-          action: 'analyze_feedback'
-        }
-      });
+      // Trigger learning loop if oracle_log_id is available
+      if (response.data?.oracle_log_id) {
+        await supabase.functions.invoke('oracle-learning-loop', {
+          body: {
+            oracle_log_id: response.data.oracle_log_id,
+            feedback_data: { 
+              command: command, 
+              success: true,
+              user_id: user?.id,
+              context: 'oracle_insights_interaction'
+            },
+            action: 'analyze_feedback'
+          }
+        });
+      }
 
       // Refresh data to show new insights
       loadOracleData();
