@@ -16,7 +16,9 @@ import {
   Brain,
   BarChart3,
   Users,
-  Rocket
+  Rocket,
+  Clock,
+  Activity
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -24,14 +26,12 @@ interface ProgressEntry {
   id: string;
   title: string;
   description: string;
-  category: string;
   status: string;
-  due_date: string;
-  completed_at: string;
-  ai_feedback: string;
-  ai_suggestions: any;
   created_at: string;
   updated_at: string;
+  user_id: string;
+  team_id: string;
+  embedding_vector: string;
 }
 
 interface TeamProgress {
@@ -111,15 +111,8 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
 
   const generateTeamProgressInsights = async () => {
     try {
-      // Get comprehensive team context
-      const { data: context } = await supabase.rpc('get_comprehensive_oracle_context', {
-        p_user_id: user!.id
-      });
-
-      if (!context || typeof context !== 'object') return;
-
-      const contextObj = context as any;
-      if (!contextObj.user_team) return;
+      // Get team context from current data instead of non-existent RPC
+      if (!teamId) return;
 
       // Calculate progress metrics
       const completedEntries = progressEntries.filter(e => e.status === 'completed').length;
@@ -134,7 +127,7 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
 
       // Identify blockers and achievements
       const blockers = progressEntries
-        .filter(e => e.status === 'blocked' || e.ai_feedback?.includes('blocked'))
+        .filter(e => e.status === 'blocked')
         .map(e => e.title)
         .slice(0, 3);
 
@@ -146,7 +139,7 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
       // Generate AI insights using Oracle
       const { data: aiInsights } = await supabase.functions.invoke('super-oracle', {
         body: {
-          query: `Analyze our team progress: ${totalEntries} total tasks, ${completedEntries} completed. Recent activity: ${recentEntries.length} entries this week. Current blockers: ${blockers.join(', ')}. Provide insights and next steps.`,
+          query: `Analyze our team progress: ${totalEntries} total tasks, ${completedEntries} completed. Recent activity: ${recentEntries.length} entries this week. Provide insights and next steps.`,
           type: 'chat',
           role: 'builder',
           teamId: teamId,
@@ -156,7 +149,7 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
 
       setTeamProgress({
         overall_progress: Math.round(overallProgress),
-        stage: contextObj.user_team.team_info?.stage || 'development',
+        stage: 'development',
         health_score: Math.round(healthScore),
         blockers,
         achievements,
@@ -173,14 +166,13 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
     }
   };
 
-  const getCategoryIcon = (category: string) => {
-    switch (category.toLowerCase()) {
-      case 'development': return <BarChart3 className="w-4 h-4" />;
-      case 'design': return <Target className="w-4 h-4" />;
-      case 'research': return <Brain className="w-4 h-4" />;
-      case 'planning': return <Calendar className="w-4 h-4" />;
-      case 'team': return <Users className="w-4 h-4" />;
-      default: return <CheckCircle className="w-4 h-4" />;
+  const getCategoryIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'completed': return <CheckCircle className="w-4 h-4" />;
+      case 'in_progress': return <BarChart3 className="w-4 h-4" />;
+      case 'blocked': return <Target className="w-4 h-4" />;
+      case 'pending': return <Clock className="w-4 h-4" />;
+      default: return <Activity className="w-4 h-4" />;
     }
   };
 
@@ -351,7 +343,7 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <CardTitle className="flex items-center gap-2">
-                          {getCategoryIcon(entry.category)}
+                          {getCategoryIcon(entry.status)}
                           {entry.title}
                         </CardTitle>
                         <CardDescription>{entry.description}</CardDescription>
@@ -361,20 +353,6 @@ export const AIProgressTracker: React.FC<AIProgressTrackerProps> = ({
                       </Badge>
                     </div>
                   </CardHeader>
-                  
-                  {entry.ai_feedback && (
-                    <CardContent>
-                      <div className="bg-muted rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Brain className="w-4 h-4" />
-                          <span className="text-sm font-medium">AI Feedback</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {entry.ai_feedback}
-                        </p>
-                      </div>
-                    </CardContent>
-                  )}
                 </Card>
               ))}
             </div>

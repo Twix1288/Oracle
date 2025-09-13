@@ -15,11 +15,12 @@ interface BuilderLoungeProps {
 
 interface BuilderConversation {
   id: string;
-  team_id: string | null;
-  sender_id: string;
-  message: string;
+  title: string;
+  content: string;
+  participants: string[];
+  creator_id: string;
   created_at: string;
-  updated_at: string;
+  embedding_vector?: string;
 }
 
 export function BuilderLounge({ userId, teamId }: BuilderLoungeProps) {
@@ -88,9 +89,10 @@ export function BuilderLounge({ userId, teamId }: BuilderLoungeProps) {
     setSending(true);
     try {
       const payload = {
-        team_id: teamId || null,
-        sender_id: userId,
-        message: text.trim(),
+        title: `Message from Builder`,
+        content: text.trim(),
+        participants: teamId ? [] : [],
+        creator_id: userId,
       };
       const { error } = await supabase.from('builder_conversations').insert([payload]);
       if (error) throw error;
@@ -130,7 +132,7 @@ export function BuilderLounge({ userId, teamId }: BuilderLoungeProps) {
                     {new Date(conversation.created_at).toLocaleString()}
                   </span>
                 </div>
-                <div className="text-sm whitespace-pre-wrap">{conversation.message}</div>
+                <div className="text-sm whitespace-pre-wrap">{conversation.content}</div>
               </div>
             ))
           )}

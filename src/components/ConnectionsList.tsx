@@ -35,8 +35,7 @@ interface Connection {
     avatar?: string;
     bio: string;
     skills: string[];
-    builder_level: string;
-    availability_hours: number;
+    role: string;
     status: 'online' | 'away' | 'offline';
   };
   connection_type: 'friend' | 'mentor' | 'mentee' | 'collaborator';
@@ -56,7 +55,7 @@ interface ConnectionRequest {
     avatar?: string;
     bio: string;
     skills: string[];
-    builder_level: string;
+    role: string;
   };
   request_type: 'friend' | 'mentor' | 'mentee' | 'collaborator';
   message: string;
@@ -87,51 +86,59 @@ export const ConnectionsList: React.FC = () => {
     try {
       setIsLoading(true);
       
-      // Get accepted connections from builder_connections table
+      // Get accepted connections from connection_requests table
       const { data: acceptedConnections, error: connectionsError } = await supabase
-        .from('builder_connections')
-        .select(`
-          *,
-          connector:profiles!builder_connections_connector_id_fkey(*),
-          connectee:profiles!builder_connections_connectee_id_fkey(*)
-        `)
-        .eq('status', 'active')
-        .or(`connector_id.eq.${user?.id},connectee_id.eq.${user?.id}`);
+        .from('connection_requests')
+        .select('*')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${user?.id},requested_id.eq.${user?.id}`);
 
       if (connectionsError) throw connectionsError;
 
-      // Transform data into connections format
-      const connectionsData: Connection[] = (acceptedConnections || []).map(connection => {
-        const isConnector = connection.connector_id === user?.id;
-        const otherUser = isConnector ? connection.connectee : connection.connector;
+      // Get profile data separately to avoid relationship errors
+      if (acceptedConnections && acceptedConnections.length > 0) {
+        const otherUserIds = acceptedConnections.map(conn => 
+          conn.requester_id === user?.id ? conn.requested_id : conn.requester_id
+        );
         
-        return {
-          id: `conn_${connection.id}`,
-          user: {
-            id: otherUser.id,
-            name: otherUser.full_name || 'Anonymous Builder',
-            avatar: otherUser.avatar_url,
-            bio: otherUser.bio || 'Building the future, one project at a time.',
-            skills: otherUser.skills || [],
-            builder_level: otherUser.builder_level || 'novice',
-            availability_hours: otherUser.availability_hours || 10,
-            status: Math.random() > 0.7 ? 'online' : Math.random() > 0.5 ? 'away' : 'offline'
-          },
-          connection_type: connection.connection_type as any,
-          status: 'connected',
-          connected_at: connection.created_at,
-          last_interaction: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-          mutual_connections: Math.floor(Math.random() * 10),
-          collaboration_count: Math.floor(Math.random() * 5),
-          satisfaction_score: 3.5 + Math.random() * 1.5
-        };
-      });
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', otherUserIds);
 
-      setConnections(connectionsData);
+        // Transform data into connections format
+        const connectionsData: Connection[] = acceptedConnections.map(connection => {
+          const otherUserId = connection.requester_id === user?.id ? connection.requested_id : connection.requester_id;
+          const otherUser = profilesData?.find(p => p.id === otherUserId);
+          
+          return {
+            id: connection.id,
+            user: {
+              id: otherUser?.id || '',
+              name: otherUser?.full_name || 'Anonymous Builder',
+              avatar: otherUser?.avatar_url,
+              bio: otherUser?.bio || 'Building the future, one project at a time.',
+              skills: otherUser?.skills || [],
+              role: otherUser?.role || 'builder',
+              status: Math.random() > 0.7 ? 'online' : Math.random() > 0.5 ? 'away' : 'offline'
+            },
+            connection_type: 'collaborator',
+            status: 'connected',
+            connected_at: connection.created_at,
+            last_interaction: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+            mutual_connections: Math.floor(Math.random() * 10),
+            collaboration_count: Math.floor(Math.random() * 5),
+            satisfaction_score: 3.5 + Math.random() * 1.5
+          };
+        });
+
+        setConnections(connectionsData);
+      } else {
+        setConnections([]);
+      }
     } catch (error: any) {
       console.error('Error fetching connections:', error);
-      // Use mock data as fallback
-      setConnections(generateMockConnections());
+      setConnections([]);
     } finally {
       setIsLoading(false);
     }
@@ -142,99 +149,49 @@ export const ConnectionsList: React.FC = () => {
       // Get pending requests where current user is the requested
       const { data: pendingRequests, error: pendingError } = await supabase
         .from('connection_requests')
-        .select(`
-          *,
-          requester:profiles!connection_requests_requester_id_fkey(*)
-        `)
+        .select('*')
         .eq('requested_id', user?.id)
         .eq('status', 'pending');
 
       if (pendingError) throw pendingError;
 
-      const requestsData: ConnectionRequest[] = (pendingRequests || []).map(request => ({
-        id: request.id,
-        requester: {
-          id: request.requester.id,
-          name: request.requester.full_name || 'Anonymous Builder',
-          avatar: request.requester.avatar_url,
-          bio: request.requester.bio || 'Building the future, one project at a time.',
-          skills: request.requester.skills || [],
-          builder_level: request.requester.builder_level || 'novice'
-        },
-        request_type: request.request_type as any,
-        message: request.message,
-        oracle_generated: request.oracle_generated || false,
-        oracle_confidence: 0.8,
-        created_at: request.created_at
-      }));
+      // Get requester profiles separately
+      if (pendingRequests && pendingRequests.length > 0) {
+        const requesterIds = pendingRequests.map(req => req.requester_id);
+        const { data: requesterProfiles } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', requesterIds);
 
-      setConnectionRequests(requestsData);
+        const requestsData: ConnectionRequest[] = pendingRequests.map(request => {
+          const requester = requesterProfiles?.find(p => p.id === request.requester_id);
+          
+          return {
+            id: request.id,
+            requester: {
+              id: requester?.id || '',
+              name: requester?.full_name || 'Anonymous Builder',
+              avatar: requester?.avatar_url,
+              bio: requester?.bio || 'Building the future, one project at a time.',
+              skills: requester?.skills || [],
+              role: requester?.role || 'builder'
+            },
+            request_type: 'collaborator',
+            message: request.message || '',
+            oracle_generated: false,
+            oracle_confidence: 0.8,
+            created_at: request.created_at
+          };
+        });
+
+        setConnectionRequests(requestsData);
+      } else {
+        setConnectionRequests([]);
+      }
     } catch (error: any) {
       console.error('Error fetching connection requests:', error);
       setConnectionRequests([]);
     }
-  };
-
-  const generateMockConnections = (): Connection[] => {
-    return [
-      {
-        id: '1',
-        user: {
-          id: 'user1',
-          name: 'Alex Chen',
-          bio: 'Full-stack developer passionate about AI and blockchain',
-          skills: ['React', 'Node.js', 'Solidity', 'Python'],
-          builder_level: 'advanced',
-          availability_hours: 15,
-          status: 'online'
-        },
-        connection_type: 'collaborator',
-        status: 'connected',
-        connected_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        last_interaction: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        mutual_connections: 3,
-        collaboration_count: 2,
-        satisfaction_score: 4.5
-      },
-      {
-        id: '2',
-        user: {
-          id: 'user2',
-          name: 'Sarah Martinez',
-          bio: 'UX Designer turning complex ideas into beautiful experiences',
-          skills: ['Figma', 'User Research', 'Prototyping'],
-          builder_level: 'intermediate',
-          availability_hours: 12,
-          status: 'away'
-        },
-        connection_type: 'friend',
-        status: 'connected',
-        connected_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        last_interaction: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        mutual_connections: 7,
-        collaboration_count: 1,
-        satisfaction_score: 4.2
-      },
-      {
-        id: '3',
-        user: {
-          id: 'user3',
-          name: 'Michael Rodriguez',
-          bio: 'DevOps engineer scaling applications from zero to millions',
-          skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
-          builder_level: 'expert',
-          availability_hours: 8,
-          status: 'offline'
-        },
-        connection_type: 'mentor',
-        status: 'connected',
-        connected_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-        last_interaction: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        mutual_connections: 2,
-        collaboration_count: 0,
-        satisfaction_score: 4.8
-      }
-    ];
   };
 
   const handleAcceptConnection = async (requestId: string) => {
@@ -242,30 +199,17 @@ export const ConnectionsList: React.FC = () => {
       const { error } = await supabase
         .from('connection_requests')
         .update({ 
-          status: 'accepted',
-          responded_at: new Date().toISOString()
+          status: 'accepted'
         })
         .eq('id', requestId);
 
       if (error) throw error;
 
-      // Send acceptance message
       const request = connectionRequests.find(r => r.id === requestId);
-      if (request) {
-        await supabase
-          .from('messages')
-          .insert({
-            sender_id: user?.id,
-            receiver_id: request.requester.id,
-            content: `Hi ${request.requester.name}! I'd love to connect and explore ${request.request_type} opportunities. Looking forward to collaborating!`,
-            sender_role: 'builder',
-            receiver_role: 'builder'
-          });
-      }
-
+      
       toast({
         title: "Connection Accepted!",
-        description: `You're now connected with ${request?.requester.name}. A welcome message has been sent.`,
+        description: `You're now connected with ${request?.requester.name}.`,
       });
 
       // Refresh data
@@ -287,8 +231,7 @@ export const ConnectionsList: React.FC = () => {
       const { error } = await supabase
         .from('connection_requests')
         .update({ 
-          status: 'declined',
-          responded_at: new Date().toISOString()
+          status: 'declined'
         })
         .eq('id', requestId);
 
@@ -439,186 +382,133 @@ export const ConnectionsList: React.FC = () => {
 
           {/* Connections List */}
           <div className="space-y-4">
-            {sortedConnections.map((connection) => (
-              <Card key={connection.id} className="glow-border">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="relative">
-                      <Avatar className="h-16 w-16">
-                        <AvatarImage src={connection.user.avatar} />
-                        <AvatarFallback>
-                          {connection.user.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background ${getStatusColor(connection.user.status)}`} />
-                    </div>
-
-                    <div className="flex-1 space-y-3">
-                      {/* Header */}
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-lg font-semibold">{connection.user.name}</h3>
-                            <Badge className={getConnectionTypeColor(connection.connection_type)}>
-                              {connection.connection_type}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              <Star className="h-3 w-3 mr-1" />
-                              {connection.satisfaction_score.toFixed(1)}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">{connection.user.bio}</p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {connection.user.availability_hours}h/week
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {connection.mutual_connections} mutual
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Zap className="h-3 w-3" />
-                              {connection.collaboration_count} collabs
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Skills */}
-                      <div className="flex flex-wrap gap-1">
-                        {connection.user.skills.slice(0, 4).map((skill, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                        {connection.user.skills.length > 4 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{connection.user.skills.length - 4} more
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 pt-2">
-                        <TakeActionButton
-                          actionType="connection"
-                          targetUserId={connection.user.id}
-                          targetUserName={connection.user.name}
-                          targetUserSkills={connection.user.skills}
-                          size="sm"
-                          className="flex-1"
-                        />
-                        <OfferHelpButton
-                          targetUserId={connection.user.id}
-                          targetUserName={connection.user.name}
-                          targetUserSkills={connection.user.skills}
-                          size="sm"
-                          variant="outline"
-                        />
-                        <Button size="sm" variant="ghost">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {sortedConnections.length === 0 && (
+            {sortedConnections.length === 0 ? (
               <Card className="glow-border">
-                <CardContent className="p-8 text-center">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No connections found</h3>
-                  <p className="text-muted-foreground">
-                    {searchQuery ? 'Try adjusting your search criteria.' : 'Start building your network by connecting with other builders!'}
+                <CardContent className="text-center py-8">
+                  <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium mb-2">No connections yet</p>
+                  <p className="text-muted-foreground mb-4">
+                    Connect with other builders to expand your network
                   </p>
                 </CardContent>
               </Card>
+            ) : (
+              sortedConnections.map((connection) => (
+                <Card key={connection.id} className="glow-border">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="relative">
+                        <Avatar className="h-16 w-16">
+                          <AvatarImage src={connection.user.avatar} />
+                          <AvatarFallback>
+                            {connection.user.name.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background ${getStatusColor(connection.user.status)}`} />
+                      </div>
+
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-lg font-semibold">{connection.user.name}</h3>
+                              <Badge className={getConnectionTypeColor(connection.connection_type)}>
+                                {connection.connection_type}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                <Star className="h-3 w-3 mr-1" />
+                                {connection.satisfaction_score.toFixed(1)}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">{connection.user.bio}</p>
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {connection.user.skills.slice(0, 3).map((skill, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {skill}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">
+                              <MessageCircle className="h-4 w-4 mr-1" />
+                              Message
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-6">
-          {/* Connection Requests */}
           <div className="space-y-4">
-            {connectionRequests.map((request) => (
-              <Card key={request.id} className="glow-border">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={request.requester.avatar} />
-                      <AvatarFallback>
-                        {request.requester.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-lg font-semibold">{request.requester.name}</h3>
-                            <Badge className={getConnectionTypeColor(request.request_type)}>
-                              {request.request_type}
-                            </Badge>
-                            {request.oracle_generated && (
-                              <Badge variant="outline" className="text-xs bg-primary/10">
-                                <Zap className="h-3 w-3 mr-1" />
-                                AI Suggested
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">{request.requester.bio}</p>
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {request.requester.skills.slice(0, 3).map((skill, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {skill}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        <p className="text-sm font-medium mb-1">Message:</p>
-                        <p className="text-sm text-muted-foreground">{request.message}</p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm"
-                          onClick={() => handleAcceptConnection(request.id)}
-                          className="flex-1"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Accept
-                        </Button>
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeclineConnection(request.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Decline
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {connectionRequests.length === 0 && (
+            {connectionRequests.length === 0 ? (
               <Card className="glow-border">
-                <CardContent className="p-8 text-center">
-                  <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No pending requests</h3>
+                <CardContent className="text-center py-8">
+                  <UserPlus className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium mb-2">No pending requests</p>
                   <p className="text-muted-foreground">
-                    You're all caught up! New connection requests will appear here.
+                    New connection requests will appear here
                   </p>
                 </CardContent>
               </Card>
+            ) : (
+              connectionRequests.map((request) => (
+                <Card key={request.id} className="glow-border">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={request.requester.avatar} />
+                        <AvatarFallback>
+                          {request.requester.name.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-semibold">{request.requester.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Wants to connect as {request.request_type}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {new Date(request.created_at).toLocaleDateString()}
+                          </Badge>
+                        </div>
+
+                        <p className="text-sm mb-3">{request.message}</p>
+
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => handleAcceptConnection(request.id)}
+                            size="sm"
+                            className="gap-1"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Accept
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeclineConnection(request.id)}
+                            variant="outline" 
+                            size="sm"
+                            className="gap-1"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Decline
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
             )}
           </div>
         </TabsContent>

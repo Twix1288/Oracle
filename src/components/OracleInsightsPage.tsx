@@ -73,6 +73,27 @@ export function OracleInsightsPage() {
   const [activeTab, setActiveTab] = useState('insights');
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  
+  // Get teamId from current team membership
+  const [teamId, setTeamId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (user && profile) {
+      // Get user's current team
+      const fetchTeamId = async () => {
+        const { data: teamMembers } = await supabase
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', user.id)
+          .limit(1);
+        
+        if (teamMembers && teamMembers.length > 0) {
+          setTeamId(teamMembers[0].team_id);
+        }
+      };
+      fetchTeamId();
+    }
+  }, [user, profile]);
 
   useEffect(() => {
     if (user) {
@@ -161,7 +182,6 @@ export function OracleInsightsPage() {
       const { data: skillData, error: skillError } = await supabase
         .from('skill_offers')
         .select('*')
-        .eq('status', 'active')
         .limit(5);
 
       if (!skillError && skillData) {
