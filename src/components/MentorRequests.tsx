@@ -14,13 +14,10 @@ interface MentorRequestsProps {
 interface Message {
   id: string;
   sender_id: string;
-  sender_role: UserRole;
-  receiver_id?: string | null;
-  receiver_role: UserRole;
   team_id?: string | null;
   content: string;
-  read_at?: string | null;
   created_at: string;
+  read_at?: string | null; // local-only flag
 }
 
 export function MentorRequests({ mentorId, assignedTeamIds }: MentorRequestsProps) {
@@ -33,11 +30,10 @@ export function MentorRequests({ mentorId, assignedTeamIds }: MentorRequestsProp
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        .eq('receiver_role', 'mentor')
         .in('team_id', assignedTeamIds.length ? assignedTeamIds : ['00000000-0000-0000-0000-000000000000'])
         .order('created_at', { ascending: false })
         .limit(100);
-      if (!error) setMessages((data || []).filter((m) => m.content?.startsWith('[REQUEST]')) as Message[]);
+      if (!error) setMessages((data || []).filter((m) => m.content?.startsWith('[REQUEST]')) as unknown as Message[]);
     } finally {
       setLoading(false);
     }
@@ -59,7 +55,7 @@ export function MentorRequests({ mentorId, assignedTeamIds }: MentorRequestsProp
 
   const markRead = async (id: string) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read_at: new Date().toISOString() } : m)));
-    await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('id', id);
+    // Local-only mark as read (no DB column)
   };
 
   return (

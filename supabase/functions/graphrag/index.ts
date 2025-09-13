@@ -65,16 +65,17 @@ serve(async (req) => {
 
       // Generate embedding for the text
       const embedding = await generateEmbedding(text);
-      
-      // Update the record with the embedding
-      const { error } = await supabase
-        .from(table)
-        .update({ embedding_vector: embedding })
-        .eq('id', id);
+
+      // Update via RPC to ensure SECURITY DEFINER safety
+      const { error } = await supabase.rpc('upsert_embedding', {
+        tablename: table,
+        row_id: id,
+        emb: embedding
+      });
 
       if (error) {
-        console.error('Embedding update error:', error);
-        throw new Error(`Failed to update embedding: ${error.message}`);
+        console.error('Embedding upsert error:', error);
+        throw new Error(`Failed to upsert embedding: ${error.message}`);
       }
 
       return new Response(
@@ -84,25 +85,22 @@ serve(async (req) => {
     }
 
     if (endpoint === 'search' && req.method === 'POST') {
-      const { query, table, limit = 5 } = payload || {};
+      const { query, k = 5 } = payload || {};
       
-      if (!query || !table) {
+      if (!query) {
         return new Response(
-          JSON.stringify({ error: 'Missing required fields: query, table' }),
+          JSON.stringify({ error: 'Missing required field: query' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       // Generate embedding for the search query
       const queryEmbedding = await generateEmbedding(query);
-      
-      // Perform vector similarity search
-      const { data, error } = await supabase
-        .rpc('match_documents', {
-          query_embedding: queryEmbedding,
-          match_count: limit,
-          match_threshold: 0.7
-        });
+
+      const { data, error } = await supabase.rpc('search_graph_rag', {
+        q_emb: queryEmbedding,
+        k
+      });
 
       if (error) {
         console.error('Search error:', error);
@@ -110,7 +108,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ results: data }),
+        JSON.stringify({ results: data || [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -130,14 +128,149 @@ serve(async (req) => {
       // Use a default actor_id if not provided (for testing)
       const userId = actor_id || 'system-user';
 
-      let result = {};
+      try {
+        if (action === 'offer_help') {
+          const { skill = 'general', availability = 'active', description = '' } = body || {};
 
-      if (action === 'oracle_command') {
-        const { command, context } = body || {};
-          
+          const { data: offer, error: offerErr } = await supabase
+            .from('skill_offers')
+            .insert({ owner_id: userId, skill, availability, description })
+            .select('*')
+            .single();
+          if (offerErr) throw offerErr;
+
+          // Embed the offer text
+          try {
+            const emb = await generateEmbedding(`${skill}\n${availability}\n${description}`);
+            await supabase.rpc('upsert_embedding', { tablename: 'skill_offers', row_id: offer.id, emb });
+          } catch (e) { console.warn('Embedding offer failed', e); }
+
+          // Notify target if provided
+          if (target_id) {
+            await supabase.from('notifications').insert({
+              user_id: target_id,
+              type: 'offer_help',
+              title: 'New Help Offer',
+              message: description || `${userId} offered help`,
+              data: { offer_id: offer.id, from: userId }
+            });
+          }
+
+          result = { offer };
+        }
+        else if (action === 'express_interest') {
+          const { project_id = target_id, message = '' } = body || {};
+          if (!project_id) throw new Error('project_id required');
+
+          const { data: interest, error: intErr } = await supabase
+            .from('project_interests')
+            .insert({ project_id, user_id: userId, status: 'pending', message })
+            .select('*')
+            .single();
+          if (intErr) throw intErr;
+
+          // Notify team creator
+          const { data: team } = await supabase
+            .from('teams')
+            .select('team_creator_id, name')
+            .eq('id', project_id)
+            .maybeSingle();
+          if (team?.team_creator_id) {
+            await supabase.from('notifications').insert({
+              user_id: team.team_creator_id,
+              type: 'express_interest',
+              title: 'New Project Interest',
+              message: `Someone expressed interest in ${team.name}`,
+              data: { project_id, user_id: userId, interest_id: interest.id }
+            });
+          }
+
+          result = { interest };
+        }
+        else if (action === 'connect') {
+          const { message = '' } = body || {};
+          if (!target_id) throw new Error('target_id required');
+
+          const { data: req, error: reqErr } = await supabase
+            .from('connection_requests')
+            .insert({ requester_id: userId, requested_id: target_id, message })
+            .select('*')
+            .single();
+          if (reqErr) throw reqErr;
+
+          await supabase.from('notifications').insert({
+            user_id: target_id,
+            type: 'connect',
+            title: 'New Connection Request',
+            message: message || 'You have a new connection request',
+            data: { request_id: req.id, from: userId }
+          });
+
+          result = { connection_request: req };
+        }
+        else if (action === 'join_workshop') {
+          if (!target_id) throw new Error('workshop target_id required');
+
+          const { data: workshop } = await supabase
+            .from('workshops')
+            .select('*')
+            .eq('id', target_id)
+            .maybeSingle();
+
+          const attendees: string[] = Array.isArray(workshop?.attendees) ? workshop!.attendees : [];
+          if (attendees.includes(userId)) {
+            result = { message: 'Already registered' };
+          } else {
+            const updated = [...attendees, userId];
+            const { error: updErr } = await supabase
+              .from('workshops')
+              .update({ attendees: updated })
+              .eq('id', target_id);
+            if (updErr) throw updErr;
+
+            // Notify host
+            if (workshop?.host_id) {
+              await supabase.from('notifications').insert({
+                user_id: workshop.host_id,
+                type: 'join_workshop',
+                title: 'New Workshop Registration',
+                message: `${userId} joined your workshop`,
+                data: { workshop_id: target_id, user_id: userId }
+              });
+            }
+
+            result = { success: true };
+          }
+        }
+        else if (action === 'react') {
+          const { feed_item_id, interaction_type, body: text = '' } = body || {};
+          if (!feed_item_id || !interaction_type) throw new Error('feed_item_id and interaction_type required');
+
+          const { data: interaction, error: interErr } = await supabase
+            .from('feed_interactions')
+            .insert({ user_id: userId, feed_item_id, type: interaction_type, body: text })
+            .select('*')
+            .single();
+          if (interErr) throw interErr;
+
+          if (target_id) {
+            await supabase.from('notifications').insert({
+              user_id: target_id,
+              type: 'react',
+              title: 'New Interaction',
+              message: `Your item received a ${interaction_type}`,
+              data: { interaction_id: interaction.id, feed_item_id }
+            });
+          }
+
+          result = { interaction };
+        }
+        else if (action === 'oracle_command') {
+          // Keep existing oracle_command handler
+          const { command, context } = body || {};
           if (!command) {
             return new Response(
-            JSON.stringify({ error: 'Missing command in body' }),
+              JSON.stringify({ error: 'Missing command in body' }),
               { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
           }
@@ -145,237 +278,53 @@ serve(async (req) => {
           console.log('Oracle command executed:', command, 'Context:', context);
 
           // Log the Oracle command interaction
-        let logEntry = null;
-        try {
-          const { data: logData, error: logError } = await supabase
-            .from('oracle_logs')
-            .insert({
-              user_id: userId,
-              query: command,
-              query_type: 'command',
-              model_used: 'graphrag-system',
-              confidence: 0.95,
-              sources: 1,
-              context_used: true,
-              response: JSON.stringify({
-                command_executed: command,
-                context: context,
-                timestamp: new Date().toISOString()
+          let logEntry = null;
+          try {
+            const { data: logData, error: logError } = await supabase
+              .from('oracle_logs')
+              .insert({
+                user_id: userId,
+                query: command,
+                query_type: 'command',
+                model_used: 'graphrag-system',
+                confidence: 0.95,
+                sources: 1,
+                context_used: true,
+                response: JSON.stringify({
+                  command_executed: command,
+                  context: context,
+                  timestamp: new Date().toISOString()
+                })
               })
-            })
-            .select()
-            .single();
+              .select()
+              .single();
 
-          if (logError) {
-            console.warn('Failed to log Oracle command:', logError);
-          } else {
-            logEntry = logData;
-            console.log('Oracle command logged successfully');
-          }
-        } catch (logErr) {
-          console.warn('Oracle logging error:', logErr);
-          }
-
-          // Process command-specific logic with comprehensive data gathering
-          let commandResult = {};
-          
-        try {
-          if (command.includes('view connections') || command.includes('connections')) {
-            // Get comprehensive connection data
-            const { data: profiles, error: profilesError } = await supabase
-              .from('profiles')
-              .select('*')
-              .limit(20);
-            
-            const { data: connections, error: connectionsError } = await supabase
-              .from('connection_requests')
-              .select('*')
-              .or(`requester_id.eq.${userId},requested_id.eq.${userId}`)
-              .limit(10);
-            
-            const { data: collaborationProposals, error: proposalsError } = await supabase
-              .from('collaboration_proposals')
-              .select('*')
-              .or(`proposer_id.eq.${userId},target_id.eq.${userId}`)
-              .limit(10);
-            
-            if (profilesError) console.warn('Profiles query error:', profilesError);
-            if (connectionsError) console.warn('Connections query error:', connectionsError);
-            if (proposalsError) console.warn('Proposals query error:', proposalsError);
-            
-            commandResult = { 
-              type: 'connections_analysis',
-              data: {
-                profiles: profiles || [],
-                connections: connections || [],
-                collaborationProposals: collaborationProposals || []
-              },
-              insight: `Found ${profiles?.length || 0} profiles, ${connections?.length || 0} connections, ${collaborationProposals?.length || 0} collaboration proposals`
-            };
-          } else if (command.includes('offer help') || command.includes('help')) {
-            // Get comprehensive help opportunities
-            const { data: skillOffers, error: skillError } = await supabase
-              .from('skill_offers')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio, skills)
-              `)
-              .limit(10);
-            
-            const { data: workshops, error: workshopsError } = await supabase
-              .from('workshops')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio)
-              `)
-              .limit(10);
-            
-            const { data: challenges, error: challengesError } = await supabase
-              .from('builder_challenges')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio)
-              `)
-              .limit(10);
-            
-            if (skillError) console.warn('Skill offers query error:', skillError);
-            if (workshopsError) console.warn('Workshops query error:', workshopsError);
-            if (challengesError) console.warn('Challenges query error:', challengesError);
-            
-            commandResult = { 
-              type: 'help_opportunities',
-              data: {
-                skillOffers: skillOffers || [],
-                workshops: workshops || [],
-                challenges: challenges || []
-              },
-              insight: `Found ${skillOffers?.length || 0} skill offers, ${workshops?.length || 0} workshops, ${challenges?.length || 0} challenges`
-            };
-          } else if (command.includes('join workshop') || command.includes('workshop')) {
-            // Get comprehensive workshop data
-            const { data: workshops, error: workshopsError } = await supabase
-              .from('workshops')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio)
-              `)
-              .order('created_at', { ascending: false })
-              .limit(10);
-            
-            const { data: upcomingWorkshops, error: upcomingError } = await supabase
-              .from('workshops')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio)
-              `)
-              .gte('scheduled_at', new Date().toISOString())
-              .order('scheduled_at', { ascending: true })
-              .limit(5);
-            
-            if (workshopsError) console.warn('Workshops query error:', workshopsError);
-            if (upcomingError) console.warn('Upcoming workshops query error:', upcomingError);
-            
-            commandResult = { 
-              type: 'workshop_recommendations',
-              data: {
-                allWorkshops: workshops || [],
-                upcomingWorkshops: upcomingWorkshops || []
-              },
-              insight: `Found ${workshops?.length || 0} total workshops, ${upcomingWorkshops?.length || 0} upcoming workshops`
-            };
-          } else if (command.includes('find team') || command.includes('team')) {
-            // Get comprehensive team/project data
-            const { data: teams, error: teamsError } = await supabase
-              .from('teams')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio),
-                team_members!inner(user_id, role)
-              `)
-              .limit(20);
-            
-            const { data: projectInterests, error: interestsError } = await supabase
-              .from('project_interests')
-              .select(`
-                *,
-                teams!inner(name, description),
-                profiles!inner(full_name, display_name)
-              `)
-              .limit(10);
-            
-            if (teamsError) console.warn('Teams query error:', teamsError);
-            if (interestsError) console.warn('Project interests query error:', interestsError);
-            
-            commandResult = { 
-              type: 'team_recommendations',
-              data: {
-                teams: teams || [],
-                projectInterests: projectInterests || []
-              },
-              insight: `Found ${teams?.length || 0} teams, ${projectInterests?.length || 0} project interests`
-            };
-          } else if (command.includes('progress') || command.includes('track')) {
-            // Get comprehensive progress data
-            const { data: progress, error: progressError } = await supabase
-              .from('progress_entries')
-              .select('*')
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false })
-              .limit(20);
-            
-            const { data: updates, error: updatesError } = await supabase
-              .from('updates')
-              .select('*')
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false })
-              .limit(10);
-            
-            if (progressError) console.warn('Progress query error:', progressError);
-            if (updatesError) console.warn('Updates query error:', updatesError);
-            
-            commandResult = { 
-              type: 'progress_analysis',
-              data: {
-                progress: progress || [],
-                updates: updates || []
-              },
-              insight: `Found ${progress?.length || 0} progress entries, ${updates?.length || 0} updates`
-            };
-          } else {
-            // Default response for unknown commands with general platform data
-            const { data: recentUpdates, error: updatesError } = await supabase
-              .from('updates')
-              .select(`
-                *,
-                profiles!inner(full_name, display_name, bio)
-              `)
-              .order('created_at', { ascending: false })
-              .limit(5);
-            
-            if (updatesError) console.warn('Recent updates query error:', updatesError);
-            
-            commandResult = { 
-              type: 'general_response',
-              data: {
-                recentUpdates: recentUpdates || []
-              },
-              insight: `Command "${command}" processed successfully. Found ${recentUpdates?.length || 0} recent updates.`
-            };
-          }
-        } catch (queryError) {
-          console.warn('Query error:', queryError);
-          commandResult = { 
-            type: 'error_response',
-            data: [],
-            insight: `Command "${command}" processed with warnings: ${queryError.message}`
-            };
+            if (logError) {
+              console.warn('Failed to log Oracle command:', logError);
+            } else {
+              logEntry = logData;
+              console.log('Oracle command logged successfully');
+            }
+          } catch (logErr) {
+            console.warn('Oracle logging error:', logErr);
           }
 
-          result = { 
+          result = {
             command_processed: true,
-            log_id: logEntry?.id,
-            result: commandResult
+            log_id: logEntry?.id
           };
+        } else {
+          return new Response(
+            JSON.stringify({ error: 'unknown action' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch (actionErr) {
+        console.error('button_action error:', actionErr);
+        return new Response(
+          JSON.stringify({ error: actionErr.message || 'Action failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       console.log('Returning result:', result);

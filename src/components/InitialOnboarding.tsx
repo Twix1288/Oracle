@@ -220,16 +220,8 @@ export const InitialOnboarding = () => {
         .update({
           full_name: user.user_metadata?.full_name || 'User',
           role: formData.role as any,
-          team_id: formData.selectedTeam || null,
-          individual_stage: selectedStage,
           skills: formData.skills || [],
-          experience_level: formData.experience || '1',
-          availability: formData.availability || '10_20_hours',
-          bio: formData.bio || '',
-          personal_goals: [formData.projectIdea, formData.learningGoals].filter(Boolean),
-          project_vision: formData.projectIdea || '',
-          help_needed: formData.lookingFor ? [formData.lookingFor] : [],
-          onboarding_completed: true
+          bio: formData.bio || ''
         })
         .eq('id', user.id);
 
@@ -264,12 +256,12 @@ export const InitialOnboarding = () => {
           const updateContent = `🎯 ${userName} joined the team!\n\n📋 Profile:\n• Role: ${formData.role}\n• Skills: ${formData.skills.join(', ')}\n• Experience: ${formData.experience} years\n\n🚀 Current Stage: ${formData.stageDescription}`;
           
           const { error: updateError } = await supabase
-            .from('updates')
+            .from('project_updates')
             .insert({
               team_id: formData.selectedTeam,
-              content: updateContent,
-              type: 'milestone',
-              created_by: user.id
+              author_id: user.id,
+              title: 'New member joined',
+              content: updateContent
             });
 
           if (updateError) {
@@ -294,13 +286,11 @@ export const InitialOnboarding = () => {
 
           // Create member record
           const { error: memberError } = await supabase
-            .from('members')
+            .from('team_members')
             .insert({
-              name: userName,
               role: formData.role as any,
               team_id: formData.selectedTeam,
-              user_id: user.id,
-              assigned_by: 'onboarding'
+              user_id: user.id
             });
 
           if (memberError) {

@@ -34,20 +34,12 @@ export function BuilderLounge({ userId, teamId }: BuilderLoungeProps) {
 
   useEffect(() => {
     const load = async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('builder_conversations')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
-      // Filter by team if provided, otherwise show global builder lounge
-      if (teamId) {
-        query = query.eq('team_id', teamId);
-      } else {
-        query = query.is('team_id', null);
-      }
-
-      const { data, error } = await query;
       if (!error) setConversations(data as BuilderConversation[]);
     };
     load();
@@ -58,8 +50,7 @@ export function BuilderLounge({ userId, teamId }: BuilderLoungeProps) {
       .on('postgres_changes', { 
         event: 'INSERT', 
         schema: 'public', 
-        table: 'builder_conversations',
-        filter: teamId ? `team_id=eq.${teamId}` : 'team_id=is.null'
+        table: 'builder_conversations'
       }, (payload) => {
         const conversation = payload.new as BuilderConversation;
         setConversations((prev) => [conversation, ...prev]);

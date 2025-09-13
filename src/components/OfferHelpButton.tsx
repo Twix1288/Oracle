@@ -82,33 +82,29 @@ export const OfferHelpButton: React.FC<OfferHelpButtonProps> = ({
 
     setIsSending(true);
     try {
-      // Create connection request
-      const { error: connectionError } = await supabase
-        .from('connection_requests')
-        .insert({
-          requester_id: user.id,
-          requested_id: targetUserId,
-          request_type: connectionType,
-          message: helpMessage,
-          oracle_generated: true,
-          oracle_confidence: 0.8,
-          status: 'pending'
-        });
+      // Route via GraphRAG button_action -> offer_help
+      const supabaseUrl = 'https://dijskfbokusyxkcfwkrc.supabase.co';
+      const graphragUrl = `${supabaseUrl}/functions/v1/graphrag/button_action`;
 
-      if (connectionError) throw connectionError;
+      const res = await fetch(graphragUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'offer_help',
+          actor_id: user.id,
+          target_id: targetUserId,
+          body: {
+            skill: (profile?.skills?.[0] as string) || 'general',
+            availability: 'active',
+            description: helpMessage
+          }
+        })
+      });
 
-      // Send message
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          sender_id: user.id,
-          receiver_id: targetUserId,
-          content: helpMessage,
-          sender_role: 'builder',
-          receiver_role: 'builder'
-        });
-
-      if (messageError) throw messageError;
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to send help offer');
+      }
 
       toast({
         title: "Help Offer Sent!",

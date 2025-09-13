@@ -103,7 +103,7 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('teams')
-        .select('id, name, description, stage')
+        .select('id, name, description')
         .order('name');
       if (error) throw error;
       return data;
@@ -518,16 +518,13 @@ export const DetailedOnboarding = ({ onComplete }: DetailedOnboardingProps) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">No team selected</SelectItem>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{team.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {team.stage}
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{team.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 {formData.selected_team_id && (

@@ -70,28 +70,28 @@ export const EnhancedCommunityDiscovery: React.FC<EnhancedCommunityDiscoveryProp
         .from('teams')
         .select(`
           *,
-          members(count)
+          team_members(count)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedProjects: Project[] = (data || []).map(team => ({
+      const formattedProjects: Project[] = (data || []).map((team: any) => ({
         id: team.id,
         name: team.name,
         description: team.description || '',
-        project_name: team.project_name || team.name,
-        project_description: team.project_description || team.description || '',
-        tech_stack: team.tech_stack || [],
-        skills_needed: team.skills_needed || [],
+        project_name: team.name,
+        project_description: team.description || '',
+        tech_stack: Array.isArray(team.tech_stack) ? team.tech_stack : [],
+        skills_needed: Array.isArray(team.skills_needed) ? team.skills_needed : [],
         project_type: team.project_type || 'web',
         stage: team.stage || 'formation',
         timeline_months: team.timeline_months || 6,
-        member_count: team.members?.[0]?.count || 0,
+        member_count: team.team_members?.[0]?.count || 0,
         max_members: team.max_members || 5,
-        access_code: team.access_code,
+        access_code: team.access_code || '',
         created_at: team.created_at,
-        ai_summary: team.ai_summary,
+        ai_summary: team.ai_summary || '',
         team_creator_id: team.team_creator_id
       }));
 
@@ -172,34 +172,32 @@ export const EnhancedCommunityDiscovery: React.FC<EnhancedCommunityDiscoveryProp
     if (!user) return;
 
     try {
-      const { data, error } = await supabase.rpc('use_access_code', {
-        p_user_id: user.id,
-        p_code: project.access_code,
-        p_builder_name: ''
+      const supabaseUrl = 'https://dijskfbokusyxkcfwkrc.supabase.co';
+      const graphragUrl = `${supabaseUrl}/functions/v1/graphrag/button_action`;
+
+      const res = await fetch(graphragUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'express_interest',
+          actor_id: user.id,
+          target_id: project.id,
+          body: { message: '' }
+        })
       });
 
-      if (error) throw error;
-
-      const result = data as any;
-      if (result?.success) {
-        toast({
-          title: "Successfully Joined Team!",
-          description: `Welcome to ${project.name}!`,
-        });
-        
-        if (onProjectSelect) {
-          onProjectSelect(project.id);
-        }
-        
-        // Refresh projects
-        loadProjects();
-      } else {
-        toast({
-          title: "Failed to Join Team",
-          description: result?.error || "Please try again.",
-          variant: "destructive",
-        });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to express interest');
       }
+
+      toast({
+        title: 'Interest sent',
+        description: `Your interest in ${project.name} has been sent to the team creator.`,
+      });
+
+      if (onProjectSelect) onProjectSelect(project.id);
+      loadProjects();
     } catch (error: any) {
       toast({
         title: "Error",

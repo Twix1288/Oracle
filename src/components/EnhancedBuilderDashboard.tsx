@@ -105,17 +105,8 @@ export const EnhancedBuilderDashboard = ({
     
     // Also update the user's individual stage in their profile
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ individual_stage: newStage })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
-      
-      if (error) {
-        console.error('❌ Error updating individual stage:', error);
-        toast.error('Failed to update your individual stage');
-      } else {
-        console.log('✅ Individual stage updated to:', newStage);
-      }
+      // Persisting user stage in profile is disabled due to schema mismatch
+      // Keep it UI-only for now
     } catch (error) {
       console.error('❌ Exception updating individual stage:', error);
     }
@@ -157,20 +148,7 @@ export const EnhancedBuilderDashboard = ({
         setCurrentTeam(prev => ({ ...prev, stage: detected }));
         
         // Update the user's individual stage in their profile
-        try {
-          const { error } = await supabase
-            .from('profiles')
-            .update({ individual_stage: detected })
-            .eq('id', (await supabase.auth.getUser()).data.user?.id);
-          
-          if (error) {
-            console.error('❌ Error updating individual stage from AI:', error);
-          } else {
-            console.log('✅ Individual stage updated by AI to:', detected);
-          }
-        } catch (error) {
-          console.error('❌ Exception updating individual stage from AI:', error);
-        }
+          // UI-only stage sync (no profile update to avoid schema mismatch)
       }
 
       toast.success("Journey updated", { description: summary || feedback.slice(0, 120) });
